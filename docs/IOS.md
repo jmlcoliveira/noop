@@ -119,6 +119,46 @@ are very welcome.
 
 ## Build from source
 
+### Opening a fresh checkout in Xcode
+
+`Strand.xcodeproj/project.pbxproj` is generated and deliberately excluded from Git. A fresh fork can
+contain a `Strand.xcodeproj` folder holding only the package lockfile; Xcode cannot open that folder
+as a project until XcodeGen creates the missing project file.
+
+Install Xcode and XcodeGen (`brew install xcodegen`), then run this from the repository root:
+
+```bash
+bash Tools/open-xcode.sh
+```
+
+The helper generates the project and opens it in Xcode. It also uses `/Applications/Xcode.app` when
+`xcode-select` still points to standalone Command Line Tools, without changing the system setting.
+Use `bash Tools/open-xcode.sh --generate-only` to generate without opening Xcode.
+
+If Homebrew cannot install XcodeGen on the installed macOS/Command Line Tools version, extract the
+official [XcodeGen 2.45.4 release](https://github.com/yonaskolb/XcodeGen/releases/tag/2.45.4) into
+`build/tools/`, so the executable is `build/tools/xcodegen/bin/xcodegen`. The helper also checks that
+location. The generated project and downloaded tools remain ignored by Git.
+
+This fork generates only the **NOOPiOS** iPhone app and its iPhone widgets / Live Activities extension.
+Mac, iPad, Vision and Apple Watch builds are disabled. Upstream's platform source directories remain
+available for reference, but do not create app targets in this project.
+
+Choose the **NOOPiOS** scheme and an iPhone simulator to run without device signing. For a physical
+iPhone, configure the signing team as described below. Re-run the helper after changing `project.yml`
+or adding app source files.
+
+### Pulse landing page
+
+The default iPhone Today screen uses Pulse's teal canvas, mint wordmark and Sleep / Recovery / Strain
+ring layout. The rings use the existing Rest / Charge / Effort data, respect the selected day and
+Effort scale, and open their existing metric summaries. Recovery carried from an earlier night keeps
+its date caption. Missing scores remain empty. Settings, scoring guides and customization sit below
+the daily insight, followed by the existing dashboard sections.
+
+New iPhone installs default to dark appearance; the Appearance setting can still select light or
+system appearance. The palette and landing-page components live in `StrandDesign`.
+
 Prefer to build it yourself (which also grants HealthKit/widgets under your own Apple ID)? Run
 `xcodegen generate`, then build the **`NOOPiOS`** scheme in Xcode. The reconciliation that brought the
 [PR #42](../../../pull/42) port onto current `main` is summarised in **"Lessons from the fold-in"**
@@ -136,8 +176,15 @@ below.
 > 2. In Xcode, **select your Team** (Signing & Capabilities) for the `NOOPiOS` **and** `NOOPiOSWidgets`
 >    targets — the one step Apple still requires you to do by hand.
 >
-> Skip step 1 and the build still works under the default `com.noopapp` identifiers — fine if this is
-> the only NOOP install on your device.
+> Simulator builds can use the default `com.noopapp` identifiers. Physical-device signing requires
+> bundle and App Group identifiers available to the selected developer team.
+
+If signing reports that `group.com.noopapp.noop.staging` is unavailable, the project is still using
+upstream's identifiers. Set both `BUNDLE_ID_PREFIX` and `DEVELOPMENT_TEAM` in the ignored
+`Config/BundleIdSecrets.xcconfig`, then run `bash Tools/open-xcode.sh --generate-only`. This updates the
+app, widget and shared App Group together and preserves the team across regeneration. Changing only
+the app's Bundle Identifier in Xcode leaves the conflicting App Group in place. Xcode's automatic
+signing must then create or download development profiles for the new identifiers.
 
 > ℹ️ **Cross-platform engineering lives in [`CROSS_PLATFORM.md`](CROSS_PLATFORM.md)** — the shared-code
 > boundary across the macOS / iOS / Android clients, the `Platform.swift` shim convention, the

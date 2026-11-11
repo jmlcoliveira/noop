@@ -7,24 +7,24 @@ import SwiftUI
 // bindings, while cards, gauges, typography, and chrome share one maintainable source of truth.
 
 public enum NoopVisualStyle {
-    // Neutral, low-chroma surfaces sampled from the supplied dark-mode reference.
-    public static let canvas = Color(light: "#F3F4F6", dark: "#1D1E23")
-    public static let surface = Color(light: "#FFFFFF", dark: "#2A2C34")
-    public static let surfaceTop = Color(light: "#FFFFFF", dark: "#30323B")
-    public static let surfaceBottom = Color(light: "#F4F5F7", dark: "#282A31")
-    public static let inset = Color(light: "#E8E9ED", dark: "#23252C")
+    // Pulse's blue-black canvas and quiet teal surfaces, with a matching light appearance.
+    public static let canvas = Color(light: "#F0F6F6", dark: "#071419")
+    public static let surface = Color(light: "#FFFFFF", dark: "#101D23")
+    public static let surfaceTop = Color(light: "#FFFFFF", dark: "#192B31")
+    public static let surfaceBottom = Color(light: "#F0F6F6", dark: "#101C22")
+    public static let inset = Color(light: "#E3EEEE", dark: "#0B191F")
 
-    public static let border = Color(light: "#D8DAE0", dark: "#373A44")
-    public static let borderHighlight = Color(light: "#FFFFFF", dark: "#4B4E59")
-    public static let divider = Color(light: "#E4E5E9", dark: "#383A43")
+    public static let border = Color(light: "#D1DFE2", dark: "#20343E")
+    public static let borderHighlight = Color(light: "#FFFFFF", dark: "#2D4650")
+    public static let divider = Color(light: "#DFEAEC", dark: "#1C3039")
 
     public static let primaryText = Color(light: "#17181C", dark: "#F7F7FA")
-    public static let secondaryText = Color(light: "#555861", dark: "#C3C4CA")
-    public static let tertiaryText = Color(light: "#7D808A", dark: "#7D7F88")
+    public static let secondaryText = Color(light: "#506771", dark: "#96ADB7")
+    public static let tertiaryText = Color(light: "#667D87", dark: "#78939F")
 
-    public static let mint = Color(light: "#149A78", dark: "#69DDB8")
-    public static let mintDeep = Color(light: "#0D765C", dark: "#13A982")
-    public static let mintGlow = Color(light: "#38C99E", dark: "#54E6BD")
+    public static let mint = Color(light: "#087F75", dark: "#29DAC6")
+    public static let mintDeep = Color(light: "#08685F", dark: "#16A897")
+    public static let mintGlow = Color(light: "#20B8A6", dark: "#56E7D6")
 
     public static let cardRadius: CGFloat = 22
     public static let compactRadius: CGFloat = 16

@@ -1,3 +1,8 @@
+> **Pulse iPhone fork:** the landing page uses Pulse's colours and Sleep / Recovery / Strain layout.
+> Run `bash Tools/open-xcode.sh` to generate and open the Xcode project, then select **NOOPiOS** and
+> your iPhone. This fork builds the iPhone app and its widgets only. See [iPhone setup](docs/IOS.md#opening-a-fresh-checkout-in-xcode).
+> The upstream documentation and credits below are retained for reference.
+
 <p align="center">
   <img src="docs/assets/logo-v3.png" alt="NOOP" width="72">
 </p>

@@ -1,15 +1,9 @@
 //  LiquidTodayView.swift
-//  NOOP · Liquid design language — the Today screen, rebuilt in the liquid finish.
+//  Pulse's iPhone landing page and the shared Today dashboard.
 //
-//  This is the FULL Today, re-created faithfully from the locked mockup
-//  (scratchpad/liquid-metal-home.html): sky title + record/add/battery controls,
-//  the three scores as liquid vessels with a card-level source badge, the live heart-rate
-//  thread, the five "your cards" as liquid chips, a greeting + readiness pills,
-//  Synthesis, Recovery Vitals, a Key Metrics grid (incl. steps), Last Workouts
-//  and Data Sources. Every value binds to the SAME real data the classic
-//  TodayView reads (accessors verified against TodayView.swift), and every tap
-//  routes to the same public destination. The sky is a fixed, full-bleed
-//  background (edge-to-edge under the status bar, does not scroll).
+//  The iPhone overview presents Sleep / Recovery / Strain above the existing customizable
+//  dashboard sections. Values, day selection, score provenance and metric routes are shared
+//  with the original TodayView; the visual components live in StrandDesign.
 
 import SwiftUI
 import StrandDesign
@@ -343,7 +337,7 @@ struct LiquidTodayView: View {
 
                 liquidRefreshIndicator   // grows in the revealed space; a vessel filling with the pull
 
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: NoopMetrics.space3) {
                     scene
                     // The strain/illness early-warning banner, dropped in the liquid Home rewrite. Liquid is
                     // the DEFAULT Today on both platforms (RootTabView.swift's liquidTodayEnabled = true,
@@ -400,8 +394,8 @@ struct LiquidTodayView: View {
                     dataSourcesSection
                     Color.clear.frame(height: 90) // floating tab-bar clearance
                 }
-                .padding(.horizontal, NoopMetrics.screenHPadding)
-                .padding(.top, 30) // sit the title lower into the sky, not jammed under the status bar
+                .padding(.horizontal, landingPagePadding)
+                .padding(.top, NoopMetrics.space4)
             }
             #if os(macOS)
             // Keep the phone-shaped column readable + centred on the wide mac detail pane. The sky is a
@@ -432,10 +426,12 @@ struct LiquidTodayView: View {
                 // the whole backdrop (same cached image as every other tab, so it's seamless).
                 if backgroundStore.isActive {
                     BackgroundImageBackdrop()
-                }
-                // Day-cycle scene (#698): the sky only paints when the toggle is ON AND no custom image is
-                // active; off = the plain surfaceBase canvas above (parity with Android + classic TodayView).
-                else if showDayCycleBackground {
+                } else {
+                    #if os(iOS)
+                    LinearGradient(colors: [PulseDashboardStyle.backdropTop, StrandPalette.surfaceBase],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                    #else
+                    if showDayCycleBackground {
                     // Reduce-motion (and low-power) users get the same sky posed still — no twinkle/breath.
                     // Also static until the first data load settles, so launch isn't fighting a live sky too.
                     // "Sky behind cards" (opt-in): fill the whole backdrop with a softer settle so the sky
@@ -448,6 +444,8 @@ struct LiquidTodayView: View {
                     .frame(height: skyBehindCards ? nil : 340, alignment: .top)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
+                    }
+                    #endif
                 }
             }
             .ignoresSafeArea()
@@ -564,7 +562,103 @@ struct LiquidTodayView: View {
 
     // MARK: - Scene (sky title + controls + hero)
 
+    private var landingPagePadding: CGFloat {
+        #if os(iOS)
+        PulseDashboardStyle.pagePadding
+        #else
+        NoopMetrics.screenHPadding
+        #endif
+    }
+
+    @ViewBuilder
     private var scene: some View {
+        #if os(iOS)
+        pulseScene
+        #else
+        classicScene
+        #endif
+    }
+
+    #if os(iOS)
+    private var pulseScene: some View {
+        VStack(alignment: .leading, spacing: PulseDashboardStyle.headerSpacing) {
+            HStack(spacing: NoopMetrics.space3) {
+                PulseWordmark()
+                Spacer(minLength: NoopMetrics.space2)
+                PulseDeviceButton()
+            }
+
+            HStack(spacing: NoopMetrics.space2) {
+                Button {
+                    selectedDayOffset = Self.clampedDayOffset(current: selectedDayOffset, delta: 1,
+                                                             maxOffset: earliestDayOffset)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(StrandFont.headline)
+                        .frame(width: NoopMetrics.controlHeight, height: NoopMetrics.controlHeight)
+                        .contentShape(Rectangle())
+                }
+                .disabled(selectedDayOffset >= earliestDayOffset)
+                .accessibilityLabel("Previous day")
+
+                Button { showDayPicker = true } label: {
+                    HStack(spacing: NoopMetrics.space2) {
+                        Text(dayTitle.uppercased(with: AppLanguage.activeLocale))
+                            .font(StrandFont.overline)
+                            .tracking(PulseDashboardStyle.labelTracking)
+                        Text(selectedLogicalDay.formatted(.dateTime.day().month(.abbreviated)
+                            .locale(AppLanguage.activeLocale)))
+                            .font(StrandFont.headline)
+                        Image(systemName: "chevron.down").font(StrandFont.caption)
+                    }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(maxWidth: .infinity, minHeight: NoopMetrics.controlHeight)
+                    .padding(.horizontal, NoopMetrics.space3)
+                    .background(StrandPalette.surfaceOverlay, in: Capsule())
+                }
+                .accessibilityLabel(Text("\(dayTitle). Tap to pick a day, swipe to change day."))
+                .popover(isPresented: $showDayPicker) {
+                    DatePicker("Day", selection: dayPickerBinding, in: ...Repository.logicalDay(Date()),
+                               displayedComponents: [.date])
+                        .datePickerStyle(.graphical)
+                        .labelsHidden()
+                        .padding(NoopMetrics.space3)
+                        .liquidPopoverAdaptation()
+                }
+
+                Button {
+                    selectedDayOffset = Self.clampedDayOffset(current: selectedDayOffset, delta: -1,
+                                                             maxOffset: earliestDayOffset)
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(StrandFont.headline)
+                        .frame(width: NoopMetrics.controlHeight, height: NoopMetrics.controlHeight)
+                        .contentShape(Rectangle())
+                }
+                .disabled(selectedDayOffset == 0)
+                .accessibilityLabel("Next day")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(StrandPalette.textPrimary)
+
+            VStack(alignment: .leading, spacing: NoopMetrics.space2) {
+                Text("Your day, at a glance.")
+                    .font(PulseDashboardStyle.title)
+                    .tracking(PulseDashboardStyle.titleTracking)
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Build a clearer picture, one day at a time.")
+                    .font(StrandFont.body)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.bottom, NoopMetrics.space2)
+        }
+    }
+    #endif
+
+    private var classicScene: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .topTrailing) {
                 Button { showDayPicker = true } label: {
@@ -695,7 +789,108 @@ struct LiquidTodayView: View {
         .accessibilityLabel("Start a live session. Beta. Silent strap coaching against today's Charge.")
     }
 
+    @ViewBuilder
     private var heroCard: some View {
+        #if os(iOS)
+        pulseHeroCard
+        #else
+        classicHeroCard
+        #endif
+    }
+
+    #if os(iOS)
+    private var pulseRecoveryCaption: String? {
+        switch chargeDisplay {
+        case .carried(_, let caption): return caption
+        case .calibrating: return chargeDisplay.stateLabel
+        case .scored, .noData: return nil
+        }
+    }
+
+    private var pulseHeroCard: some View {
+        VStack(alignment: .leading, spacing: NoopMetrics.space6) {
+            HStack(alignment: .top, spacing: PulseDashboardStyle.ringSpacing) {
+                NavigationLink(value: TabRoute.metric(HeroRingMetric.rest)) {
+                    PulseScoreSummary(label: String(localized: "Sleep"), systemImage: "moon.fill",
+                                      score: restScore, tint: PulseDashboardStyle.sleep)
+                }
+                .accessibilityHint("Opens the sleep summary")
+
+                NavigationLink(value: TabRoute.metric(HeroRingMetric.charge)) {
+                    PulseScoreSummary(label: String(localized: "Recovery"), systemImage: "heart.circle.fill",
+                                      score: chargeDisplay.pct, tint: PulseDashboardStyle.recovery,
+                                      caption: pulseRecoveryCaption)
+                }
+                .accessibilityHint("Opens the recovery summary")
+
+                NavigationLink(value: TabRoute.metric(HeroRingMetric.effort)) {
+                    PulseScoreSummary(label: String(localized: "Strain"), systemImage: "bolt.heart.fill",
+                                      score: effortStrain(displayDay).map {
+                                          UnitFormatter.effortValue($0, scale: effortScale)
+                                      }, tint: PulseDashboardStyle.strain,
+                                      maxValue: effortScale == .whoop ? 21 : 100,
+                                      decimals: effortScale == .whoop ? 1 : 0)
+                }
+                .accessibilityHint("Opens the strain summary")
+            }
+            .buttonStyle(.plain)
+
+            HStack(alignment: .top, spacing: NoopMetrics.space3) {
+                Image(systemName: "sparkle")
+                    .font(StrandFont.headline)
+                    .foregroundStyle(NoopVisualStyle.mint)
+                    .accessibilityHidden(true)
+                Text(pulseInsight)
+                    .font(StrandFont.subhead)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(NoopMetrics.cardPadding)
+            .background(StrandPalette.surfaceRaised,
+                        in: RoundedRectangle(cornerRadius: NoopVisualStyle.compactRadius))
+
+            if let sourceLabel = heroSourceLabel {
+                SourceBadge("\(sourceLabel)", tint: StrandPalette.textSecondary)
+                    .accessibilityLabel(Text("Source: \(sourceLabel)"))
+            }
+
+            // Keep the original settings, scoring explainers and dashboard editor one tap away.
+            HStack(spacing: NoopMetrics.space4) {
+                Button { showSettings = true } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                Spacer(minLength: NoopMetrics.space2)
+                Menu {
+                    Button("Sleep") { guideSection = .rest }
+                    Button("Recovery") { guideSection = .charge }
+                    Button("Strain") { guideSection = .effort }
+                } label: {
+                    Label("Scoring", systemImage: "info.circle")
+                }
+                Button { customizationDestination = .today } label: {
+                    Label("Customize Today", systemImage: "slider.horizontal.3")
+                        .labelStyle(.iconOnly)
+                }
+            }
+            .font(StrandFont.caption)
+            .foregroundStyle(StrandPalette.textSecondary)
+            .buttonStyle(.plain)
+            .frame(minHeight: NoopMetrics.controlHeight)
+        }
+        .padding(.bottom, NoopMetrics.space4)
+    }
+
+    private var pulseInsight: String {
+        if let detail = chargeDisplay.calibrationDetail { return detail }
+        if restScore == nil || chargeDisplay.pct == nil || effortStrain(displayDay) == nil {
+            return String(localized: "Daily insights need qualified data. Open a summary to see what is needed.")
+        }
+        return synthLine
+    }
+    #endif
+
+    private var classicHeroCard: some View {
         HStack(alignment: .top, spacing: 4) {
             // #543 carry: an unscored today shows the last scored night's REAL Charge (labelled as prior by
             // the state pill) rather than an empty vessel, matching the classic Today, the widget/watch/Live
@@ -2845,6 +3040,26 @@ extension LiquidTodayView {
         }
     }
 }
+
+// The device pill observes live state separately so heart-rate ticks do not redraw the dashboard.
+#if os(iOS)
+private struct PulseDeviceButton: View {
+    @EnvironmentObject private var live: LiveState
+    @EnvironmentObject private var router: NavRouter
+    @State private var syncing = false
+
+    var body: some View {
+        Button { router.openDevices() } label: {
+            PulseDeviceStatus(connected: live.connected, syncing: syncing)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(syncing ? Text("Device, syncing") :
+                            live.connected ? Text("Device, connected") : Text("Device, disconnected"))
+        .accessibilityHint("Opens devices and connection settings")
+        .debouncedSyncSignal(live.backfilling, into: $syncing)
+    }
+}
+#endif
 
 /// Active-device battery ring: the strap's charge under an active strap, the ring's own under an active
 /// ring. At sync start it briefly expands within the trailing control row, then settles into an in-place

@@ -1,6 +1,461 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Build a clearer picture, one day at a time." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jeden Tag ein klareres Bild."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Build a clearer picture, one day at a time."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una visión más clara, día a día."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une vision plus claire, jour après jour."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un quadro più chiaro, giorno dopo giorno."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pełniejszy obraz, dzień po dniu."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uma visão mais clara, um dia de cada vez."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Более ясная картина с каждым днём."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日积月累，让身体状态更清晰。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日積月累，讓身體狀態更清晰。"
+          }
+        }
+      }
+    },
+    "Daily insights need qualified data. Open a summary to see what is needed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tägliche Einblicke benötigen geeignete Daten. Öffne eine Zusammenfassung, um zu sehen, was fehlt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily insights need qualified data. Open a summary to see what is needed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los análisis diarios necesitan datos adecuados. Abre un resumen para ver qué falta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les bilans quotidiens nécessitent des données suffisantes. Ouvrez un résumé pour voir ce qui manque."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le analisi giornaliere richiedono dati adeguati. Apri un riepilogo per vedere cosa manca."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dzienne analizy wymagają odpowiednich danych. Otwórz podsumowanie, aby zobaczyć, czego brakuje."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As análises diárias precisam de dados adequados. Abre um resumo para veres o que falta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Для ежедневного анализа нужны подходящие данные. Откройте сводку, чтобы узнать, чего не хватает."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每日分析需要有效数据。打开摘要，查看还需要哪些数据。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每日分析需要有效資料。開啟摘要，查看還需要哪些資料。"
+          }
+        }
+      }
+    },
+    "Device, connected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gerät, verbunden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device, connected"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo, conectado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appareil, connecté"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo, connesso"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Urządzenie, połączone"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo, ligado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Устройство, подключено"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设备，已连接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "裝置，已連線"
+          }
+        }
+      }
+    },
+    "Device, disconnected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gerät, getrennt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device, disconnected"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo, desconectado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appareil, déconnecté"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo, disconnesso"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Urządzenie, rozłączone"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo, desligado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Устройство, отключено"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设备，未连接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "裝置，未連線"
+          }
+        }
+      }
+    },
+    "Device, syncing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gerät, Synchronisierung läuft"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device, syncing"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo, sincronizando"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appareil, synchronisation en cours"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo, sincronizzazione in corso"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Urządzenie, synchronizacja"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo, a sincronizar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Устройство, синхронизация"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设备，正在同步"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "裝置，正在同步"
+          }
+        }
+      }
+    },
+    "Scoring" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bewertung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scoring"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puntuación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notation"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Punteggio"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Punktacja"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pontuação"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Оценка"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "评分"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "評分"
+          }
+        }
+      }
+    },
+    "Your day, at a glance." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Tag auf einen Blick."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your day, at a glance."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu día, de un vistazo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre journée en un coup d’œil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La tua giornata, a colpo d’occhio."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Twój dzień w skrócie."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O teu dia, num relance."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваш день с первого взгляда."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的一天，一目了然。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的一天，一目瞭然。"
+          }
+        }
+      }
+    },
     "Move, relative to tonight": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Move, relative to tonight"}}, "de": {"stringUnit": {"state": "translated", "value": "Bewegung, relativ zu dieser Nacht"}}, "es": {"stringUnit": {"state": "translated", "value": "Movimiento, en relación con esta noche"}}, "fr": {"stringUnit": {"state": "translated", "value": "Mouvement, par rapport à cette nuit"}}, "it": {"stringUnit": {"state": "translated", "value": "Movimento, rispetto a questa notte"}}, "pl": {"stringUnit": {"state": "translated", "value": "Ruch, w odniesieniu do tej nocy"}}, "pt-PT": {"stringUnit": {"state": "translated", "value": "Movimento, em relação a esta noite"}}, "ru": {"stringUnit": {"state": "translated", "value": "Движение, относительно этой ночи"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "活动，相对于今晚"}}, "zh-Hant": {"stringUnit": {"state": "translated", "value": "活動，相對於今晚"}}}},
     "Route and GPS distance, without the heart-rate and calorie summary": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Route and GPS distance, without the heart-rate and calorie summary"}}, "de": {"stringUnit": {"state": "translated", "value": "Route und GPS-Distanz, ohne die Herzfrequenz- und Kalorienübersicht"}}, "es": {"stringUnit": {"state": "translated", "value": "Ruta y distancia GPS, sin el resumen de frecuencia cardiaca y calorías"}}, "fr": {"stringUnit": {"state": "translated", "value": "Itinéraire et distance GPS, sans le récapitulatif de fréquence cardiaque et de calories"}}, "it": {"stringUnit": {"state": "translated", "value": "Percorso e distanza GPS, senza il riepilogo di frequenza cardiaca e calorie"}}, "pl": {"stringUnit": {"state": "translated", "value": "Trasa i dystans GPS, bez podsumowania tętna i kalorii"}}, "pt-PT": {"stringUnit": {"state": "translated", "value": "Rota e distância GPS, sem o resumo de frequência cardíaca e calorias"}}, "ru": {"stringUnit": {"state": "translated", "value": "Маршрут и GPS-дистанция, без сводки пульса и калорий"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "路线和 GPS 距离，不含心率和卡路里摘要"}}, "zh-Hant": {"stringUnit": {"state": "translated", "value": "路線和 GPS 距離，不含心率和卡路里摘要"}}}},
     "Export Workout Route": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Export Workout Route"}}, "de": {"stringUnit": {"state": "translated", "value": "Trainingsroute exportieren"}}, "es": {"stringUnit": {"state": "translated", "value": "Exportar ruta del entrenamiento"}}, "fr": {"stringUnit": {"state": "translated", "value": "Exporter l’itinéraire de la séance"}}, "it": {"stringUnit": {"state": "translated", "value": "Esporta il percorso dell’allenamento"}}, "pl": {"stringUnit": {"state": "translated", "value": "Eksportuj trasę treningu"}}, "pt-PT": {"stringUnit": {"state": "translated", "value": "Exportar rota do treino"}}, "ru": {"stringUnit": {"state": "translated", "value": "Экспортировать маршрут тренировки"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "导出运动路线"}}, "zh-Hant": {"stringUnit": {"state": "translated", "value": "匯出運動路線"}}}},
