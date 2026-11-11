@@ -37,3 +37,15 @@ physical-iPhone performance, especially during real Bluetooth sync or on a large
 Before a phone update, review the simulator's Home day navigation, Sleep stage selection, Trends range
 and week controls, long scrolling, and metric navigation. A physical-device trace with the owner's
 explicit feedback remains the next step for frame-time, CPU, and energy measurements.
+
+Completed validation for this pass:
+
+- iPhone simulator app build; 584 Python tests and 135 StrandDesign tests passed.
+- An extracted Swift fixture compared the old and prepared heart-rate geometry across 24 combinations
+  of empty, singleton, flat, varying, gapped, and mismatched-segment input at three viewport sizes.
+  Every path element and endpoint matched exactly.
+- The material fixture compared all five stops for 36 tints, including alpha handling; outputs matched.
+- Cache checks covered repeat reads and invalidation after repository, refresh, week, scale, and locale
+  changes. Simulator range and week navigation also updated the displayed summaries correctly.
+- A synthetic 6,000-frame workload with 1 Hz input reduced geometry builds from 6,000 to 100. This
+  measures only prepared geometry reuse, excluding drawing and layout; it is not an app speedup claim.
