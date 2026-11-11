@@ -219906,7 +219906,359 @@
         "Date of birth": {"localizations": {"de": {"stringUnit": {"state": "translated", "value": "Geburtsdatum"}}, "es": {"stringUnit": {"state": "translated", "value": "Fecha de nacimiento"}}, "fr": {"stringUnit": {"state": "translated", "value": "Date de naissance"}}, "it": {"stringUnit": {"state": "translated", "value": "Data di nascita"}}, "pl": {"stringUnit": {"state": "translated", "value": "Data urodzenia"}}, "pt-PT": {"stringUnit": {"state": "translated", "value": "Data de nascimento"}}, "ru": {"stringUnit": {"state": "translated", "value": "Дата рождения"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "出生日期"}}, "zh-Hant": {"stringUnit": {"state": "translated", "value": "出生日期"}}}},
         "Day cycle": {"localizations": {"de": {"stringUnit": {"state": "translated", "value": "Tageszyklus"}}, "es": {"stringUnit": {"state": "translated", "value": "Ciclo diario"}}, "fr": {"stringUnit": {"state": "translated", "value": "Cycle journalier"}}, "it": {"stringUnit": {"state": "translated", "value": "Ciclo giornaliero"}}, "pl": {"stringUnit": {"state": "translated", "value": "Cykl dobowy"}}, "pt-PT": {"stringUnit": {"state": "translated", "value": "Ciclo diário"}}, "ru": {"stringUnit": {"state": "translated", "value": "Суточный цикл"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "每日周期"}}, "zh-Hant": {"stringUnit": {"state": "translated", "value": "每日週期"}}}},
         "Raw on-device stages": {"localizations": {"de": {"stringUnit": {"state": "translated", "value": "Rohe Phasen vom Gerät"}}, "es": {"stringUnit": {"state": "translated", "value": "Fases sin procesar del dispositivo"}}, "fr": {"stringUnit": {"state": "translated", "value": "Stades bruts de l'appareil"}}, "it": {"stringUnit": {"state": "translated", "value": "Fasi grezze dal dispositivo"}}, "pl": {"stringUnit": {"state": "translated", "value": "Surowe fazy z urządzenia"}}, "pt-PT": {"stringUnit": {"state": "translated", "value": "Estágios brutos do dispositivo"}}, "ru": {"stringUnit": {"state": "translated", "value": "Исходные стадии с устройства"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "设备端原始睡眠阶段"}}, "zh-Hant": {"stringUnit": {"state": "translated", "value": "裝置端原始睡眠階段"}}}},
-        "Oura": {"shouldTranslate": false}
+        "Oura": {"shouldTranslate": false},
+    "Sleep & activity": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schlaf und Aktivität"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sueño y actividad"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sommeil et activité"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonno e attività"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sen i aktywność"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sono e atividade"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сон и активность"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "睡眠与活动"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "睡眠與活動"
+          }
+        }
+      }
+    },
+    "Times unavailable": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeiten nicht verfügbar"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horarios no disponibles"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horaires indisponibles"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orari non disponibili"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Godziny niedostępne"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horas indisponíveis"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Время недоступно"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "时间不可用"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "時間無法取得"
+          }
+        }
+      }
+    },
+    "Loading this day…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Tag wird geladen…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cargando este día…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chargement de cette journée…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Caricamento della giornata…"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wczytywanie tego dnia…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A carregar este dia…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка данных за день…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在加载当天数据…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在載入當天資料…"
+          }
+        }
+      }
+    },
+    "No sleep or activities recorded for this day.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für diesen Tag wurden weder Schlaf noch Aktivitäten aufgezeichnet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay sueño ni actividades registrados para este día."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun sommeil ni aucune activité enregistrés pour cette journée."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessun sonno o attività registrati per questa giornata."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak zapisów snu i aktywności z tego dnia."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não há sono nem atividades registados neste dia."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "За этот день нет записей сна и активности."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当天没有睡眠或活动记录。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "當天沒有睡眠或活動紀錄。"
+          }
+        }
+      }
+    },
+    "No sleep recorded for this day.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für diesen Tag wurde kein Schlaf aufgezeichnet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay sueño registrado para este día."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun sommeil enregistré pour cette journée."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessun sonno registrato per questa giornata."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak zapisów snu z tego dnia."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não há sono registado neste dia."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "За этот день нет записей сна."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当天没有睡眠记录。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "當天沒有睡眠紀錄。"
+          }
+        }
+      }
+    },
+    "No activities recorded for this day.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für diesen Tag wurden keine Aktivitäten aufgezeichnet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay actividades registradas para este día."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune activité enregistrée pour cette journée."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessuna attività registrata per questa giornata."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak zapisów aktywności z tego dnia."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não há atividades registadas neste dia."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "За этот день нет записей активности."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当天没有活动记录。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "當天沒有活動紀錄。"
+          }
+        }
+      }
+    },
+    "%@, %@, %@": {
+      "comment": "Comma-separated combination of the already-localized activity name, duration, and times.",
+      "shouldTranslate": false
+    }
   },
   "version": "1.0"
 }

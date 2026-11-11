@@ -103,7 +103,17 @@ struct LiquidTodayView: View {
     @AppStorage(TodayLayoutPrefs.orderKey) private var sectionOrderRaw = ""
     @AppStorage(TodayLayoutPrefs.hiddenKey) private var hiddenSectionsRaw = ""
     private var sectionOrder: [TodaySection] {
-        TodayLayoutPrefs.visibleOrder(orderRaw: sectionOrderRaw, hiddenRaw: hiddenSectionsRaw)
+        var sections = TodayLayoutPrefs.visibleOrder(orderRaw: sectionOrderRaw, hiddenRaw: hiddenSectionsRaw)
+        #if os(iOS)
+        // Pulse's default places the daily activity list under the overview. Saved custom layouts
+        // keep their existing order and visibility.
+        if sectionOrderRaw.trimmingCharacters(in: .whitespaces).isEmpty,
+           let index = sections.firstIndex(of: .workouts), sections.contains(.hero) {
+            sections.remove(at: index)
+            if let heroIndex = sections.firstIndex(of: .hero) { sections.insert(.workouts, at: heroIndex + 1) }
+        }
+        #endif
+        return sections
     }
     // #430 parity: the Key-Metrics grid honours the SAME editor selection/order + Detailed-tiles switch as
     // Android (byte-identical @AppStorage keys). `kSparks` holds the trailing-30-day series the detailed
@@ -122,7 +132,16 @@ struct LiquidTodayView: View {
     @State private var liveTodayStrain: Double?
 
     // day navigation (0 = today, 1 = yesterday, …)
-    @State private var selectedDayOffset = 0
+    @State private var selectedDayOffset = Self.initialDayOffset
+
+    private static var initialDayOffset: Int {
+        #if DEBUG
+        let args = CommandLine.arguments
+        if let index = args.firstIndex(of: "--demo-day-offset"), index + 1 < args.count,
+           let offset = Int(args[index + 1]) { return max(0, offset) }
+        #endif
+        return 0
+    }
     @State private var showDayPicker = false
     @State private var heartRateCardFrame: CGRect = .null
     private static let daySwipeSpace = "liquidTodayDaySwipeSpace"
@@ -145,6 +164,9 @@ struct LiquidTodayView: View {
     /// rebuilding day-key / HRV arrays from `body` on every SwiftUI update.
     @State private var cachedCalibrationReason: String?
     @State private var cachedStaleNightCount: Int?
+    @State private var activitySleepSession: CachedSleepSession?
+    @State private var activitySleepMinutes: Double?
+    @State private var activityDayKey: String?
     /// The Charge hero's resolved state (#543 carry + the honest label), resolved ONCE in load() alongside
     /// the other caches. It composes `TodayView.lastScoredRecoveryDay`, which is O(days) — exactly the scan
     /// this cache exists to keep out of body. Never resolved in body.
@@ -503,6 +525,11 @@ struct LiquidTodayView: View {
         #if DEBUG && os(iOS)
         .onAppear {
             if CommandLine.arguments.contains("--demo-calendar") { showDayPicker = true }
+        }
+        .onChangeCompat(of: dataLoaded) { loaded in
+            if loaded && CommandLine.arguments.contains("--demo-activities") {
+                proxy.scrollTo("pulse.activities", anchor: .center)
+            }
         }
         #endif
         #if os(macOS)
@@ -886,6 +913,7 @@ struct LiquidTodayView: View {
             .buttonStyle(.plain)
             .frame(minHeight: NoopMetrics.controlHeight)
 
+            WorkoutStartControl()
         }
         .padding(.bottom, NoopMetrics.space4)
     }
@@ -1741,6 +1769,14 @@ struct LiquidTodayView: View {
     // MARK: - Last workouts
 
     private var lastWorkoutsSection: some View {
+        #if os(iOS)
+        PulseDayActivitiesView(selectedDayKey: selectedDayKey,
+                               sleepSession: activityDayKey == selectedDayKey ? activitySleepSession : nil,
+                               totalSleepMinutes: activityDayKey == selectedDayKey ? activitySleepMinutes : nil,
+                               workouts: activityDayKey == selectedDayKey ? workouts : [],
+                               isLoading: activityDayKey != selectedDayKey)
+            .id("pulse.activities")
+        #else
         VStack(spacing: 8) {
             sectionHead("LAST WORKOUTS", trailing: "\(workouts.count) total")
             if let w = workouts.first {
@@ -1755,6 +1791,7 @@ struct LiquidTodayView: View {
                 }
             }
         }
+        #endif
     }
 
     private func workoutCard(_ w: WorkoutRow) -> some View {
@@ -1833,6 +1870,7 @@ struct LiquidTodayView: View {
         // load when the wearer changes day, the hosted-card selection changes, or logical today rolls.
         // These snapshots keep the optional today-only work from following newer view state after awaits.
         let loadDayOffset = selectedDayOffset
+        let loadDayKey = selectedDayKey
         let loadIsForToday = loadDayOffset == 0
         let hostedCards = HostedCardPrefs.decodeEnabled(hostedCardsRaw)
 
@@ -2055,7 +2093,26 @@ struct LiquidTodayView: View {
         let hrBuckets = await hrA
         hrValues = hrBuckets.map { $0.bpm }
         hrSegments = hrGapSegments(bucketTs: hrBuckets.map { $0.ts }, bucketSeconds: 300)
-        workouts = (await wkA).filter { $0.startTs >= from && $0.startTs < to }
+        let selectedWorkouts = (await wkA).filter { $0.startTs >= from && $0.startTs < toExclusive }
+
+        // The daily list reuses the already-merged sleep cache. Decode only this day's session once
+        // during the load; never scan or decode the history from a scrolling view's body.
+        if !Task.isCancelled, selectedDayOffset == loadDayOffset,
+           selectedDayKey == loadDayKey, sourceDayKey == loadDayKey {
+            workouts = selectedWorkouts
+            let session = repo.sleeps.last {
+                cal.isDate(Date(timeIntervalSince1970: Double($0.endTs)), inSameDayAs: dayStart)
+            }
+            activitySleepSession = session
+            if let session {
+                activitySleepMinutes = SleepView.decodeStages(session.stagesJSON)?.asleep
+                    ?? SleepView.decodeSegments(session.stagesJSON, sessionStart: session.effectiveStartTs)?.stages.asleep
+                    ?? day?.totalSleepMin
+            } else {
+                activitySleepMinutes = day?.totalSleepMin
+            }
+            activityDayKey = sourceDayKey
+        }
 
         let (chargeSource, effortSource, restSource) = await (chargeSourceA, effortSourceA, restSourceA)
         let sourceResolutions = [

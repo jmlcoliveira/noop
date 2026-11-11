@@ -47,7 +47,12 @@ enum TodaySection: String, CaseIterable, Identifiable {
         case .liveSession:    return String(localized: "Start session")
         case .synthesis:      return String(localized: "Synthesis")
         case .keyMetrics:     return String(localized: "Key Metrics")
-        case .workouts:       return String(localized: "Workouts")
+        case .workouts:
+            #if os(iOS)
+            return String(localized: "Sleep & activity")
+            #else
+            return String(localized: "Workouts")
+            #endif
         case .heartRate:      return String(localized: "Heart Rate")
         case .recoveryVitals: return String(localized: "Recovery Vitals")
         case .yourCards:      return String(localized: "Your Cards")

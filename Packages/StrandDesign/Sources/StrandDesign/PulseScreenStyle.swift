@@ -9,6 +9,10 @@ public enum PulseScreenStyle {
     public static let sleepScoreDiameter: CGFloat = 184
     public static let sleepScoreFont = StrandFont.rounded(44)
     public static let sleepOnNight = Color(hex: "#7E9DBD")
+    public static let activityTileWidth: CGFloat = 72
+    public static let activityTileHeight: CGFloat = 60
+    public static let activityIconSize: CGFloat = 20
+    public static let activityTintOpacity: Double = 0.12
 }
 
 public struct PulsePageBackground: View {
