@@ -6,11 +6,9 @@ import Foundation
 
 // MARK: - Trends
 //
-// The longitudinal view, rebuilt on the locked Noop component system so every
-// surface, height and gap is identical: one SegmentedPillControl for the range,
-// a hero recovery ChartCard, a uniform grid of HRV / Resting HR / Day Strain
-// ChartCards (all NoopMetrics.chartHeight tall), and the whole history as a
-// recovery YearHeatStrip in a NoopCard. No hand-sized cards anywhere.
+// The longitudinal view uses the Pulse dashboard's range-first hierarchy,
+// compact score summaries and consistent Strand cards while retaining the
+// existing history, chart and navigation behavior.
 
 struct TrendsView: View {
     @EnvironmentObject var repo: Repository
@@ -296,7 +294,7 @@ struct TrendsView: View {
                        // section reveal is unchanged; this only defers building that stack until it scrolls in.
                        onRefresh: { await repo.refresh() },
                        lazy: true,
-                       topBackground: liquidScaffoldSky()) {
+                       pulseStyle: true) {
             if repo.days.isEmpty {
                 ComingSoon(what: repo.loaded
                     ? "Trends need history to draw. Import your WHOOP export in Data Sources to see weeks, months and years instantly."
@@ -308,14 +306,13 @@ struct TrendsView: View {
                 VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
                     // The main card list ripples in once on appear (Reduce-Motion safe).
                     Group {
+                        rangeBar(recovery: metrics.recovery)
+                            .staggeredAppear(index: 0)
+                        rangeSummary(charge: metrics.recovery, effort: metrics.strain, rest: metrics.rest)
+                            .staggeredAppear(index: 1)
                         // Week-in-review digest (#208) with prev/next week browsing (#710) — self-hides
                         // only when NO week in history has data. Past weeks render in the same format.
                         weeklyDigestNav
-                            .staggeredAppear(index: 0)
-                        // The Charge / Effort / Rest trio, presented in NOOP's pip language.
-                        weekInReview(charge: metrics.recovery, effort: metrics.strain, rest: metrics.rest)
-                            .staggeredAppear(index: 1)
-                        rangeBar(recovery: metrics.recovery)
                             .staggeredAppear(index: 2)
                         heroRecovery(recovery: metrics.recovery)
                             .staggeredAppear(index: 3)
@@ -407,13 +404,13 @@ struct TrendsView: View {
                         title: "No readings this week",
                         message: "Step to another week with the arrows above to see its review.")
                 } else {
-                    WeeklyDigestContent(digest: digest, compact: true, showsHeader: false)
+                    WeeklyDigestContent(digest: digest, compact: true, showsHeader: false, pulseStyle: true)
                         .padding(.top, NoopMetrics.space1)
                     // Share this week's recap as an image. Renders the digest card (with its header) to a
                     // PNG off-screen and hands it to the share sheet / Save panel — reuses TrendsReport's
                     // ImageRenderer path. Only offered when the week actually holds data.
                     NoopButton("Share recap", systemImage: "square.and.arrow.up", kind: .secondary) {
-                        let page = WeeklyDigestContent(digest: digest, compact: true, showsHeader: true)
+                        let page = WeeklyDigestContent(digest: digest, compact: true, showsHeader: true, pulseStyle: true)
                             .frame(width: 380)
                             .padding(24)
                             .background(StrandPalette.surfaceBase)
@@ -476,82 +473,34 @@ struct TrendsView: View {
         return String(localized: "\(n) weeks ago")
     }
 
-    // MARK: Week in Review — the Charge / Effort / Rest trio in pip language
+    // MARK: Selected-range summary
 
-    /// The three daily scores as NOOP pip rows over the resolved window: Charge (recovery, 0–100),
-    /// Effort (strain, shown on the WHOOP 0–21 scale per the unit toggle) and Rest (sleep_performance
-    /// composite, 0–100 — the same metric the Today Rest score shows, #732). Each value ticks up via
-    /// `CountUpText`; the segmented `PipBar` cascades on appear. Self-
-    /// hides when none of the three carry a window mean, so an empty history shows nothing here.
+    /// Selected-range means for Charge, Effort and Rest. These mirror the Pulse home score rings and
+    /// use the same source series and unit preference as the charts below.
     @ViewBuilder
-    private func weekInReview(charge: ResolvedMetric, effort: ResolvedMetric, rest: ResolvedMetric) -> some View {
+    private func rangeSummary(charge: ResolvedMetric, effort: ResolvedMetric, rest: ResolvedMetric) -> some View {
         let chargeAvg = mean(charge.points)
         let effortAvg = mean(effort.points)   // stored 0–100 internal Effort scale
         let restAvg = mean(rest.points)
         if chargeAvg != nil || effortAvg != nil || restAvg != nil {
             NoopCard {
                 VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
-                    SectionHeader("Week in review", overline: "Charge · Effort · Rest")
-                    if let v = chargeAvg {
-                        pipScoreRow(label: "Charge", value: v, range: 0...100,
-                                    tint: StrandPalette.chargeColor, frac: v / 100,
-                                    format: { "\(Int($0.rounded()))" })
-                    }
-                    if let v = effortAvg {
-                        // Effort is stored 0–100 but reads on the WHOOP 0–21 scale per the unit toggle:
-                        // convert the displayed number + bar position to the user's chosen Effort scale so
-                        // the pip fill and the count-up value agree (both on the same scale).
-                        let display = UnitFormatter.effortValue(v, scale: effortScale)
-                        let maxV = UnitFormatter.effortValue(100, scale: effortScale)
-                        // On the 0–21 WHOOP scale Effort reads to one decimal (e.g. "9.0"); on the 0–100
-                        // scale it's a whole number — match `effortScaleMax` so the count-up format agrees.
-                        let oneDecimal = effortScale == .whoop
-                        // The vessel fills off the stored 0–100 internal scale (v), so it agrees with the
-                        // Charge/Rest vessels regardless of the displayed Effort unit.
-                        pipScoreRow(label: "Effort", value: display, range: 0...maxV,
-                                    tint: StrandPalette.effortColor, frac: v / 100,
-                                    format: { oneDecimal ? String(format: "%.1f", $0) : "\(Int($0.rounded()))" })
-                    }
-                    if let v = restAvg {
-                        pipScoreRow(label: "Rest", value: v, range: 0...100,
-                                    tint: StrandPalette.restColor, frac: v / 100,
-                                    format: { "\(Int($0.rounded()))" })
+                    SectionHeader("Summary", trailing: rangeSubtitle)
+                    HStack(alignment: .top, spacing: PulseDashboardStyle.ringSpacing) {
+                        PulseScoreSummary(label: String(localized: "Sleep"), systemImage: "moon.fill",
+                                          score: restAvg, tint: PulseDashboardStyle.sleep)
+                        PulseScoreSummary(label: String(localized: "Recovery"), systemImage: "heart.circle.fill",
+                                          score: chargeAvg, tint: PulseDashboardStyle.recovery)
+                        let effortMax = UnitFormatter.effortValue(100, scale: effortScale)
+                        PulseScoreSummary(label: String(localized: "Strain"), systemImage: "bolt.heart.fill",
+                                          score: effortAvg.map { UnitFormatter.effortValue($0, scale: effortScale) },
+                                          tint: PulseDashboardStyle.strain, maxValue: effortMax,
+                                          decimals: effortScale == .whoop ? 1 : 0)
                     }
                 }
             }
             .accessibilityElement(children: .contain)
         }
-    }
-
-    /// One pip row matching `PipBarRow`'s layout, but with the value driven by `CountUpText` so the big
-    /// number ticks up. UPPERCASE label + a small liquid vessel (the score as a fill) beside the big white
-    /// count-up value, over the segmented count-up bar. `frac` (0…1) is the score on the shared 0–100
-    /// internal scale so the three vessels read against the same fill — a small liquid accent on a single
-    /// headline metric, exactly where it reads well (not on a chart).
-    private func pipScoreRow(label: LocalizedStringKey, value: Double, range: ClosedRange<Double>,
-                             tint: Color, frac: Double, format: @escaping (Double) -> String) -> some View {
-        VStack(alignment: .leading, spacing: NoopMetrics.space2) {
-            Text(label)
-                .font(StrandFont.overline)
-                .tracking(StrandFont.overlineTracking)
-                .textCase(.uppercase)
-                .foregroundStyle(StrandPalette.textSecondary)
-            HStack(spacing: NoopMetrics.space3) {
-                // Static (posed) vessel — a small liquid gauge, not a live 60fps canvas, so the three
-                // in this card cost a single cached frame each (same call as Today's small vessels).
-                LiquidVessel(value: max(0, min(1, frac)), tint: tint, animated: false)
-                    .frame(width: 30, height: 30)
-                    .accessibilityHidden(true)
-                CountUpText(value: value, format: format,
-                            font: StrandFont.number(30, weight: .bold),
-                            color: StrandPalette.textPrimary)
-            }
-            PipBar(value: value, range: range, tint: tint)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(label))
-        .accessibilityValue(Text(format(value)))
     }
 
     // MARK: Export trends report (#436)
@@ -589,22 +538,20 @@ struct TrendsView: View {
     private func rangeBar(recovery: ResolvedMetric) -> some View {
         let cap = recovery.caption
         let isWide = recovery.widened
-        return VStack(alignment: .leading, spacing: NoopMetrics.space2) {
-            HStack(spacing: NoopMetrics.space2) {
-                // Six ranges plus the trailing-window caption need to share a compact iPhone row.
-                // Let the segmented control collapse to equal-width cells instead of squeezing the
-                // caption narrower than one word (which wrapped the final G in TRAILING by itself).
-                SegmentedPillControl(Range.allCases, selection: $range,
-                                     adaptsToAvailableWidth: true) { $0.label }
-                // Keep the caption's two lines internally leading-aligned, but anchor the whole
-                // caption column to the page's trailing edge.
-                Spacer(minLength: NoopMetrics.space2)
-                rangeCaption
+        return NoopCard(tint: PulseDashboardStyle.recovery) {
+            VStack(alignment: .leading, spacing: NoopMetrics.space2) {
+                HStack(spacing: NoopMetrics.space2) {
+                    // Six ranges plus the trailing-window caption share a compact iPhone row.
+                    SegmentedPillControl(Range.allCases, selection: $range,
+                                         adaptsToAvailableWidth: true) { $0.label }
+                    Spacer(minLength: NoopMetrics.space2)
+                    rangeCaption
+                }
+                Text(cap)
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(isWide ? StrandPalette.statusWarning : StrandPalette.textTertiary)
+                    .accessibilityLabel(cap)
             }
-            Text(cap)
-                .font(StrandFont.footnote)
-                .foregroundStyle(isWide ? StrandPalette.statusWarning : StrandPalette.textTertiary)
-                .accessibilityLabel(cap)
         }
     }
 
@@ -623,14 +570,15 @@ struct TrendsView: View {
             subtitle: rangeSubtitle,
             trailing: avg.map { "\(Int($0.rounded()))" },
             height: NoopMetrics.chartHeight,
+            tint: PulseDashboardStyle.recovery,
             chart: {
                 if pts.count >= 2 {
                     glowChart(points: pts,
-                              gradient: StrandPalette.recoveryGradient,
+                              gradient: gradient(PulseDashboardStyle.recovery),
                               // Lift the ceiling ~6% so a near-100 peak and the now-cap halo
                               // clear the top gridline, matching the padded small multiples.
                               valueRange: 0...106,
-                              tip: StrandPalette.chargeBright,
+                              tip: PulseDashboardStyle.recovery,
                               valueFormat: { "\(Int($0.rounded()))" },
                               accessibilityLabel: String(localized: "Charge trend"))
                 } else {
@@ -706,9 +654,9 @@ struct TrendsView: View {
                     metricKey: "strain",
                     points: strainPts,
                     // WHOOP: Effort/Strain is always BLUE — a deep→bright blue line, not the amber ramp.
-                    gradient: gradient(StrandPalette.effortColor),
-                    tip: StrandPalette.effortColor,
-                    tint: StrandPalette.effortColor,
+                    gradient: gradient(PulseDashboardStyle.strain),
+                    tip: PulseDashboardStyle.strain,
+                    tint: PulseDashboardStyle.strain,
                     higherIsBetter: nil,
                     range: valueRange(strainPts, fallback: 0...100),
                     fmt: { UnitFormatter.effortDisplay($0, scale: effortScale) }

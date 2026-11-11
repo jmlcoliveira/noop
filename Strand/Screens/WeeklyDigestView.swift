@@ -153,6 +153,19 @@ struct WeeklyDigestContent: View {
     let digest: WeeklyDigest
     var compact: Bool = false
     var showsHeader: Bool = true
+    /// Opt-in Pulse score rings for surfaces whose surrounding UI uses the Pulse dashboard style.
+    /// Existing digest consumers retain their original domain gauges by default.
+    var pulseStyle: Bool = false
+
+    init(digest: WeeklyDigest,
+         compact: Bool = false,
+         showsHeader: Bool = true,
+         pulseStyle: Bool = false) {
+        self.digest = digest
+        self.compact = compact
+        self.showsHeader = showsHeader
+        self.pulseStyle = pulseStyle
+    }
 
     /// The Effort display scale (#268), so the Week-in-review Effort gauge matches the Today tile
     /// and the Trends small-multiple instead of being stuck on "of 100". Charge/Rest stay 0–100.
@@ -162,8 +175,23 @@ struct WeeklyDigestContent: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     #endif
 
-    /// The three headline 0–100 scores shown as domain summaries.
+    /// The headline scores stay on their existing domain order outside Pulse surfaces.
     private static let scoreOrder: [WeeklyMetric] = [.charge, .effort, .rest]
+    private var orderedScoreMetrics: [WeeklyMetric] {
+        pulseStyle ? [.rest, .charge, .effort] : Self.scoreOrder
+    }
+
+    /// The three headline score names follow Pulse Home on opted-in surfaces; the underlying
+    /// weekly metrics and their calculations stay unchanged.
+    private func scoreName(_ metric: WeeklyMetric) -> String {
+        guard pulseStyle else { return metric.localizedName }
+        switch metric {
+        case .rest:   return String(localized: "Sleep")
+        case .charge: return String(localized: "Recovery")
+        case .effort: return String(localized: "Strain")
+        case .hrv, .rhr: return metric.localizedName
+        }
+    }
 
     /// The shared colour world for each weekly metric — drives the summary card tint,
     /// the gauge stroke and the secondary-signal accents.
@@ -235,7 +263,7 @@ struct WeeklyDigestContent: View {
     #if os(iOS)
     @ViewBuilder
     private var compactScoreRow: some View {
-        let summaries = Self.scoreOrder.compactMap { digest.summary($0) }
+        let summaries = orderedScoreMetrics.compactMap { digest.summary($0) }
         if !summaries.isEmpty {
             NoopCard(padding: NoopMetrics.space2) {
                 if dynamicTypeSize.isAccessibilitySize {
@@ -276,7 +304,7 @@ struct WeeklyDigestContent: View {
             columns: [GridItem(.adaptive(minimum: compact ? 140 : 168), spacing: NoopMetrics.gap)],
             spacing: NoopMetrics.gap
         ) {
-            ForEach(Self.scoreOrder, id: \.rawValue) { metric in
+            ForEach(orderedScoreMetrics, id: \.rawValue) { metric in
                 if let summary = digest.summary(metric) {
                     scoreCard(summary: summary, presentation: .standalone)
                 }
@@ -290,9 +318,14 @@ struct WeeklyDigestContent: View {
                         domain: domain(for: summary.metric),
                         deltaText: deltaText(summary),
                         deltaTone: chipTone(summary),
-                        accessibility: rowAccessibility(summary, effortScale: effortScale),
+                        accessibility: rowAccessibility(
+                            summary,
+                            effortScale: effortScale,
+                            metricName: scoreName(summary.metric)
+                        ),
                         effortScale: effortScale,
-                        presentation: presentation)
+                        presentation: presentation,
+                        pulseStyle: pulseStyle)
     }
 
     // MARK: Detail card (focal points · secondary signals · footer)
@@ -459,21 +492,24 @@ struct WeeklyDigestContent: View {
         }
     }
 
-    private func rowAccessibility(_ s: WeeklyMetricSummary, effortScale: EffortScale) -> String {
+    private func rowAccessibility(_ s: WeeklyMetricSummary,
+                                  effortScale: EffortScale,
+                                  metricName: String? = nil) -> String {
         let mean = meanText(s, effortScale: effortScale)
+        let name = metricName ?? s.metric.localizedName
         guard s.weekOverWeek.current.n > 0, s.weekOverWeek.previous.n > 0 else {
-            return String(localized: "\(s.metric.localizedName): \(mean) this week, no comparison.")
+            return String(localized: "\(name): \(mean) this week, no comparison.")
         }
         // Whole-phrase variants per direction, then a whole-key wrapper per goodness frame, so
         // VoiceOver never hears a stitched half-English fragment.
         let delta = deltaText(s)
         let base: String
         if s.wowDelta > 0 {
-            base = String(localized: "\(s.metric.localizedName): \(mean) this week, up \(delta) week over week")
+            base = String(localized: "\(name): \(mean) this week, up \(delta) week over week")
         } else if s.wowDelta < 0 {
-            base = String(localized: "\(s.metric.localizedName): \(mean) this week, down \(delta) week over week")
+            base = String(localized: "\(name): \(mean) this week, down \(delta) week over week")
         } else {
-            base = String(localized: "\(s.metric.localizedName): \(mean) this week, unchanged \(delta) week over week")
+            base = String(localized: "\(name): \(mean) this week, unchanged \(delta) week over week")
         }
         // A rough comparison drops the verdict framing too, so VoiceOver matches the neutral chip.
         if WeeklyDigestChipStyle.dropsVerdictFrame(s) { return String(localized: "\(base).") }
@@ -523,6 +559,7 @@ private struct DigestScoreCard: View {
     /// 0–100 scores and ignore it, keeping their "of 100" caption and integer mean.
     var effortScale: EffortScale = .hundred
     let presentation: Presentation
+    var pulseStyle: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -550,6 +587,39 @@ private struct DigestScoreCard: View {
     private var captionText: String {
         isEffort ? String(localized: "of \(UnitFormatter.effortScaleMax(effortScale))") : String(localized: "of 100")
     }
+    private var pulseLabel: String {
+        switch summary.metric {
+        case .rest:   return String(localized: "Sleep")
+        case .charge: return String(localized: "Recovery")
+        case .effort: return String(localized: "Strain")
+        case .hrv, .rhr: return summary.metric.localizedName
+        }
+    }
+    private var pulseTint: Color {
+        switch summary.metric {
+        case .rest:   return PulseDashboardStyle.sleep
+        case .charge: return PulseDashboardStyle.recovery
+        case .effort: return PulseDashboardStyle.strain
+        case .hrv, .rhr: return domain.color
+        }
+    }
+    private var pulseSystemImage: String {
+        switch summary.metric {
+        case .rest:   return "moon.fill"
+        case .charge: return "heart.circle.fill"
+        case .effort: return "bolt.heart.fill"
+        case .hrv, .rhr: return "waveform.path.ecg"
+        }
+    }
+    private var pulseScore: Double? {
+        guard summary.thisWeek.n > 0 else { return nil }
+        return isEffort
+            ? UnitFormatter.effortValue(summary.thisWeek.mean, scale: effortScale)
+            : summary.thisWeek.mean
+    }
+    private var pulseMaximum: Double {
+        isEffort ? UnitFormatter.effortValue(100, scale: effortScale) : 100
+    }
 
     @ViewBuilder
     var body: some View {
@@ -558,7 +628,7 @@ private struct DigestScoreCard: View {
                 content
                     .padding(.horizontal, NoopMetrics.space1)
             } else {
-                NoopCard(padding: 14, tint: domain.color) {
+                NoopCard(padding: 14, tint: pulseStyle ? pulseTint : domain.color) {
                     content
                 }
             }
@@ -572,7 +642,37 @@ private struct DigestScoreCard: View {
         .accessibilityAction { showScaleGuide = true }
     }
 
-    private var content: some View {
+    @ViewBuilder private var content: some View {
+        if pulseStyle {
+            pulseContent
+        } else {
+            legacyContent
+        }
+    }
+
+    private var pulseContent: some View {
+        VStack(spacing: NoopMetrics.space2) {
+            PulseScoreSummary(
+                label: pulseLabel,
+                systemImage: pulseSystemImage,
+                score: pulseScore,
+                tint: pulseTint,
+                maxValue: pulseMaximum,
+                decimals: isEffort && effortScale == .whoop ? 1 : 0
+            )
+            if hasComparison {
+                TrendChip(text: deltaSigned, color: deltaTone)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+        .onTapGesture { showScaleGuide = true }
+        .popover(isPresented: $showScaleGuide, arrowEdge: .bottom) {
+            scaleGuide
+        }
+    }
+
+    private var legacyContent: some View {
         VStack(spacing: NoopMetrics.space2) {
             if isEmbedded {
                 Text(summary.metric.localizedName)
@@ -611,25 +711,29 @@ private struct DigestScoreCard: View {
             .contentShape(Circle())
             .onTapGesture { showScaleGuide = true }
             .popover(isPresented: $showScaleGuide, arrowEdge: .bottom) {
-                VStack(spacing: NoopMetrics.space1) {
-                    Text(summary.metric.localizedName)
-                        .font(StrandFont.subhead.weight(.semibold))
-                        .foregroundStyle(domain.color)
-                    Text(captionText)
-                        .font(StrandFont.footnote)
-                        .foregroundStyle(StrandPalette.textSecondary)
-                }
-                .padding(NoopMetrics.cardInnerPadding)
-                .frame(minWidth: 120)
-                .background(NoopPanelSurface(cornerRadius: NoopVisualStyle.compactRadius, elevated: true))
-                .accessibilityElement(children: .combine)
-                .digestScalePopoverAdaptation()
+                scaleGuide
             }
             if isEmbedded && hasComparison {
                 TrendChip(text: deltaSigned, color: deltaTone)
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var scaleGuide: some View {
+        VStack(spacing: NoopMetrics.space1) {
+            Text(pulseStyle ? pulseLabel : summary.metric.localizedName)
+                .font(StrandFont.subhead.weight(.semibold))
+                .foregroundStyle(pulseStyle ? pulseTint : domain.color)
+            Text(captionText)
+                .font(StrandFont.footnote)
+                .foregroundStyle(StrandPalette.textSecondary)
+        }
+        .padding(NoopMetrics.cardInnerPadding)
+        .frame(minWidth: 120)
+        .background(NoopPanelSurface(cornerRadius: NoopVisualStyle.compactRadius, elevated: true))
+        .accessibilityElement(children: .combine)
+        .digestScalePopoverAdaptation()
     }
 
     private var metricLabel: some View {

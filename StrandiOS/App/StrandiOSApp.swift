@@ -580,6 +580,12 @@ enum DemoScreens {
         // capture.
         case "liquidtoday": return AnyView(LiquidTodayView())
         case "trends":   return AnyView(TrendsView())
+        case "recovery", "strain", "sleepscore":
+            let name = args[i + 1].lowercased()
+            let key = name == "sleepscore" ? HeroRingMetric.rest
+                : name == "recovery" ? HeroRingMetric.charge : HeroRingMetric.effort
+            guard let metric = MetricCatalog.all.first(where: { $0.key == key }) else { return nil }
+            return AnyView(MetricDetailView(metric: metric))
         case "sleep":    return AnyView(SleepView())
         case "live":     return AnyView(LiveView())
         case "stress":   return AnyView(StressView())

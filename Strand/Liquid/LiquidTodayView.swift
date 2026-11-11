@@ -495,6 +495,11 @@ struct LiquidTodayView: View {
         // screen on iOS (nothing should compete with the ring mid-workout), a sheet on macOS where
         // fullScreenCover doesn't exist.
         .liveSessionCover(isPresented: $showLiveSession)
+        #if DEBUG && os(iOS)
+        .onAppear {
+            if CommandLine.arguments.contains("--demo-calendar") { showDayPicker = true }
+        }
+        #endif
         #if os(macOS)
         // Hide the mac window toolbar's vibrant material so the full-bleed day-of-sky reads dark + edge-to-edge
         // at the top instead of the white scroll-under-titlebar wash.
@@ -618,13 +623,11 @@ struct LiquidTodayView: View {
                     .background(StrandPalette.surfaceOverlay, in: Capsule())
                 }
                 .accessibilityLabel(Text("\(dayTitle). Tap to pick a day, swipe to change day."))
-                .popover(isPresented: $showDayPicker) {
-                    DatePicker("Day", selection: dayPickerBinding, in: ...Repository.logicalDay(Date()),
-                               displayedComponents: [.date])
-                        .datePickerStyle(.graphical)
-                        .labelsHidden()
-                        .padding(NoopMetrics.space3)
-                        .liquidPopoverAdaptation()
+                .sheet(isPresented: $showDayPicker) {
+                    PulseCalendarSheet(selection: dayPickerBinding,
+                                       latestDay: Repository.logicalDay(Date())) {
+                        showDayPicker = false
+                    }
                 }
 
                 Button {

@@ -45,7 +45,23 @@ struct RootTabView: View {
     @State private var routedPillar: NavRouter.Destination?
     /// Selected tab — bound so tab switches can crossfade (README §Motion: ~240ms opacity swap
     /// between tab roots, calm easing). Defaults to Today.
-    @State private var selectedTab: Int = 0
+    @State private var selectedTab: Int = Self.initialTab
+
+    private static var initialTab: Int {
+        #if DEBUG
+        let args = CommandLine.arguments
+        if let index = args.firstIndex(of: "--demo-tab"), index + 1 < args.count {
+            switch args[index + 1] {
+            case "trends": return 1
+            case "sleep": return 2
+            case "coach": return 3
+            case "more": return 4
+            default: break
+            }
+        }
+        #endif
+        return 0
+    }
     /// One `NavigationPath` per tab, indexed by tab tag. Re-tapping the already-active tab pops
     /// that tab's stack to its root (#135) by clearing its path — an animated pop that leaves the
     /// root view alive, so an at-root re-tap keeps scroll position and never re-runs `.task`
@@ -453,16 +469,13 @@ struct RootTabView: View {
         .tabItem { Label(title, systemImage: icon) }
     }
 
-    // The "More" tab is the app's catch-all index. It was a plain SwiftUI `List` with system large-title
-    // + system title-case section headers, so it didn't match any other page (which all use ScreenScaffold
-    // + SectionHeader's UPPERCASE overline + the 28pt section rhythm). Rebuilt on the shared page chrome:
-    // ScreenScaffold for the title1 "More" + subtitle, a `SectionHeader` overline per group, and the group's
-    // rows in a single grouped NoopCard with hairline dividers — the same row idiom Settings/Health use.
+    // The "More" tab is the app's catch-all index. It shares the Pulse page backdrop and scaffold with
+    // the primary screens, while each collapsible category keeps its rows together in one easy-to-scan card.
     private func moreTab(path: Binding<NavigationPath>, scrollSignal: Int) -> some View {
         NavigationStack(path: path) {
             ScreenScaffold(title: "More", subtitle: "Everything else, one tap away",
                            onRefresh: { await repo.refresh() },
-                           topBackground: liquidScaffoldSky()) {
+                           pulseStyle: true) {
                 moreSection("Insights") {
                     MoreRow("What Moves You", "wand.and.sparkles", .insightsHub)
                     MoreRow("Intelligence", "brain.head.profile", .intelligence)
@@ -537,20 +550,13 @@ struct RootTabView: View {
         .tabItem { Label("More", systemImage: "ellipsis") }
     }
 
-    /// One titled, COLLAPSIBLE group in the More index (S2): the app's overline (UPPERCASE) becomes a
-    /// tappable header with a disclosure chevron; tapping it expands/collapses the grouped rows card.
-    /// Insights + Body default open, Data + App default collapsed (the `expandedMoreSections` seed) so the
-    /// list is shorter at rest without dropping a single row. The grouped card is unchanged: a single
-    /// `NoopCard` holding a `VStack(spacing: 0)` whose `MoreRow`s draw their own hairlines, clipped to the
-    /// card's rounded shape so the last divider is trimmed inside the corners. Same idiom Settings/Health use.
+    /// One titled, collapsible category. The user's expanded state is persisted by the existing preference;
+    /// the header stays a large, accessible tap target and the grouped card clips its row dividers cleanly.
     @ViewBuilder
     private func moreSection<Rows: View>(_ title: String,
                                          @ViewBuilder rows: @escaping () -> Rows) -> some View {
         let isOpen = expandedMoreSections.contains(title)
-        VStack(alignment: .leading, spacing: 10) {
-            // Tappable overline header: the same ALL-CAPS tracked label as before, now with a trailing
-            // chevron that rotates open. A plain Button (not a SwiftUI DisclosureGroup) so the header keeps
-            // the exact strandOverline styling and the card layout below stays identical to before.
+        VStack(alignment: .leading, spacing: NoopMetrics.space2) {
             Button {
                 withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) {
                     // Persist the toggle via the CSV-backed @AppStorage so the choice survives leaving and
@@ -560,15 +566,20 @@ struct RootTabView: View {
                     expandedMoreSectionsCSV = MoreSectionPrefs.encode(open)
                 }
             } label: {
-                HStack(spacing: 6) {
-                    Text(title).strandOverline()
-                    Spacer(minLength: 8)
+                HStack(spacing: NoopMetrics.space2) {
+                    Text(title)
+                        .font(StrandFont.overline)
+                        .tracking(StrandFont.overlineTracking)
+                        .textCase(.uppercase)
+                        .foregroundStyle(NoopVisualStyle.mint)
+                    Spacer(minLength: NoopMetrics.space2)
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(StrandPalette.textTertiary)
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textSecondary)
                         .rotationEffect(.degrees(isOpen ? 0 : -90))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minHeight: NoopMetrics.controlHeight)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -577,16 +588,11 @@ struct RootTabView: View {
             .accessibilityHint(Text(isOpen ? String(localized: "Double tap to collapse") : String(localized: "Double tap to expand")))
 
             if isOpen {
-                // Zero internal padding so each MoreRow owns its own comfortable insets + height; the rows
-                // supply their own hairline separators (drawn at the bottom of every row but the last via the
-                // divider overlay) so the group reads as one continuous grouped list, matching Settings/Health.
-                NoopCard(padding: 0) {
-                    VStack(spacing: 0) { rows() }
-                        // Clip the rows column to the card's rounded shape so the last row's bottom hairline is
-                        // trimmed inside the corners (the card draws its surface in the BACKGROUND and doesn't
-                        // clip content itself, so without this the final divider would run past the rounded edge).
-                        .clipShape(RoundedRectangle(cornerRadius: NoopMetrics.cardRadius, style: .continuous))
-                }
+                VStack(spacing: 0) { rows() }
+                    .background {
+                        NoopPanelSurface(cornerRadius: NoopVisualStyle.cardRadius)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: NoopVisualStyle.cardRadius, style: .continuous))
             }
         }
     }
@@ -637,10 +643,8 @@ private enum MoreDestination: Hashable {
 }
 
 
-/// One tappable destination row in the More index. A `NavigationLink` whose label is the standard app row:
-/// the SF Symbol icon tinted `StrandPalette.accent`, the title in the body text colour, a `Spacer`, and a
-/// trailing `chevron.right` in `textTertiary`. ~44pt min height + the card's row insets keep the whole row a
-/// comfortable tap target.
+/// One tappable destination row in the More index. Mint icon tiles distinguish destinations, while the
+/// full-width navigation row and its chevron retain a familiar, accessible disclosure affordance.
 private struct MoreRow: View {
     let title: LocalizedStringKey
     let icon: String
@@ -652,33 +656,33 @@ private struct MoreRow: View {
 
     var body: some View {
         NavigationLink(value: route) {
-            HStack(spacing: 14) {
-                // Pin the icon to the accent explicitly. A plain inherited tint gets re-resolved by iOS to
-                // its default blue a beat after first render — so the icons flashed green→blue (#184). The
-                // explicit foregroundStyle on the image overrides that; the title keeps the primary colour.
+            HStack(spacing: NoopMetrics.space3) {
                 Image(systemName: icon)
-                    .font(.system(size: 17, weight: .regular))
-                    .foregroundStyle(StrandPalette.accent)
-                    .frame(width: 26, alignment: .center)
+                    .font(StrandFont.body)
+                    .foregroundStyle(NoopVisualStyle.mint)
+                    .frame(width: NoopMetrics.compactControlSize,
+                           height: NoopMetrics.compactControlSize)
+                    .background(NoopVisualStyle.inset, in: RoundedRectangle(
+                        cornerRadius: NoopVisualStyle.compactRadius,
+                        style: .continuous
+                    ))
                 Text(title)
                     .font(StrandFont.body)
                     .foregroundStyle(StrandPalette.textPrimary)
-                Spacer(minLength: 8)
+                Spacer(minLength: NoopMetrics.space2)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(StrandPalette.textTertiary)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(NoopVisualStyle.mintDeep)
             }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 44)
+            .padding(.horizontal, NoopMetrics.cardPadding)
+            .padding(.vertical, NoopMetrics.space2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-            // Hairline under every row; the grouped container clips the last one's overflow so the bottom
-            // edge stays clean (the divider sits inside the card's rounded corners).
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(StrandPalette.hairline)
-                    .frame(height: 1)
-                    .padding(.leading, 16)
+                    .frame(height: NoopMetrics.hairlineWidth)
+                    .padding(.leading, NoopMetrics.cardPadding + NoopMetrics.compactControlSize + NoopMetrics.space3)
             }
         }
         .buttonStyle(.plain)

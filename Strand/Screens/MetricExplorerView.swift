@@ -42,11 +42,17 @@ private func longDate(_ d: Date) -> String {
 /// The category accent (colour communicates category only — never decoration).
 private func metricAccent(_ m: MetricDescriptor) -> Color {
     switch m.key {
-    case "recovery", "sleep_performance", "hours_vs_needed_pct", "sleep_consistency",
+    case "recovery":
+        return PulseDashboardStyle.recovery
+    case "sleep_performance":
+        return PulseDashboardStyle.sleep
+    case "strain":
+        return PulseDashboardStyle.strain
+    case "hours_vs_needed_pct", "sleep_consistency",
          "restorative_pct", "restorative_min", "sleep_efficiency", "sleep_total_min",
          "sleep_deep_min", "sleep_rem_min":
         return StrandPalette.accent
-    case "strain", "hr_zones45_min", "hr_zones_all_min", "strength_min", "hr_zones13_min":
+    case "hr_zones45_min", "hr_zones_all_min", "strength_min", "hr_zones13_min":
         return StrandPalette.strainColor(14)              // mid-strain hue
     case "hrv", "vo2max", "lean_mass":
         return StrandPalette.metricPurple
@@ -65,19 +71,20 @@ private func metricAccent(_ m: MetricDescriptor) -> Color {
     }
 }
 
-/// The gradient for a metric's trend line — strain/recovery ride their data scales;
-/// everything else uses a flat tint of its category accent.
+/// The Pulse score series use their dashboard tints; other metrics keep their category treatment.
 private func metricGradient(_ m: MetricDescriptor) -> Gradient {
+    if ["recovery", "strain", "sleep_performance"].contains(m.key) {
+        let c = metricAccent(m)
+        return Gradient(colors: [c.opacity(0.55), c])
+    }
     if m.category == "Effort" { return StrandPalette.strainGradient }
-    if m.key == "recovery" { return StrandPalette.recoveryGradient }
     let c = metricAccent(m)
     return Gradient(colors: [c.opacity(0.55), c])
 }
 
 /// The Bevel colour world a metric's detail hero belongs to — the catalog's category
 /// already names it (Charge / Rest / Effort), and Heart/Health/Nutrition/Mind metrics
-/// fall back to the world that best fits their accent. Drives the ScenicHeroBackground
-/// tint + the hero gauge/number glow.
+/// fall back to the world that best fits their accent. Drives non-Pulse hero and chart tints.
 private func metricDomain(_ m: MetricDescriptor) -> DomainTheme {
     switch m.category {
     case "Charge":            return .charge
@@ -717,14 +724,6 @@ private struct MetricRow: View {
 struct MetricDetailView: View {
     let metric: MetricDescriptor
     @EnvironmentObject var repo: Repository
-    /// #430 parity: the detail carries the SAME backdrop as the screen that pushed it — the day-cycle sky
-    /// when the setting is on, the plain canvas when off — so a Key-Metrics tile tap doesn't jar from the
-    /// liquid Today's sky to a flat page. Same keys TodayView/LiquidTodayView gate on; "Sky behind cards"
-    /// extends the sky to the full viewport (softer settle) so the transparent cards reveal it throughout.
-    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = true
-    @AppStorage(SkyBehindCardsPrefs.enabledKey) private var skyBehindCards = true
-    /// Custom background image (#custom-background): when active it overrides the sky in the backdrop.
-    @ObservedObject private var backgroundStore = BackgroundImageStore.shared
     // Profile basics for the Fitness Age not-ready countdown (age/sex gate its readiness lead). Injected
     // app-wide at the root; previews supply their own. Only read on the fitness_age empty-state path.
     @EnvironmentObject var profile: ProfileStore
@@ -817,6 +816,41 @@ struct MetricDetailView: View {
     }
 
     private var isStepsDetail: Bool { MetricDetailSteps.isMetric(metric.key) }
+
+    private var usesPulseRing: Bool {
+        ["recovery", "strain", "sleep_performance"].contains(metric.key)
+    }
+
+    private var detailTitle: String {
+        switch metric.key {
+        case "recovery": return String(localized: "Recovery")
+        case "strain": return String(localized: "Strain")
+        case "sleep_performance": return String(localized: "Sleep")
+        default: return metric.title
+        }
+    }
+
+    private var pulseRingSymbol: String {
+        switch metric.key {
+        case "recovery": return "heart.circle.fill"
+        case "strain": return "bolt.heart.fill"
+        case "sleep_performance": return "moon.fill"
+        default: return metric.icon
+        }
+    }
+
+    private var pulseRingMaximum: Double {
+        guard metric.key == "strain" else { return 100 }
+        return effortScale == .whoop ? 21 : 100
+    }
+
+    private func pulseRingValue(_ value: Double) -> Double {
+        metric.key == "strain" ? UnitFormatter.effortValue(value, scale: effortScale) : value
+    }
+
+    private var metricChartTint: Color {
+        usesPulseRing ? metricAccent(metric) : metricDomain(metric).color
+    }
 
     /// The one series every visible steps summary consumes. Non-step metrics retain their existing raw
     /// daily window unchanged.
@@ -962,7 +996,9 @@ struct MetricDetailView: View {
         let rawWin = slice(for: effRange)
         let win = presentedSeries(for: effRange)
         let fellBack = effRange != range
-        return ScrollView {
+        return ScreenScaffold(title: LocalizedStringKey(detailTitle),
+                              subtitle: usesPulseRing ? nil : LocalizedStringKey(MetricCatalog.categoryDisplayName(metric.category)),
+                              pulseStyle: true) {
             VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
                 if loaded && win.isEmpty {
                     // No data in the entire history — keep the range bar for context, then the
@@ -1007,9 +1043,7 @@ struct MetricDetailView: View {
                     rangeBar(effectiveRange: effRange, windowed: win, windowFellBack: fellBack)
                     ComingSoon(what: "Reading your \(metric.title.lowercased())…")
                 } else {
-                    // Scenic hero: the metric's current value as a layered ring gauge (0–100
-                    // scores) or a big SF-Rounded headline, floated over the domain's starfield,
-                    // with the range pill. Then the frosted chart / stat tiles / correlations.
+                    // Metric value and range, followed by the chart, stats, readings, and correlations.
                     heroHeader(effectiveRange: effRange, windowed: win, windowFellBack: fellBack)
                     heroChart(effectiveRange: effRange, windowed: win, windowFellBack: fellBack)
                     // #1848: the skin-temp explorer's explanatory note (nil for every other metric and
@@ -1036,38 +1070,9 @@ struct MetricDetailView: View {
                     correlationCard
                 }
             }
-            .padding(NoopMetrics.screenPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        // #697 parity: this screen builds its OWN ScrollView rather than going through
-        // ScreenScaffold, so it never inherited the scaffold's horizontal-bounce suppression and
-        // could still rubber-band left-right on a purely vertical scroll. Same modifier, same
-        // guard. `.basedOnSize` permits horizontal bounce only when content genuinely overflows
-        // the width, so nothing that is meant to scroll sideways is affected. (#1532 follow-up)
-        #if os(iOS)
-        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-        #endif
-        // Day-cycle-aware backdrop (#430 parity): the top sky band every liquid screen uses when the
-        // setting is on — or the FULL-viewport sky with the softer settle when "Sky behind cards" is also
-        // on (the LiquidTodayView treatment, so the transparent cards reveal it the whole way down); the
-        // plain canvas when off.
-        .background(alignment: .top) {
-            ZStack(alignment: .top) {
-                StrandPalette.surfaceBase
-                // Custom background image (#custom-background) OVERRIDES the sky, full-bleed.
-                if backgroundStore.isActive {
-                    BackgroundImageBackdrop()
-                } else if showDayCycleBackground {
-                    LiquidSkyStatic(hour: nil, settleStrength: skyBehindCards ? 0.78 : 1)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: skyBehindCards ? nil : 240, alignment: .top)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
-            }
-            .ignoresSafeArea()
-        }
-        .navigationTitle(metric.title)
+        .navigationTitle(detailTitle)
         .task(id: loadTaskID) { await load() }
         // Range changes the window, hence the correlation inputs — recompute the
         // cached scan rather than letting `correlationCard` run it inside body.
@@ -1260,13 +1265,10 @@ struct MetricDetailView: View {
         recomputeCorrelations()
     }
 
-    // MARK: Scenic hero
+    // MARK: Detail hero
 
-    /// The detail's opening hero: the metric's latest value as either the signature liquid
-    /// LiquidVessel gauge (for 0–100 scores, filled to the score with the number counting up over
-    /// it) or a big count-up headline number, floated over a domain-tinted ScenicHeroBackground,
-    /// with the category overline, the "as of" line, and the range pill. Mirrors TodayView's
-    /// liquid score-hero idiom (and Health's Fitness-Age / Vitality vessels).
+    /// The detail's opening hero: the latest value, its date, the range control, and a category tint.
+    /// The three Pulse scores reuse Home's ring language; other metrics retain their existing readout.
     @ViewBuilder
     private func heroHeader(effectiveRange: ExploreRange,
                             windowed: [(day: String, value: Double)],
@@ -1286,35 +1288,55 @@ struct MetricDetailView: View {
         }()
         let fraction = value.flatMap { metricGaugeFraction(metric, value: $0) }
 
-        // Gap fix (2026-07-02): draw the starfield as the content's BACKGROUND, not as a
-        // stretching ZStack sibling — an unconstrained ScenicHeroBackground inside a ScrollView filled
-        // the whole viewport and left a huge blank band above the chart. As a .background it sizes to
-        // the hero content, so the number/ring sits directly under the range pill.
         VStack(alignment: .leading, spacing: NoopMetrics.gap) {
-                // Category + title on their OWN full-width row so a long title ("Heart Rate Variability")
-                // is never crushed into a letter-per-line column by the range pill (2026-07-02).
-                if !isStepsDetail { VStack(alignment: .leading, spacing: 2) {
-                    Text(MetricCatalog.categoryDisplayName(metric.category).uppercased()).strandOverline()
-                    Text(metric.title)
-                        .font(StrandFont.title2)
-                        .foregroundStyle(StrandPalette.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } }
                 // Range control on its own row beneath the title.
                 SegmentedPillControl(ExploreRange.allCases, selection: selectionBinding,
                                      adaptsToAvailableWidth: true,
                                      isEnabled: isUnlocked) { $0.label }
 
-                // The headline read-out in the liquid language: for a 0–100 score, the signature
-                // LiquidVessel gauge filled to the score (the same hero idiom as Today's rings / Health's
-                // Fitness-Age + Vitality heroes), with the integer counting up over it and the unit + "as
-                // of" line beneath. For a non-score metric, a big count-up number. The vessel fills from 0
-                // to its fraction on appear (`heroAnimatedFraction`), so it settles once like TodayView's
-                // rings; the number ticks itself. A liquid accent on the ONE headline value, where it reads
-                // well — never over the chart below.
+                // Pulse's three Home scores use the same circular score ring and tint. Effort converts
+                // its stored 0–100 value to the selected display scale before both progress and readout.
                 HStack {
                     Spacer(minLength: 0)
-                    if let fraction, let v = value {
+                    if usesPulseRing {
+                        VStack(spacing: NoopMetrics.space2) {
+                            PulseMetricRing(score: value.map(pulseRingValue),
+                                            maxValue: pulseRingMaximum,
+                                            tint: metricAccent(metric),
+                                            systemImage: pulseRingSymbol) {
+                                if let value {
+                                    VStack(spacing: NoopMetrics.spaceHalf) {
+                                        CountUpNumber(value: pulseRingValue(value),
+                                                      font: PulseDashboardStyle.score,
+                                                      decimals: metric.key == "strain"
+                                                          ? (effortScale == .whoop ? 1 : 0) : metric.decimals)
+                                            .foregroundStyle(StrandPalette.textPrimary)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.6)
+                                        let unit = metric.displayUnit(system: unitSystem,
+                                                                      temperature: temperatureUnit,
+                                                                      effortScale: effortScale)
+                                        if !unit.isEmpty {
+                                            Text(unit)
+                                                .font(StrandFont.caption)
+                                                .foregroundStyle(StrandPalette.textSecondary)
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.7)
+                                        }
+                                    }
+                                } else {
+                                    Text("—")
+                                        .font(PulseDashboardStyle.score)
+                                        .foregroundStyle(StrandPalette.textPrimary)
+                                }
+                            }
+                            Text(asOf)
+                                .font(StrandFont.footnote)
+                                .foregroundStyle(StrandPalette.textTertiary)
+                        }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(heroValue), \(asOf)")
+                    } else if let fraction, let v = value {
                         VStack(spacing: 10) {
                             ZStack {
                                 // The big hero vessel stays live (animated) — the one sloshing gauge on the
@@ -1387,15 +1409,15 @@ struct MetricDetailView: View {
             }
         .padding(NoopMetrics.cardPadding)
         .background {
-            NoopPanelSurface(tint: domain.color,
+            NoopPanelSurface(tint: usesPulseRing ? metricAccent(metric) : domain.color,
                              cornerRadius: NoopMetrics.cardRadius,
                              elevated: true)
         }
-        // The hero shows the LATEST available point (range-independent), so the vessel fills once on
-        // appear (0 → its fraction) and settles — like TodayView's rings.
         .onAppear {
-            withAnimation(.easeOut(duration: 0.9)) {
-                heroAnimatedFraction = fraction ?? 0
+            if !usesPulseRing {
+                withAnimation(.easeOut(duration: 0.9)) {
+                    heroAnimatedFraction = fraction ?? 0
+                }
             }
         }
     }
@@ -1408,13 +1430,7 @@ struct MetricDetailView: View {
         let caption = rangeCaption(effectiveRange: effectiveRange,
                                    windowed: windowed,
                                    windowFellBack: windowFellBack)
-        return VStack(alignment: .leading, spacing: 8) {
-            if !isStepsDetail { VStack(alignment: .leading, spacing: 2) {
-                Text(MetricCatalog.categoryDisplayName(metric.category).uppercased()).strandOverline()
-                Text(metric.title)
-                    .font(StrandFont.title2)
-                    .foregroundStyle(StrandPalette.textPrimary)
-            } }
+        return VStack(alignment: .leading, spacing: NoopMetrics.space2) {
             SegmentedPillControl(ExploreRange.allCases, selection: selectionBinding,
                                  adaptsToAvailableWidth: true,
                                  isEnabled: isUnlocked) { $0.label }
@@ -1485,11 +1501,11 @@ struct MetricDetailView: View {
             : nil
         let stepsResolution = MetricDetailSteps.resolution(for: effectiveRange)
         return ChartCard(
-            title: isStepsDetail ? LocalizedStringKey("Historical trend") : LocalizedStringKey("\(metric.title)"),
+            title: isStepsDetail ? LocalizedStringKey("Historical trend") : LocalizedStringKey("\(detailTitle)"),
             subtitle: subtitle,
             trailing: "\(heroValue) · \(asOf)",
             height: NoopMetrics.chartHeight + (isStepsDetail ? 70 : 0),
-            tint: metricDomain(metric).color
+            tint: metricChartTint
         ) {
             TrendChart(
                 points: trendPoints(windowed),
@@ -1781,7 +1797,7 @@ struct MetricDetailView: View {
 
     private var correlationCard: some View {
         let rows = correlationCache
-        return NoopCard(tint: metricDomain(metric).color) {
+        return NoopCard(tint: metricChartTint) {
             VStack(alignment: .leading, spacing: NoopMetrics.gap) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("What correlates").strandOverline()

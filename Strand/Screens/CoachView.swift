@@ -60,10 +60,7 @@ struct CoachView: View {
     var body: some View {
         ScreenScaffold(title: "Coach",
                        subtitle: "Ask about your charge, effort, rest and workouts, grounded in your own numbers.",
-                       // Liquid finish: the same full-bleed day-of-sky backdrop Today + the other liquid
-                       // tabs carry, so Coach sits in one atmosphere. Static + non-interactive; the frosted
-                       // message/setup cards below sit on the opaque canvas and stay legible.
-                       topBackground: liquidScaffoldSky()) {
+                       pulseStyle: true) {
             if coach.isConfigured {
                 connectedHeader
                 transcript
@@ -197,11 +194,18 @@ struct CoachView: View {
     // MARK: - Setup (no key yet)
 
     private var setupCard: some View {
-        StrandCard(padding: 20) {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 10) {
+        StrandCard(padding: NoopMetrics.cardPadding, tint: NoopVisualStyle.mint) {
+            VStack(alignment: .leading, spacing: NoopMetrics.space5) {
+                HStack(spacing: NoopMetrics.space3) {
                     Image(systemName: "sparkles")
-                        .foregroundStyle(StrandPalette.accent)
+                        .font(StrandFont.headline)
+                        .foregroundStyle(NoopVisualStyle.mint)
+                        .frame(width: NoopMetrics.compactControlSize,
+                               height: NoopMetrics.compactControlSize)
+                        .background(NoopVisualStyle.inset, in: RoundedRectangle(
+                            cornerRadius: NoopVisualStyle.compactRadius,
+                            style: .continuous
+                        ))
                         .accessibilityHidden(true)
                     Text("Connect a provider")
                         .font(StrandFont.headline)
@@ -214,7 +218,7 @@ struct CoachView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 // Provider
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: NoopMetrics.space2) {
                     Text("Provider").strandOverline()
                     Picker("Provider", selection: $coach.provider) {
                         ForEach(AIProvider.allCases) { p in
@@ -222,23 +226,31 @@ struct CoachView: View {
                         }
                     }
                     .labelsHidden()
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
+                    .tint(NoopVisualStyle.mint)
+                    .frame(maxWidth: .infinity, minHeight: NoopMetrics.controlHeight, alignment: .leading)
+                    .padding(.horizontal, NoopMetrics.space3)
+                    .background(StrandPalette.surfaceInset, in: RoundedRectangle(
+                        cornerRadius: NoopVisualStyle.compactRadius, style: .continuous))
                     .accessibilityLabel("Provider")
                 }
 
                 // Server URL (Custom / local LLM only)
                 if coach.provider == .custom {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: NoopMetrics.space2) {
                         Text("Server URL").strandOverline()
                         TextField("http://localhost:11434/v1", text: $coach.customBaseURL)
                             .textFieldStyle(.plain)
                             .font(StrandFont.body)
                             .foregroundStyle(StrandPalette.textPrimary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                            .background(StrandPalette.surfaceInset, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(StrandPalette.hairline, lineWidth: 1))
+                            .padding(.horizontal, NoopMetrics.space3)
+                            .padding(.vertical, NoopMetrics.space2)
+                            .background(StrandPalette.surfaceInset, in: RoundedRectangle(
+                                cornerRadius: NoopVisualStyle.compactRadius,
+                                style: .continuous
+                            ))
+                            .overlay(RoundedRectangle(cornerRadius: NoopVisualStyle.compactRadius, style: .continuous)
+                                .strokeBorder(StrandPalette.hairline, lineWidth: NoopMetrics.hairlineWidth))
                             .disableAutocorrection(true)
                             .accessibilityLabel("Server URL")
                         Text("Any OpenAI-compatible server: Ollama, LM Studio, llama.cpp, or your own gateway. Stays on your network; nothing leaves \(Platform.deviceNounPhrase).")
@@ -247,7 +259,7 @@ struct CoachView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: NoopMetrics.space2) {
                         Text("Key header").strandOverline()
                         Picker("Key header", selection: $coach.customAuthHeader) {
                             ForEach(CustomAIAuthHeader.allCases) { header in
@@ -268,7 +280,7 @@ struct CoachView: View {
                 modelSelector
 
                 // Key
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: NoopMetrics.space2) {
                     Text(coach.provider == .custom ? "API key (optional)" : "API key").strandOverline()
                     SecureField(coach.provider == .custom
                                 ? "Only if your server requires one"
@@ -276,11 +288,14 @@ struct CoachView: View {
                         .textFieldStyle(.plain)
                         .font(StrandFont.body)
                         .foregroundStyle(StrandPalette.textPrimary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 9)
-                        .background(StrandPalette.surfaceInset, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(StrandPalette.hairline, lineWidth: 1))
+                        .padding(.horizontal, NoopMetrics.space3)
+                        .padding(.vertical, NoopMetrics.space2)
+                        .background(StrandPalette.surfaceInset, in: RoundedRectangle(
+                            cornerRadius: NoopVisualStyle.compactRadius,
+                            style: .continuous
+                        ))
+                        .overlay(RoundedRectangle(cornerRadius: NoopVisualStyle.compactRadius, style: .continuous)
+                            .strokeBorder(StrandPalette.hairline, lineWidth: NoopMetrics.hairlineWidth))
                         .onSubmit { coach.provider == .custom ? connectCustom() : saveKey() }
                         .accessibilityLabel("API key")
                 }
@@ -314,7 +329,7 @@ struct CoachView: View {
     /// Model selector: a Picker over `coach.availableModels` with a free-text "Custom…" path and a
     /// "Refresh models" button that fetches the provider's live list.
     private var modelSelector: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: NoopMetrics.space2) {
             HStack {
                 Text("Model").strandOverline()
                 Spacer()
@@ -345,16 +360,19 @@ struct CoachView: View {
             .accessibilityLabel("Model")
 
             if customModel {
-                HStack(spacing: 8) {
+                HStack(spacing: NoopMetrics.space2) {
                     TextField("Enter a model id", text: $customModelDraft)
                         .textFieldStyle(.plain)
                         .font(StrandFont.body)
                         .foregroundStyle(StrandPalette.textPrimary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 9)
-                        .background(StrandPalette.surfaceInset, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(StrandPalette.hairline, lineWidth: 1))
+                        .padding(.horizontal, NoopMetrics.space3)
+                        .padding(.vertical, NoopMetrics.space2)
+                        .background(StrandPalette.surfaceInset, in: RoundedRectangle(
+                            cornerRadius: NoopVisualStyle.compactRadius,
+                            style: .continuous
+                        ))
+                        .overlay(RoundedRectangle(cornerRadius: NoopVisualStyle.compactRadius, style: .continuous)
+                            .strokeBorder(StrandPalette.hairline, lineWidth: NoopMetrics.hairlineWidth))
                         .onSubmit(applyCustomModel)
                         .accessibilityLabel("Custom model id")
 
@@ -394,26 +412,56 @@ struct CoachView: View {
     // MARK: - Connected state
 
     private var connectedHeader: some View {
-        HStack(spacing: 10) {
-            StatePill("\(coach.provider.displayName) · \(coach.model)", tone: .accent, showsDot: true)
-            Spacer()
-            if coach.sending {
-                StatePill("Thinking", tone: .accent, pulsing: true)
+        VStack(alignment: .leading, spacing: NoopMetrics.space3) {
+            HStack(spacing: NoopMetrics.space3) {
+                Image(systemName: "sparkles")
+                    .font(StrandFont.headline)
+                    .foregroundStyle(NoopVisualStyle.mint)
+                    .frame(width: NoopMetrics.compactControlSize,
+                           height: NoopMetrics.compactControlSize)
+                    .background(NoopVisualStyle.inset, in: RoundedRectangle(
+                        cornerRadius: NoopVisualStyle.compactRadius,
+                        style: .continuous
+                    ))
+                    .accessibilityHidden(true)
+                Text(coach.provider.displayName)
+                    .font(StrandFont.headline)
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Spacer(minLength: NoopMetrics.space2)
+                // #2243: the way through to what used to be stacked under this header.
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(StrandFont.body)
+                        .foregroundStyle(NoopVisualStyle.mint)
+                        .frame(width: NoopMetrics.controlHeight, height: NoopMetrics.controlHeight)
+                        .background(NoopVisualStyle.inset, in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "Coach settings"))
+                #if os(iOS)
+                connectionMenu
+                #endif
             }
-            // #2243: the way through to what used to be stacked under this header.
-            Button {
-                showSettings = true
-            } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 14, weight: .semibold))
+
+            HStack(spacing: NoopMetrics.space2) {
+                Text(coach.model)
+                    .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: NoopMetrics.space2)
+                if coach.sending {
+                    StatePill("Thinking", tone: .accent, pulsing: true)
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(String(localized: "Coach settings"))
-            #if os(iOS)
-            connectionMenu
-            #endif
         }
+        .padding(NoopMetrics.cardPadding)
+        .background(NoopPanelSurface(cornerRadius: NoopVisualStyle.cardRadius))
     }
 
     #if os(iOS)
@@ -469,14 +517,17 @@ struct CoachView: View {
             // aiming at, is doing part of the work.
             Image(systemName: "ellipsis.circle")
                 .font(StrandFont.headline)
-                .foregroundStyle(StrandPalette.textSecondary)
+                .foregroundStyle(NoopVisualStyle.mint)
+                .frame(width: NoopMetrics.controlHeight, height: NoopMetrics.controlHeight)
+                .background(NoopVisualStyle.inset, in: Circle())
+                .contentShape(Circle())
         }
         .accessibilityLabel("Connection")
     }
     #endif
 
     private var transcript: some View {
-        StrandCard(padding: 16) {
+        StrandCard(padding: NoopMetrics.cardPadding, tint: NoopVisualStyle.mint) {
             if coach.messages.isEmpty {
                 emptyTranscript
             } else {
@@ -484,7 +535,7 @@ struct CoachView: View {
                     ScrollView {
                         // Lazy so off-screen bubbles aren't all resident/laid-out at once; with the
                         // `maxStoredMessages` cap the transcript is already bounded, this keeps render cost flat.
-                        LazyVStack(alignment: .leading, spacing: 12) {
+                        LazyVStack(alignment: .leading, spacing: NoopMetrics.space3) {
                             ForEach(coach.messages) { message in
                                 bubble(message).id(message.id)
                             }
@@ -492,7 +543,7 @@ struct CoachView: View {
                                 typingIndicator.id("typing")
                             }
                         }
-                        .padding(.vertical, 2)
+                        .padding(.vertical, NoopMetrics.spaceHalf)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     // #697 parity: this screen builds its OWN ScrollView rather than going through
@@ -516,7 +567,7 @@ struct CoachView: View {
     }
 
     private var emptyTranscript: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: NoopMetrics.space2) {
             Text("Ask your first question")
                 .font(StrandFont.headline)
                 .foregroundStyle(StrandPalette.textPrimary)
@@ -533,15 +584,18 @@ struct CoachView: View {
         switch message.role {
         case .user:
             HStack {
-                Spacer(minLength: 48)
+                Spacer(minLength: NoopMetrics.controlHeight)
                 Text(message.text)
                     .font(StrandFont.body)
                     .foregroundStyle(StrandPalette.surfaceBase)
                     .textSelection(.enabled)
                     .multilineTextAlignment(.leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(StrandPalette.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .padding(.horizontal, NoopMetrics.cardPadding)
+                    .padding(.vertical, NoopMetrics.space2)
+                    .background(NoopVisualStyle.mint, in: RoundedRectangle(
+                        cornerRadius: NoopVisualStyle.compactRadius,
+                        style: .continuous
+                    ))
                     .frame(maxWidth: 520, alignment: .trailing)
             }
             .accessibilityElement(children: .combine)
@@ -549,16 +603,16 @@ struct CoachView: View {
         case .assistant:
             // LLM replies arrive as Markdown (bold, lists, headings, tables),             // rendered with the chat-bubble-sized Strand theme. User bubbles stay
             // verbatim `Text` so typed `*`/`#` never turn into surprise formatting.
-            // The reply sits on a frosted Charge-tinted surface, a card, not a flat box.
+            // The reply sits on a frosted mint surface that matches the Pulse page treatment.
             // K8: context menu (long-press / right-click) with Copy, Share, and Save actions.
             HStack {
                 Markdown(message.text)
                     .markdownTheme(.strand)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
-                    .frostedCardSurface(tint: StrandPalette.chargeColor, cornerRadius: 16)
+                    .padding(.horizontal, NoopMetrics.cardPadding)
+                    .padding(.vertical, NoopMetrics.space3)
+                    .frostedCardSurface(tint: NoopVisualStyle.mint, cornerRadius: NoopVisualStyle.compactRadius)
                     .frame(maxWidth: 560, alignment: .leading)
                     // K8: Copy / Share / Save context menu on assistant replies.
                     .contextMenu {
@@ -581,7 +635,7 @@ struct CoachView: View {
                             Label("Save to Journal", systemImage: "square.and.pencil")
                         }
                     }
-                Spacer(minLength: 48)
+                Spacer(minLength: NoopMetrics.controlHeight)
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Coach said: \(message.text)")
@@ -589,23 +643,23 @@ struct CoachView: View {
     }
 
     private var typingIndicator: some View {
-        HStack(spacing: 8) {
-            ProgressView().controlSize(.small).tint(StrandPalette.accent)
+        HStack(spacing: NoopMetrics.space2) {
+            ProgressView().controlSize(.small).tint(NoopVisualStyle.mint)
             Text("Coach is thinking…")
                 .font(StrandFont.subhead)
                 .foregroundStyle(StrandPalette.textSecondary)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .frostedCardSurface(tint: StrandPalette.chargeColor, cornerRadius: 16)
+        .padding(.horizontal, NoopMetrics.cardPadding)
+        .padding(.vertical, NoopMetrics.space3)
+        .frostedCardSurface(tint: NoopVisualStyle.mint, cornerRadius: NoopVisualStyle.compactRadius)
         .frame(maxWidth: 320, alignment: .leading)
         .accessibilityLabel("Coach is thinking")
     }
 
     private func errorBanner(_ message: String) -> some View {
-        StrandCard(padding: 14) {
-            HStack(alignment: .top, spacing: 10) {
+        StrandCard(padding: NoopMetrics.space3) {
+            HStack(alignment: .top, spacing: NoopMetrics.space2) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(StrandPalette.statusCritical)
                     .accessibilityHidden(true)
@@ -627,8 +681,8 @@ struct CoachView: View {
     /// custom provider: far more than correcting a typo asks for, and named for an outcome the wearer
     /// is trying to avoid. Twin of the Kotlin editor in `CoachChat`.
     private var keyRepairPanel: some View {
-        StrandCard(padding: 14) {
-            VStack(alignment: .leading, spacing: 8) {
+        StrandCard(padding: NoopMetrics.space3, tint: NoopVisualStyle.mint) {
+            VStack(alignment: .leading, spacing: NoopMetrics.space2) {
                 if coach.keyRejected {
                     Text("Paste the corrected key. Your conversation is kept.")
                         .font(StrandFont.footnote)
@@ -639,11 +693,14 @@ struct CoachView: View {
                     .textFieldStyle(.plain)
                     .font(StrandFont.body)
                     .foregroundStyle(StrandPalette.textPrimary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
-                    .background(StrandPalette.surfaceInset, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(StrandPalette.hairline, lineWidth: 1))
+                    .padding(.horizontal, NoopMetrics.space3)
+                    .padding(.vertical, NoopMetrics.space2)
+                    .background(StrandPalette.surfaceInset, in: RoundedRectangle(
+                        cornerRadius: NoopVisualStyle.compactRadius,
+                        style: .continuous
+                    ))
+                    .overlay(RoundedRectangle(cornerRadius: NoopVisualStyle.compactRadius, style: .continuous)
+                        .strokeBorder(StrandPalette.hairline, lineWidth: NoopMetrics.hairlineWidth))
                     .onSubmit(saveRepairedKey)
                     .accessibilityLabel(coach.keyRejected ? Text("Corrected API key") : Text("API key"))
                 HStack {
@@ -676,18 +733,21 @@ struct CoachView: View {
 
     private var suggestionChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: NoopMetrics.space2) {
                 ForEach(suggestions, id: \.self) { prompt in
                     Button {
                         send(prompt)
                     } label: {
                         Text(prompt)
-                            .font(StrandFont.captionNumber)
-                            .foregroundStyle(StrandPalette.textSecondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(StrandPalette.surfaceInset, in: Capsule(style: .continuous))
-                            .overlay(Capsule(style: .continuous).strokeBorder(StrandPalette.hairline, lineWidth: 1))
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textPrimary)
+                            .padding(.horizontal, NoopMetrics.space3)
+                            .padding(.vertical, NoopMetrics.space2)
+                            .background(NoopVisualStyle.surface, in: Capsule(style: .continuous))
+                            .overlay(Capsule(style: .continuous).strokeBorder(
+                                NoopVisualStyle.mint.opacity(0.35),
+                                lineWidth: NoopMetrics.hairlineWidth
+                            ))
                     }
                     // Liquid tap response: the physical settle-inward every tappable liquid
                     // affordance gets, replacing the flat `.plain` press.
@@ -696,7 +756,7 @@ struct CoachView: View {
                     .accessibilityLabel("Suggested prompt: \(prompt)")
                 }
             }
-            .padding(.vertical, 1)
+            .padding(.vertical, NoopMetrics.spaceHalf)
         }
     }
 
@@ -712,34 +772,37 @@ struct CoachView: View {
     /// deeper without typing. Uses the static `AICoachEngine.followUpSuggestions` list.
     private var followUpChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: NoopMetrics.space2) {
                 ForEach(AICoachEngine.followUpSuggestions, id: \.self) { prompt in
                     Button {
                         send(prompt)
                     } label: {
                         Text(prompt)
-                            .font(StrandFont.captionNumber)
-                            .foregroundStyle(StrandPalette.textSecondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(StrandPalette.surfaceInset, in: Capsule(style: .continuous))
-                            .overlay(Capsule(style: .continuous).strokeBorder(StrandPalette.hairline, lineWidth: 1))
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textPrimary)
+                            .padding(.horizontal, NoopMetrics.space3)
+                            .padding(.vertical, NoopMetrics.space2)
+                            .background(NoopVisualStyle.surface, in: Capsule(style: .continuous))
+                            .overlay(Capsule(style: .continuous).strokeBorder(
+                                NoopVisualStyle.mint.opacity(0.35),
+                                lineWidth: NoopMetrics.hairlineWidth
+                            ))
                     }
                     .buttonStyle(LiquidPressStyle())
                     .disabled(coach.sending)
                     .accessibilityLabel("Follow-up prompt: \(prompt)")
                 }
             }
-            .padding(.vertical, 1)
+            .padding(.vertical, NoopMetrics.spaceHalf)
         }
     }
 
     /// K12: A subtle token estimate shown below the composer when the draft is non-empty.
     /// Uses the ~4 chars/token heuristic — an estimate only, not an exact tokenizer count.
     private func tokenEstimateBar(_ tokens: Int) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: NoopMetrics.space1) {
             Image(systemName: "speedometer")
-                .font(.system(size: 10))
+                .font(StrandFont.caption)
                 .foregroundStyle(StrandPalette.textTertiary)
             Text("~\(tokens) tokens")
                 .font(StrandFont.captionNumber)
@@ -750,24 +813,28 @@ struct CoachView: View {
                     .foregroundStyle(StrandPalette.textTertiary)
             }
         }
-        .padding(.top, 2)
+        .padding(.top, NoopMetrics.spaceHalf)
     }
 
     /// The input bar, a frosted overlay surface holding the field + Send, so the composer reads as a
     /// distinct docked surface above the canvas rather than two floating controls.
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: 10) {
+        HStack(alignment: .bottom, spacing: NoopMetrics.space2) {
             TextField("Ask Coach about your data…", text: $draft, axis: .vertical)
                 .textFieldStyle(.plain)
                 .font(StrandFont.body)
                 .foregroundStyle(StrandPalette.textPrimary)
                 .lineLimit(1...5)
                 .focused($composerFocused)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(StrandPalette.surfaceInset, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(composerFocused ? StrandPalette.focusRing : StrandPalette.hairline, lineWidth: 1))
+                .padding(.horizontal, NoopMetrics.space3)
+                .padding(.vertical, NoopMetrics.space2)
+                .background(StrandPalette.surfaceInset, in: RoundedRectangle(
+                    cornerRadius: NoopVisualStyle.compactRadius,
+                    style: .continuous
+                ))
+                .overlay(RoundedRectangle(cornerRadius: NoopVisualStyle.compactRadius, style: .continuous)
+                    .strokeBorder(composerFocused ? StrandPalette.focusRing : StrandPalette.hairline,
+                                  lineWidth: NoopMetrics.hairlineWidth))
                 .onSubmit { send(draft) }
                 .accessibilityLabel("Question")
 
@@ -784,25 +851,25 @@ struct CoachView: View {
             } label: {
                 Group {
                     if coach.sending {
-                        ProgressView().controlSize(.small).tint(StrandPalette.goldDeepText)
+                        ProgressView().controlSize(.small).tint(StrandPalette.surfaceBase)
                     } else {
                         Image(systemName: "arrow.up")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(StrandFont.headline)
                     }
                 }
-                .frame(width: 44, height: 38)
-                .foregroundStyle(StrandPalette.goldDeepText)
-                .background(StrandPalette.accent,
-                            in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .frame(width: NoopMetrics.controlHeight, height: NoopMetrics.controlHeight)
+                .foregroundStyle(StrandPalette.surfaceBase)
+                .background(NoopVisualStyle.mint,
+                            in: RoundedRectangle(cornerRadius: NoopVisualStyle.compactRadius, style: .continuous))
             }
             .buttonStyle(.plain)
             .disabled(coach.sending || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .accessibilityLabel("Send")
         }
-        .padding(8)
-        .background(NoopPanelSurface(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .strokeBorder(StrandPalette.hairline, lineWidth: 1))
+        .padding(NoopMetrics.space2)
+        .background(NoopPanelSurface(cornerRadius: NoopVisualStyle.compactRadius))
+        .overlay(RoundedRectangle(cornerRadius: NoopVisualStyle.compactRadius, style: .continuous)
+            .strokeBorder(StrandPalette.hairline, lineWidth: NoopMetrics.hairlineWidth))
     }
 
     // MARK: - K4: Voice input (iOS only)
@@ -818,19 +885,19 @@ struct CoachView: View {
             Group {
                 if voiceInput.isRecording {
                     Image(systemName: "stop.circle.fill")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(StrandFont.headline)
                         .foregroundStyle(StrandPalette.statusCritical)
                 } else {
                     Image(systemName: "mic.fill")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(StrandFont.body)
                         .foregroundStyle(canUseVoice ? StrandPalette.textSecondary : StrandPalette.textTertiary)
                 }
             }
-            .frame(width: 36, height: 38)
+            .frame(width: NoopMetrics.controlHeight, height: NoopMetrics.controlHeight)
             .background(StrandPalette.surfaceInset,
-                        in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(StrandPalette.hairline, lineWidth: 1))
+                        in: RoundedRectangle(cornerRadius: NoopVisualStyle.compactRadius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: NoopVisualStyle.compactRadius, style: .continuous)
+                .strokeBorder(StrandPalette.hairline, lineWidth: NoopMetrics.hairlineWidth))
         }
         .buttonStyle(.plain)
         .disabled(!micButtonEnabled)

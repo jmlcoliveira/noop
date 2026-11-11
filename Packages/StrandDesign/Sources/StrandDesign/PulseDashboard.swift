@@ -88,10 +88,6 @@ public struct PulseScoreSummary: View {
     }
 
     private var validScore: Double? { score.flatMap { $0.isFinite ? $0 : nil } }
-    private var progress: Double {
-        guard let score = validScore, maxValue.isFinite, maxValue > 0 else { return 0 }
-        return min(1, max(0, score / maxValue))
-    }
     private var valueText: String {
         guard let score = validScore else { return "—" }
         return score.formatted(.number.precision(.fractionLength(decimals)).locale(locale))
@@ -103,37 +99,13 @@ public struct PulseScoreSummary: View {
 
     public var body: some View {
         VStack(spacing: NoopMetrics.space2) {
-            Circle()
-                .strokeBorder(tint.opacity(0.22), lineWidth: PulseDashboardStyle.ringWidth)
-                .overlay {
-                    Circle()
-                        .trim(from: 0, to: progress)
-                        .stroke(tint, style: StrokeStyle(lineWidth: PulseDashboardStyle.ringWidth, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .padding(PulseDashboardStyle.ringWidth / 2)
-                }
-                .overlay {
-                    Circle()
-                        .strokeBorder(StrandPalette.hairline, style: StrokeStyle(
-                            lineWidth: NoopMetrics.hairlineWidth,
-                            dash: [NoopMetrics.spaceHalf, NoopMetrics.space1]))
-                        .padding(PulseDashboardStyle.ringInset)
-                }
-                .overlay {
-                    VStack(spacing: NoopMetrics.space2) {
-                        Image(systemName: systemImage)
-                            .font(StrandFont.caption)
-                            .foregroundStyle(tint)
-                        Text(valueText)
-                            .font(PulseDashboardStyle.score)
-                            .foregroundStyle(StrandPalette.textPrimary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                    }
-                    .padding(NoopMetrics.space4)
-                }
-                .aspectRatio(1, contentMode: .fit)
-                .frame(maxWidth: PulseDashboardStyle.ringMaxDiameter)
+            PulseMetricRing(score: validScore, maxValue: maxValue, tint: tint, systemImage: systemImage) {
+                Text(valueText)
+                    .font(PulseDashboardStyle.score)
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
             Text(label.uppercased(with: locale))
                 .font(StrandFont.overline)
                 .tracking(PulseDashboardStyle.labelTracking)

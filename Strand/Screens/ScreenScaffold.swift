@@ -20,6 +20,8 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
     /// Optional full-bleed view drawn behind the scroll content at the TOP of the screen (e.g. Today's
     /// day-cycle scene). Defaults to nil so other screens stay on the flat canvas; nil renders nothing.
     var topBackground: AnyView? = nil
+    /// Opt-in keeps the approved Sleep page and existing screens on their current layout.
+    var pulseStyle: Bool = false
     /// Optional element pinned to the header's trailing edge (e.g. the strap-battery badge on Today).
     /// Defaults to `EmptyView` via the convenience init below, so other screens are unaffected.
     @ViewBuilder var trailing: () -> Trailing
@@ -48,8 +50,8 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
             #if os(iOS)
             // Unified side margins matching the floating navigation bar so every page's cards + header line up
             // to the same edges (2026-07-02); macOS keeps the classic 28 in the #else branch.
-            .padding(.horizontal, NoopMetrics.screenHPadding)
-            .padding(.top, 24)
+            .padding(.horizontal, pulseStyle ? PulseDashboardStyle.pagePadding : NoopMetrics.screenHPadding)
+            .padding(.top, pulseStyle ? NoopMetrics.space4 : NoopMetrics.space6)
             // The tab bar floats over the scroll content, so the last card sat hidden behind it.
             // Reserve extra bottom scroll room so every screen's final card clears the floating bar.
             .padding(.bottom, NoopMetrics.tabBarClearance)
@@ -76,6 +78,7 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
         .background(alignment: .top) {
             ZStack(alignment: .top) {
                 StrandPalette.surfaceBase
+                if pulseStyle { PulsePageBackground() }
                 topBackground
             }
             .ignoresSafeArea()
@@ -102,12 +105,12 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
     /// the previous layout. `@ViewBuilder` lets the two stack types resolve to one opaque return.
     @ViewBuilder private var column: some View {
         if lazy {
-            LazyVStack(alignment: .leading, spacing: 20) {
+            LazyVStack(alignment: .leading, spacing: pulseStyle ? PulseScreenStyle.sectionSpacing : NoopMetrics.space5) {
                 if title != nil || subtitle != nil { header }
                 content()
             }
         } else {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: pulseStyle ? PulseScreenStyle.sectionSpacing : NoopMetrics.space5) {
                 if title != nil || subtitle != nil { header }
                 content()
             }
@@ -115,15 +118,22 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .center, spacing: NoopMetrics.space3) {
+            VStack(alignment: .leading, spacing: pulseStyle ? NoopMetrics.space2 : NoopMetrics.spaceHalf) {
                 if let title {
                     // Match the liquid home's title face (SF Rounded 28) so every page's header reads
                     // identically (2026-07-02 cohesion pass).
-                    Text(title).font(StrandFont.rounded(28)).foregroundStyle(StrandPalette.textPrimary)
+                    Text(title)
+                        .font(pulseStyle ? PulseDashboardStyle.title : StrandFont.rounded(28))
+                        .tracking(pulseStyle ? PulseDashboardStyle.titleTracking : 0)
+                        .foregroundStyle(StrandPalette.textPrimary)
+                        .fixedSize(horizontal: false, vertical: pulseStyle)
                 }
                 if let subtitle {
-                    Text(subtitle).font(StrandFont.subhead).foregroundStyle(StrandPalette.textSecondary)
+                    Text(subtitle)
+                        .font(pulseStyle ? StrandFont.body : StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: pulseStyle)
                 }
             }
             Spacer(minLength: 0)
@@ -137,9 +147,11 @@ extension ScreenScaffold where Trailing == EmptyView {
     /// call site (which never passed `trailing`) source-compatible.
     init(title: LocalizedStringKey?, subtitle: LocalizedStringKey? = nil,
          onRefresh: (() async -> Void)? = nil, lazy: Bool = false, topBackground: AnyView? = nil,
+         pulseStyle: Bool = false,
          @ViewBuilder content: @escaping () -> Content) {
         self.init(title: title, subtitle: subtitle, onRefresh: onRefresh, lazy: lazy,
-                  topBackground: topBackground, trailing: { EmptyView() }, content: content)
+                  topBackground: topBackground, pulseStyle: pulseStyle,
+                  trailing: { EmptyView() }, content: content)
     }
 }
 

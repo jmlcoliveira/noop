@@ -27,6 +27,12 @@ import UIKit
 // minutes for light/deep/rem/awake; typical = mean of repo.days).
 
 struct SleepView: View {
+    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showNightScene = true
+
+    private var heroPrimary: Color { showNightScene ? StrandPalette.onDarkPrimary : StrandPalette.textPrimary }
+    private var heroSecondary: Color { showNightScene ? StrandPalette.onDarkSecondary : StrandPalette.textSecondary }
+    private var heroAccent: Color { showNightScene ? PulseScreenStyle.sleepOnNight : PulseDashboardStyle.sleep }
+
     @EnvironmentObject var repo: Repository
     @EnvironmentObject private var router: NavRouter
     // NOTE: SleepView itself deliberately does NOT observe `LiveState` OR `AppModel`. A connected strap
@@ -149,11 +155,8 @@ struct SleepView: View {
         // synchronously, so the very first frame already shows content (no empty-state flash).
         let key = dataKey
         let resolved: SleepModel? = (key == modelKey) ? model : buildModel()
-        // Title lives inside the immersive night hero (Bevel-style composition). Omit the scaffold
-        // header + generic sky so the Rest world owns the upper band and everything below returns to
-        // the normal Sleep canvas. Empty state still gets a plain scaffold title for orientation.
-        // Night scene is a FIXED ScrollView topBackground (Home sky pattern): edge-to-edge under the
-        // status bar and stable on overscroll — pulling to the top reveals the scene, not surfaceBase.
+        // Title stays inside the immersive night hero. Empty state keeps the scaffold title, while the
+        // shared Pulse canvas keeps the page cohesive around its existing night artwork.
         ScreenScaffold(title: resolved == nil ? "Sleep" : nil,
                        subtitle: resolved == nil ? "Last night, read in two seconds." : nil,
                        // PERF (scroll): lazy column — byte-identical layout (LazyVStack == eager VStack
@@ -163,7 +166,8 @@ struct SleepView: View {
                        // re-evaluates this heavy body.
                        onRefresh: { await repo.refresh() },
                        lazy: true,
-                       topBackground: resolved == nil ? nil : AnyView(sleepNightTopBackground)) {
+                       topBackground: resolved == nil ? nil : AnyView(sleepNightTopBackground),
+                       pulseStyle: true) {
             Group {
                 if let resolved {
                     // Each top-level section fades + rises in sequence on first appear (Reduce-Motion safe).
@@ -175,12 +179,11 @@ struct SleepView: View {
                                             message: "This night's sleep times or total asleep changed by at least five minutes.",
                                             symbol: "checkmark.circle")
                         }
-                        // Bleed past ScreenScaffold's 16/24 gutters so the hero column is edge-to-edge
-                        // in the upper band; the night scene itself is the fixed topBackground.
-                        // Customize sits at the end of the hero (not floating in a blank band).
+                        // Bleed past ScreenScaffold's Pulse gutters so the hero keeps its edge-to-edge
+                        // upper-band placement. Customize stays at the end of the hero.
                         restHero(resolved)
-                            .padding(.horizontal, -16)
-                            .padding(.top, -24)
+                            .padding(.horizontal, -PulseDashboardStyle.pagePadding)
+                            .padding(.top, -NoopMetrics.space4)
                             .staggeredAppear(index: 0)
                         alarmsEntry
                         // #sleep-layout: the analytical cards render in the user's saved order minus the
@@ -194,7 +197,7 @@ struct SleepView: View {
                     alarmsEntry
                 }
             }
-            // LiquidScoreGauge owns its own count-up animation (same as Home heroes).
+            // CountUpText inside the PulseMetricRing owns the score readout animation.
             // Persist the freshly-built model so subsequent renders with the same inputs hit
             // the cache. Writing State during body is not allowed, so commit it after layout;
             // `resolved` already drives THIS frame, so there is no flash and no extra rebuild.
@@ -523,9 +526,8 @@ struct SleepView: View {
         }
     }
 
-    /// Immersive Rest-world hero: compact Bevel-like hierarchy — centered "Sleep", muted circular
-    /// performance ring, state word, source badge. Night scene lives on ScreenScaffold.topBackground
-    /// (fixed under the status bar); this column only owns the readable content. Presentation-only.
+    /// Immersive Sleep hero: centered title, score ring, state word, and provenance badge.
+    /// Presentation-only; the surrounding page uses the shared Pulse canvas.
     @ViewBuilder
     private func restHero(_ model: SleepModel) -> some View {
         let night = heroNight(model)
@@ -533,29 +535,37 @@ struct SleepView: View {
         VStack(spacing: 0) {
             Text("Sleep")
                 .font(StrandFont.rounded(24, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.96))
-                .shadow(color: .black.opacity(0.35), radius: 5, y: 1)
+                .foregroundStyle(heroPrimary)
                 .padding(.top, 6)
                 .accessibilityAddTraits(.isHeader)
 
             if let score {
-                // Same LiquidVessel gauge as Home (`LiquidTodayView` / `HeroScoreCell`).
-                VStack(spacing: 8) {
-                    LiquidScoreGauge(
+                VStack(spacing: NoopMetrics.space2) {
+                    PulseMetricRing(
                         score: score,
-                        tint: StrandPalette.restColor,
-                        diameter: 184,
-                        animated: true,
-                        captionText: String(localized: "of 100"),
-                        numberColor: Color.white.opacity(0.98),
-                        captionColor: Color.white.opacity(0.52)
-                    )
+                        maxValue: 100,
+                        tint: heroAccent,
+                        systemImage: "moon.fill"
+                    ) {
+                        VStack(spacing: NoopMetrics.spaceHalf) {
+                            CountUpText(
+                                value: score,
+                                format: { "\(Int($0.rounded()))" },
+                                font: PulseScreenStyle.sleepScoreFont,
+                                color: heroPrimary
+                            )
+                            Text(String(localized: "of 100"))
+                                .font(StrandFont.footnote)
+                                .foregroundStyle(heroSecondary)
+                        }
+                    }
+                    .scaleEffect(PulseScreenStyle.sleepScoreDiameter / PulseDashboardStyle.ringMaxDiameter)
+                    .frame(width: PulseScreenStyle.sleepScoreDiameter, height: PulseScreenStyle.sleepScoreDiameter)
                     Text(sleepScoreWord(score))
                         .font(StrandFont.subhead.weight(.semibold))
-                        .foregroundStyle(Color.white.opacity(0.90))
-                        .shadow(color: .black.opacity(0.30), radius: 2, y: 1)
+                        .foregroundStyle(heroSecondary)
                 }
-                .padding(.top, 8)
+                .padding(.top, NoopMetrics.space2)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(String(localized: "Sleep performance \(Int(score.rounded())) of 100, \(sleepScoreWord(score))"))
             } else {
@@ -564,11 +574,11 @@ struct SleepView: View {
                         value: night.stages.asleep,
                         format: { durationText($0) },
                         font: StrandFont.number(42),
-                        color: Color.white.opacity(0.96)
+                        color: heroPrimary
                     )
                     Text("asleep last night")
                         .font(StrandFont.subhead)
-                        .foregroundStyle(Color.white.opacity(0.72))
+                        .foregroundStyle(heroSecondary)
                 }
                 .padding(.top, 14)
                 .padding(.bottom, 4)
@@ -577,25 +587,23 @@ struct SleepView: View {
 
             SourceBadge(
                 score != nil ? heroSource(for: night) : (repo.activeDeviceIsOura ? "Oura" : "On-device"),
-                tint: StrandPalette.restColor
+                tint: heroAccent
             )
             .padding(.top, 8)
 
             // Subtle Customize at the hero foot — functional, not competing with the gauge.
             sleepArrangeAffordance
-                .padding(.horizontal, 16)
+                .padding(.horizontal, PulseDashboardStyle.pagePadding)
                 .padding(.top, 6)
                 .padding(.bottom, 6)
         }
         .frame(maxWidth: .infinity)
     }
 
-    /// Fixed night-scene band behind Sleep scroll content — same ScreenScaffold.topBackground pattern
-    /// as Home's sky. Tall enough for safe-area + hero; fades to surfaceBase before the first card.
     private var sleepNightTopBackground: some View {
         SleepPerformanceNightScene()
             .frame(maxWidth: .infinity)
-            .frame(height: 440, alignment: .top)
+            .frame(height: PulseScreenStyle.sleepSceneHeight, alignment: .top)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
@@ -2201,10 +2209,7 @@ struct SleepView: View {
 
 }
 
-/// Original atmospheric night hero — photographic moonlit lake plus lightweight static depth layers.
-/// Drawn as ScreenScaffold.topBackground (fixed under the status bar / overscroll); bottom fades into
-/// `surfaceBase` before the first card. No TimelineView, no animation loops.
-/// Cheap: one Image + static Canvas/shapes.
+/// Sleep's original moonlit artwork, fading into the shared page canvas below the hero.
 private struct SleepPerformanceNightScene: View {
     private struct Star {
         let x: CGFloat
