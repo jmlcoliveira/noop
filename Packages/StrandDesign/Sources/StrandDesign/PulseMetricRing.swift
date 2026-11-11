@@ -33,9 +33,13 @@ public struct PulseMetricRing<Readout: View>: View {
             .overlay {
                 Circle()
                     .trim(from: 0, to: progress)
-                    .stroke(tint, style: StrokeStyle(lineWidth: PulseDashboardStyle.ringWidth,
-                                                     lineCap: .round))
-                    .rotationEffect(.degrees(-90))
+                    .rotation(.degrees(-90))
+                    .stroke(LinearGradient(
+                        gradient: PulseMetricMaterial.gradient(for: tint),
+                        startPoint: .bottomLeading,
+                        endPoint: .topTrailing
+                    ), style: StrokeStyle(lineWidth: PulseDashboardStyle.ringWidth,
+                                          lineCap: .round))
                     .padding(PulseDashboardStyle.ringWidth / 2)
             }
             .overlay {

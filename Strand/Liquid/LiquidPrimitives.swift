@@ -88,7 +88,7 @@ enum LiquidRender {
 
             // Progress arc — harsh semantic gradient (visible dark ↔ light bands).
             ctx.stroke(progress, with: .linearGradient(
-                progressGradient(tint),
+                PulseMetricMaterial.gradient(for: tint),
                 startPoint: CGPoint(x: rect.minX, y: rect.maxY),
                 endPoint: CGPoint(x: rect.maxX, y: rect.minY)
             ), style: cap)
@@ -112,17 +112,6 @@ enum LiquidRender {
         p.addArc(center: center, radius: radius, startAngle: .degrees(-90),
                  endAngle: .degrees(-90 + 360 * level), clockwise: false)
         return p
-    }
-
-    /// Harsh semantic gradient — tight stops so dark/light bands read clearly on the arc.
-    private static func progressGradient(_ tint: Color) -> Gradient {
-        Gradient(stops: [
-            .init(color: tint.liquidDarker(0.48), location: 0.00),
-            .init(color: tint.liquidLighter(0.38), location: 0.34),
-            .init(color: tint.liquidDarker(0.22), location: 0.58),
-            .init(color: tint.liquidLighter(0.28), location: 0.82),
-            .init(color: tint.liquidDarker(0.35), location: 1.00)
-        ])
     }
 
     /// A horizontal capsule tube filled to `frac`; tilt pushes the liquid along it.
@@ -151,7 +140,7 @@ enum LiquidRender {
         p.addLine(to: CGPoint(x: 0, y: h))
         p.closeSubpath()
         let fillGradient = usesCleanFill
-            ? progressGradient(tint)
+            ? PulseMetricMaterial.gradient(for: tint)
             : Gradient(colors: [tint.opacity(0.84), tint.liquidDarker(0.28).opacity(0.86)])
         clip.fill(p, with: .linearGradient(
             fillGradient,
