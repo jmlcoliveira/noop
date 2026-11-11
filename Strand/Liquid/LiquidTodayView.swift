@@ -22,6 +22,7 @@ struct LiquidTodayView: View {
     // would re-render all of Today every second (the exact churn the LiveState leaves isolate). BLEManager
     // only publishes connect/discovery state, never HR. Injected at the app roots beside .environmentObject(model).
     @EnvironmentObject var ble: BLEManager
+    @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Low Power Mode — and the in-app "Reduce motion in NOOP" toggle — pose the sky still too, the
     /// behaviour the comment on the sky branch below has always described. Neither has a SwiftUI
@@ -140,6 +141,10 @@ struct LiquidTodayView: View {
     @State private var cachedHrvDay: DailyMetric?
     @State private var cachedRestingHrDay: DailyMetric?
     @State private var cachedSkinTempReadingDay: DailyMetric?
+    /// History-derived explanation text, resolved with the other day caches in `load()` rather than
+    /// rebuilding day-key / HRV arrays from `body` on every SwiftUI update.
+    @State private var cachedCalibrationReason: String?
+    @State private var cachedStaleNightCount: Int?
     /// The Charge hero's resolved state (#543 carry + the honest label), resolved ONCE in load() alongside
     /// the other caches. It composes `TodayView.lastScoredRecoveryDay`, which is O(days) — exactly the scan
     /// this cache exists to keep out of body. Never resolved in body.
@@ -462,9 +467,9 @@ struct LiquidTodayView: View {
         .liquidMediumHaptic(trigger: pullHaptic)
         // hydrationSeq joins the id so logging a drink re-reads the card immediately, the same trigger set
         // classic TodayView's reloadHydration() uses.
-        .task(id: "\(repo.refreshSeq)-\(selectedDayOffset)-\(repo.hydrationSeq)-\(hydrationEnabled)-\(dayCycleModeRaw)") {
+        .task(id: "\(repo.refreshSeq)-\(selectedDayOffset)-\(repo.hydrationSeq)-\(hydrationEnabled)-\(dayCycleModeRaw)-\(hostedCardsRaw)-\(Repository.logicalDayKey(Date()))-\(locale.identifier)") {
             DashboardCardPrefs.migrateLegacyStepsAverage()
-            await load()
+            await load(logicalTodayKey: Repository.logicalDayKey(Date()))
         }
         .sheet(item: $guideSection) { section in
             NavigationStack { ScoringGuideView(initialSection: section, onClose: { guideSection = nil }) }
@@ -558,7 +563,7 @@ struct LiquidTodayView: View {
                 // ongoing offload progress; the pull spinner stays short (the reload below).
                 ble.syncNow()
                 await repo.refresh()
-                await load()
+                await load(logicalTodayKey: Repository.logicalDayKey(Date()))
                 try? await Task.sleep(nanoseconds: 350_000_000)   // let the fill read as "done"
                 withAnimation(.easeOut(duration: 0.25)) { refreshing = false }
             }
@@ -880,6 +885,7 @@ struct LiquidTodayView: View {
             .foregroundStyle(StrandPalette.textSecondary)
             .buttonStyle(.plain)
             .frame(minHeight: NoopMetrics.controlHeight)
+
         }
         .padding(.bottom, NoopMetrics.space4)
     }
@@ -1409,9 +1415,7 @@ struct LiquidTodayView: View {
                             .fixedSize(horizontal: false, vertical: true)
                         // The reason the count is not moving, when nights are arriving empty. Sits under
                         // the progress rather than replacing it: the wearer needs both the number and why.
-                        if let why = chargeDisplay.calibrationReason(
-                            dayKeys: repo.days.map(\.day), nightlyHrv: repo.days.map(\.avgHrv),
-                            today: Repository.logicalDayKey(Date())) {
+                        if let why = cachedCalibrationReason {
                             Text(why).font(StrandFont.caption)
                                 .foregroundStyle(StrandPalette.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1824,7 +1828,14 @@ struct LiquidTodayView: View {
 
     // MARK: - Data
 
-    private func load() async {
+    private func load(logicalTodayKey: String) async {
+        // Capture the task's day/card inputs before its first suspension. `.task(id:)` cancels the old
+        // load when the wearer changes day, the hosted-card selection changes, or logical today rolls.
+        // These snapshots keep the optional today-only work from following newer view state after awaits.
+        let loadDayOffset = selectedDayOffset
+        let loadIsForToday = loadDayOffset == 0
+        let hostedCards = HostedCardPrefs.decodeEnabled(hostedCardsRaw)
+
         // #989: today's hydration total + goal. One metricSeries row + a UserDefaults read, same as classic
         // TodayView.reloadHydration(). Cleared when the feature is off so the card can't show a stale total.
         if hydrationEnabled {
@@ -1868,6 +1879,15 @@ struct LiquidTodayView: View {
             priorScored: priorScored,
             calibrationNights: calNights,
             todayKey: tkey)
+
+        // These explanations used to map repo.days and scan the history from synthesized body properties.
+        // Resolve them once per load and share the same two arrays when either explanation is needed.
+        let dayKeys = repo.days.map(\.day)
+        let nightlyHrv = repo.days.map(\.avgHrv)
+        cachedStaleNightCount = Baselines.nightsSinceNewestValidNight(
+            dayKeys: dayKeys, nightlyHrv: nightlyHrv, today: logicalTodayKey)
+        cachedCalibrationReason = cachedChargeDisplay.calibrationReason(
+            dayKeys: dayKeys, nightlyHrv: nightlyHrv, today: logicalTodayKey)
 
         let cal = Calendar.current
         let dayStart = cal.startOfDay(for: selectedLogicalDay)
@@ -2065,11 +2085,17 @@ struct LiquidTodayView: View {
         // The inputs (allSleepSessions / habitualMidsleepSec / sessionMotions) are loaded exactly as the
         // Sleep tab loads them, then handed to the SAME pure `SleepModel.build`, so a hosted card renders
         // numbers byte-identical to the Sleep tab. Reused by every SleepModel-backed hosted card (built once).
+        // Added cards are shown only on Today. A selected historical day therefore pays no full-history
+        // sleep reads/model build, even though changing the day also re-runs this shared loader.
+        guard !Task.isCancelled, selectedDayOffset == loadDayOffset else { return }
         let sleepOrigin = String(localized: "Sleep")
-        if HostedCardPrefs.decodeEnabled(hostedCardsRaw).contains(where: { $0.origin == sleepOrigin }) {
+        if loadIsForToday && hostedCards.contains(where: { $0.origin == sleepOrigin }) {
             let hostedSessions = await repo.allSleepSessions()
+            guard !Task.isCancelled, selectedDayOffset == loadDayOffset else { return }
             let hostedHabitual = await repo.habitualMidsleepSec()
+            guard !Task.isCancelled, selectedDayOffset == loadDayOffset else { return }
             let hostedMotion = await repo.sessionMotions(sessions: hostedSessions)
+            guard !Task.isCancelled, selectedDayOffset == loadDayOffset else { return }
             hostedSleepModel = SleepModel.build(SleepModelInputs(
                 days: repo.days,
                 sleeps: repo.sleeps,
@@ -2082,11 +2108,13 @@ struct LiquidTodayView: View {
         }
 
         // #2040: and today's stress, on the same "only when hosted" rule.
-        if HostedCardPrefs.decodeEnabled(hostedCardsRaw).contains(.stressToday) {
+        guard !Task.isCancelled, selectedDayOffset == loadDayOffset else { return }
+        if loadIsForToday && hostedCards.contains(.stressToday) {
             let result = await StressDayCurve.today(
                 repo: repo,
                 personalBaseline: PuffinExperiment.stressPersonalBaselineEnabled
             )?.result
+            guard !Task.isCancelled, selectedDayOffset == loadDayOffset else { return }
             hostedStressHours = result?.timeline ?? []
             hostedStressActivityMaskedHours = result?.activityMaskedHours ?? 0
         } else {
@@ -2161,9 +2189,7 @@ struct LiquidTodayView: View {
         // night for > staleDays), say so directly instead of "still learning your baseline" — the honest
         // calibrating state with its reason attached. `stale` is always > staleDays (14), so always plural.
         if readiness.level == .insufficient,
-           let stale = Baselines.nightsSinceNewestValidNight(dayKeys: repo.days.map(\.day),
-                                                             nightlyHrv: repo.days.map(\.avgHrv),
-                                                             today: Repository.logicalDayKey(Date())),
+           let stale = cachedStaleNightCount,
            stale > Baselines.staleDays {
             return String(localized: "No new nights from your strap for \(stale) days. Check it's connected and saving data.")
         }

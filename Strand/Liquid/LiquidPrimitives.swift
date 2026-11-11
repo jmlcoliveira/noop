@@ -117,7 +117,7 @@ enum LiquidRender {
     /// A horizontal capsule tube filled to `frac`; tilt pushes the liquid along it.
     static func tube(_ base: GraphicsContext, _ size: CGSize, _ sim: LiquidSim, now: Double,
                      frac: Double, tint: Color, showsHighlight: Bool = true,
-                     usesCleanFill: Bool = false) {
+                     usesCleanFill: Bool = false, fillGradient: Gradient) {
         let w = size.width, h = size.height, r = h / 2
         let outline = Path(roundedRect: CGRect(x: 0.5, y: 0.5, width: w - 1, height: h - 1), cornerRadius: r)
         var ctx = base
@@ -139,9 +139,6 @@ enum LiquidRender {
         p.addQuadCurve(to: CGPoint(x: edge - r * 0.3, y: h), control: CGPoint(x: edge + bulge, y: h / 2))
         p.addLine(to: CGPoint(x: 0, y: h))
         p.closeSubpath()
-        let fillGradient = usesCleanFill
-            ? PulseMetricMaterial.gradient(for: tint)
-            : Gradient(colors: [tint.opacity(0.84), tint.liquidDarker(0.28).opacity(0.86)])
         clip.fill(p, with: .linearGradient(
             fillGradient,
             startPoint: CGPoint(x: 0, y: usesCleanFill ? h / 2 : 0),
@@ -212,14 +209,17 @@ enum LiquidRender {
         }
     }
 
-    /// The live heart-rate curve as a glowing liquid thread with a travelling glint.
-    /// - Parameter segments: per-value line identity from `hrGapSegments`, or nil for a series known to be
-    ///   contiguous. Values whose ids differ are stroked as SEPARATE subpaths, so a stretch the strap never
-    ///   recorded reads as a break instead of a straight climb across it (#2082). Nil produces byte-for-byte
-    ///   the path this drew before, which is what keeps the live 1 Hz stream untouched.
-    static func thread(_ base: GraphicsContext, _ size: CGSize, values: [Double], now: Double, tint: Color,
-                       segments: [String]? = nil) {
-        guard values.count >= 2 else { return }
+    /// Geometry that depends on the sample series and its laid-out size, but not on the animation clock.
+    /// A live thread reuses this for its base stroke, travelling glint and endpoint pulse.
+    struct ThreadGeometry {
+        let line: Path
+        let endpoint: CGPoint
+    }
+
+    /// Build the invariant curve once when its values, gap runs or size change. Keep this path builder
+    /// shared with the one-shot renderer so both modes retain identical geometry.
+    static func threadGeometry(size: CGSize, values: [Double], segments: [String]? = nil) -> ThreadGeometry? {
+        guard values.count >= 2 else { return nil }
         let plot = ThreadPlot(size: size, values: values)
         let n = values.count
         func px(_ i: Int) -> Double { plot.x(i) }
@@ -243,22 +243,31 @@ enum LiquidRender {
             }
             p.addLine(to: CGPoint(x: px(hi), y: py(values[hi])))
         }
-        // Resolved ONCE, outside `curve()`. That closure is called twice per frame and this runs inside a
-        // 60fps TimelineView, so leaving the walk in there re-split the whole series 120 times a second for
-        // an answer that cannot change between strokes.
         // One run when nothing says otherwise, and that run is the exact path this drew before.
         var runs: [ClosedRange<Int>] = [0...(n - 1)]
         if let segs = segments, segs.count == n { runs = hrGapRuns(segments: segs) }
-        func curve() -> Path {
-            var p = Path()
-            for r in runs { appendRun(&p, r.lowerBound, r.upperBound) }
-            return p
-        }
+        var line = Path()
+        for run in runs { appendRun(&line, run.lowerBound, run.upperBound) }
+        return ThreadGeometry(line: line,
+                              endpoint: CGPoint(x: px(n - 1), y: py(values[n - 1])))
+    }
+
+    /// The live heart-rate curve as a glowing liquid thread with a travelling glint.
+    /// - Parameter segments: per-value line identity from `hrGapSegments`, or nil for a series known to be
+    ///   contiguous. Values whose ids differ are stroked as SEPARATE subpaths, so a stretch the strap never
+    ///   recorded reads as a break instead of a straight climb across it (#2082). Nil produces byte-for-byte
+    ///   the path this drew before, which is what keeps the live 1 Hz stream untouched.
+    static func thread(_ base: GraphicsContext, _ size: CGSize, values: [Double], now: Double, tint: Color,
+                       segments: [String]? = nil) {
+        guard let geometry = threadGeometry(size: size, values: values, segments: segments) else { return }
+        drawThread(base, geometry: geometry, now: now, tint: tint)
+    }
+
+    /// Draw clock-driven effects over prebuilt data geometry. This is the only work repeated by the
+    /// live TimelineView when the underlying heart-rate series and layout stay unchanged.
+    static func drawThread(_ base: GraphicsContext, geometry: ThreadGeometry, now: Double, tint: Color) {
         var ctx = base
-        // Built ONCE. The glint strokes the same geometry as the line under it, and this runs inside a
-        // 60fps TimelineView, so building it per stroke walked the whole series twice a frame for two
-        // identical paths.
-        let line = curve()
+        let line = geometry.line
         ctx.stroke(line, with: .color(tint.opacity(0.9)), style: StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round))
         // Travelling glint. The dash pattern restarts at each subpath, so a day broken into several runs
         // shows a tick per run rather than one glint travelling the whole line. Cosmetic, and the honest
@@ -267,7 +276,7 @@ enum LiquidRender {
         ctx.stroke(line, with: .color(.white.opacity(0.55)),
                    style: StrokeStyle(lineWidth: 1.1, lineCap: .round, dash: [14, 400], dashPhase: phase))
         // endpoint pulse
-        let ex = px(n - 1), ey = py(values[n - 1])
+        let ex = geometry.endpoint.x, ey = geometry.endpoint.y
         let pr = 3 + sin(now * 6) * 1.1
         ctx.fill(Path(ellipseIn: CGRect(x: ex - pr - 4, y: ey - pr - 4, width: (pr + 4) * 2, height: (pr + 4) * 2)), with: .color(tint.opacity(0.15)))
         ctx.fill(Path(ellipseIn: CGRect(x: ex - pr, y: ey - pr, width: pr * 2, height: pr * 2)), with: .color(tint))
@@ -409,21 +418,36 @@ struct LiquidTube: View {
     var usesCleanFill: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var motion = NoopMotionState.shared
     @State private var sim = LiquidSim(target: 0)
 
     var body: some View {
-        if animated && !motion.poseStill(reduceMotion) { liveTube } else { staticTube }
+        // Resolve the derived fill outside TimelineView's frame closure. The environment read also makes
+        // appearance changes rebuild dynamic tints before the next live draw.
+        let fillGradient = resolvedFillGradient
+        if animated && !motion.poseStill(reduceMotion) {
+            liveTube(fillGradient: fillGradient)
+        } else {
+            staticTube(fillGradient: fillGradient)
+        }
     }
 
-    private var liveTube: some View {
+    private var resolvedFillGradient: Gradient {
+        let _ = colorScheme
+        return usesCleanFill
+            ? PulseMetricMaterial.gradient(for: tint)
+            : Gradient(colors: [tint.opacity(0.84), tint.liquidDarker(0.28).opacity(0.86)])
+    }
+
+    private func liveTube(fillGradient: Gradient) -> some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { tl in
             let now = liquidSeconds(tl.date)
             Canvas { context, size in
                 sim.step(now: now, tilt: LiquidMotion.shared.tilt, target: frac)
                 LiquidRender.tube(context, size, sim, now: now, frac: max(0, min(1, frac)),
                                   tint: tint, showsHighlight: showsHighlight,
-                                  usesCleanFill: usesCleanFill)
+                                  usesCleanFill: usesCleanFill, fillGradient: fillGradient)
             }
         }
         .frame(height: height)
@@ -431,11 +455,12 @@ struct LiquidTube: View {
         .onDisappear { LiquidMotion.shared.release() }
     }
 
-    private var staticTube: some View {
+    private func staticTube(fillGradient: Gradient) -> some View {
         Canvas { context, size in
             LiquidRender.tube(context, size, LiquidSim.posed(frac), now: 0,
                               frac: max(0, min(1, frac)), tint: tint,
-                              showsHighlight: showsHighlight, usesCleanFill: usesCleanFill)
+                              showsHighlight: showsHighlight, usesCleanFill: usesCleanFill,
+                              fillGradient: fillGradient)
         }
         .frame(height: height)
     }
@@ -456,23 +481,26 @@ struct LiquidThread: View {
     @ObservedObject private var motion = NoopMotionState.shared
 
     var body: some View {
-        if animated && !motion.poseStill(reduceMotion) { liveThread } else { staticThread }
-    }
-
-    private var liveThread: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { tl in   // 60fps to flow smoothly on ProMotion
-            let now = liquidSeconds(tl.date)
-            Canvas { context, size in
-                LiquidRender.thread(context, size, values: bpm, now: now, tint: tint, segments: segments)
+        GeometryReader { proxy in
+            // `GeometryReader` sits outside the timeline so values/gap runs/size produce one path per
+            // data or layout update, while only the decorative phase and pulse run at 60 Hz.
+            let geometry = LiquidRender.threadGeometry(size: proxy.size, values: bpm, segments: segments)
+            if animated && !motion.poseStill(reduceMotion) {
+                TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { tl in   // 60fps to flow smoothly on ProMotion
+                    let now = liquidSeconds(tl.date)
+                    Canvas { context, _ in
+                        if let geometry {
+                            LiquidRender.drawThread(context, geometry: geometry, now: now, tint: tint)
+                        }
+                    }
+                }
+            } else {
+                Canvas { context, _ in
+                    if let geometry {
+                        LiquidRender.drawThread(context, geometry: geometry, now: 0, tint: tint)
+                    }
+                }
             }
-        }
-        .frame(height: height)
-    }
-
-    /// One-shot render (no travelling glint / pulse) — used until first data load settles.
-    private var staticThread: some View {
-        Canvas { context, size in
-            LiquidRender.thread(context, size, values: bpm, now: 0, tint: tint, segments: segments)
         }
         .frame(height: height)
     }

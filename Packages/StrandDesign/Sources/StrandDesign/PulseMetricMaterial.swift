@@ -7,17 +7,20 @@ import SwiftUI
 public enum PulseMetricMaterial {
     /// The visible dark ↔ light bands used by Pulse progress fills.
     public static func gradient(for tint: Color) -> Gradient {
-        Gradient(stops: [
-            .init(color: darker(tint, by: 0.48), location: 0.00),
-            .init(color: lighter(tint, by: 0.38), location: 0.34),
-            .init(color: darker(tint, by: 0.22), location: 0.58),
-            .init(color: lighter(tint, by: 0.28), location: 0.82),
-            .init(color: darker(tint, by: 0.35), location: 1.00)
+        // Resolve platform colors once, then derive every band from the same components. This keeps
+        // the stops identical while avoiding five UIColor/NSColor bridges for one material.
+        let components = tint.rgbaComponents
+        return Gradient(stops: [
+            .init(color: darker(components, by: 0.48), location: 0.00),
+            .init(color: lighter(components, by: 0.38), location: 0.34),
+            .init(color: darker(components, by: 0.22), location: 0.58),
+            .init(color: lighter(components, by: 0.28), location: 0.82),
+            .init(color: darker(components, by: 0.35), location: 1.00)
         ])
     }
 
-    private static func darker(_ color: Color, by fraction: Double) -> Color {
-        let components = color.rgbaComponents
+    private static func darker(_ components: (r: Double, g: Double, b: Double, a: Double),
+                               by fraction: Double) -> Color {
         let amount = min(max(fraction, 0), 1)
         return Color(.sRGB,
                      red: components.r * (1 - amount),
@@ -26,8 +29,8 @@ public enum PulseMetricMaterial {
                      opacity: 1)
     }
 
-    private static func lighter(_ color: Color, by fraction: Double) -> Color {
-        let components = color.rgbaComponents
+    private static func lighter(_ components: (r: Double, g: Double, b: Double, a: Double),
+                                by fraction: Double) -> Color {
         let amount = min(max(fraction, 0), 1)
         return Color(.sRGB,
                      red: components.r + (1 - components.r) * amount,

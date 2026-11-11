@@ -58,6 +58,7 @@ struct TrendsView: View {
     @State private var sleepPerfByDay: [String: Double] = [:]
     @State private var sleepPerfRevision = 0
     @State private var resolvedCache = ResolvedCache()
+    @State private var weeklyDigestCache = WeeklyDigestCache()
 
     // #710 — browse previous weeks in the Week-in-review digest. 0 = the week containing today; each step
     // back is one Mon–Sun week earlier. Clamped so it never runs past the earliest day we hold (see
@@ -137,6 +138,34 @@ struct TrendsView: View {
                  build: () -> ResolvedMetrics) -> ResolvedMetrics {
             let next = Key(repo: ObjectIdentifier(repo), refreshSeq: repo.refreshSeq,
                            range: range, restRevision: restRevision, day: day, locale: locale)
+            if key == next, let value { return value }
+            let result = build()
+            key = next
+            value = result
+            return result
+        }
+    }
+
+    /// The selected weekly digest is independent of Trends' range picker, but its builder scans all
+    /// persisted days and recomputes the Rest composite. Keep it across unrelated screen redraws;
+    /// refreshSeq, anchor, effort scale, and locale cover every input that can change the result.
+    @MainActor private final class WeeklyDigestCache {
+        private struct Key: Equatable {
+            let repo: ObjectIdentifier
+            let refreshSeq: Int
+            let anchorDay: String
+            let effortDisplayFactor: Double
+            let locale: String
+        }
+
+        private var key: Key?
+        private var value: WeeklyDigest?
+
+        func get(repo: Repository, anchorDay: String, effortDisplayFactor: Double, locale: String,
+                 build: () -> WeeklyDigest) -> WeeklyDigest {
+            let next = Key(repo: ObjectIdentifier(repo), refreshSeq: repo.refreshSeq,
+                           anchorDay: anchorDay, effortDisplayFactor: effortDisplayFactor,
+                           locale: locale)
             if key == next, let value { return value }
             let result = build()
             key = next
@@ -289,9 +318,9 @@ struct TrendsView: View {
 
     private var scaffold: some View {
         ScreenScaffold(title: "Trends", subtitle: "The thread of you over time.",
-                       // PERF (scroll): lazy column — byte-identical layout (LazyVStack == eager VStack
-                       // alignment/spacing/header). The content is one inner eager VStack, so the staggered
-                       // section reveal is unchanged; this only defers building that stack until it scrolls in.
+                       // PERF (scroll): the scaffold and its per-card section stack are both lazy, so the
+                       // chart-heavy sections below the fold are built as they approach the viewport. Keep
+                       // the same alignment, spacing, order, and per-section staggered-appear modifiers.
                        onRefresh: { await repo.refresh() },
                        lazy: true,
                        pulseStyle: true) {
@@ -303,31 +332,29 @@ struct TrendsView: View {
                 // Reuse the resolved windows until the data, range, or loaded Rest series changes.
                 // An unrelated Repository publication must not re-filter five years of history.
                 let metrics = resolvedMetrics
-                VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+                LazyVStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
                     // The main card list ripples in once on appear (Reduce-Motion safe).
-                    Group {
-                        rangeBar(recovery: metrics.recovery)
-                            .staggeredAppear(index: 0)
-                        rangeSummary(charge: metrics.recovery, effort: metrics.strain, rest: metrics.rest)
-                            .staggeredAppear(index: 1)
-                        // Week-in-review digest (#208) with prev/next week browsing (#710) — self-hides
-                        // only when NO week in history has data. Past weeks render in the same format.
-                        weeklyDigestNav
-                            .staggeredAppear(index: 2)
-                        heroRecovery(recovery: metrics.recovery)
-                            .staggeredAppear(index: 3)
-                        smallMultiples(hrv: metrics.hrv, rhr: metrics.rhr, strain: metrics.strain)
-                            .staggeredAppear(index: 4)
-                        // Long-horizon training load (CTL/ATL/TSB). Uses the FULL history, not the
-                        // range window — chronic load is inherently a 42-day horizon. Self-hides its
-                        // chart behind an honest "needs N more days" state until enough history exists.
-                        TrainingLoadCard(days: repo.days)
-                            .staggeredAppear(index: 5)
-                        yearStrip
-                            .staggeredAppear(index: 6)
-                        exportReportRow
-                            .staggeredAppear(index: 7)
-                    }
+                    rangeBar(recovery: metrics.recovery)
+                        .staggeredAppear(index: 0)
+                    rangeSummary(charge: metrics.recovery, effort: metrics.strain, rest: metrics.rest)
+                        .staggeredAppear(index: 1)
+                    // Week-in-review digest (#208) with prev/next week browsing (#710) — self-hides
+                    // only when NO week in history has data. Past weeks render in the same format.
+                    weeklyDigestNav
+                        .staggeredAppear(index: 2)
+                    heroRecovery(recovery: metrics.recovery)
+                        .staggeredAppear(index: 3)
+                    smallMultiples(hrv: metrics.hrv, rhr: metrics.rhr, strain: metrics.strain)
+                        .staggeredAppear(index: 4)
+                    // Long-horizon training load (CTL/ATL/TSB). Uses the FULL history, not the
+                    // range window — chronic load is inherently a 42-day horizon. Self-hides its
+                    // chart behind an honest "needs N more days" state until enough history exists.
+                    TrainingLoadCard(days: repo.days)
+                        .staggeredAppear(index: 5)
+                    yearStrip
+                        .staggeredAppear(index: 6)
+                    exportReportRow
+                        .staggeredAppear(index: 7)
                 }
             }
         }
@@ -390,7 +417,14 @@ struct TrendsView: View {
     /// self-hides only when there's no data in ANY week (an all-empty history), matching the old card.
     @ViewBuilder
     private var weeklyDigestNav: some View {
-        let digest = WeeklyDigestSource.digest(from: repo.days, anchorDay: weekAnchorDay)
+        let anchorDay = weekAnchorDay
+        let effortDisplayFactor = UnitPrefs.currentEffortDisplayFactor()
+        let digest = weeklyDigestCache.get(repo: repo, anchorDay: anchorDay,
+                                           effortDisplayFactor: effortDisplayFactor,
+                                           locale: locale.identifier) {
+            WeeklyDigestSource.digest(from: repo.days, anchorDay: anchorDay,
+                                      effortDisplayFactor: effortDisplayFactor)
+        }
         // Only hide the navigation entirely when the WHOLE history is empty — an empty PAST week still
         // shows the header + chevrons so the user can step to a week that does hold data.
         if repo.days.isEmpty {

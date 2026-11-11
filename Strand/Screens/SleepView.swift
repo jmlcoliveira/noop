@@ -171,7 +171,7 @@ struct SleepView: View {
             Group {
                 if let resolved {
                     // Each top-level section fades + rises in sequence on first appear (Reduce-Motion safe).
-                    VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+                    LazyVStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
                         if let sleepUndo { sleepUndoBanner(sleepUndo) }
                         SleepFreshnessNote(latestWakeTs: resolved.night.session.endTs)
                         if resultNoticeVisible {
