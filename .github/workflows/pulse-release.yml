@@ -1,0 +1,199 @@
+name: Pulse iPhone release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Create a GitHub release and advertise it in AltStore. Choose true only after simulator review and feedback."
+        required: true
+        type: boolean
+        default: false
+      release_notes:
+        description: "Release notes used only when publish is true."
+        required: false
+        type: string
+      simulator_feedback:
+        description: "Required for publish: confirm simulator review is complete and summarize its feedback."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-ipa:
+    name: Build unsigned iPhone IPA
+    runs-on: macos-26
+    timeout-minutes: 50
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+      ipa_name: ${{ steps.package.outputs.ipa_name }}
+      artifact_name: ${{ steps.package.outputs.artifact_name }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build Pulse app and widget for iPhone
+        run: >-
+          xcodebuild -scheme NOOPiOS -configuration Release
+          -destination 'generic/platform=iOS'
+          -derivedDataPath build/dd
+          BUNDLE_ID_PREFIX=dev.pulse.companion
+          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+          build
+
+      - name: Package and validate sideload IPA
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's/^[[:space:]]*MARKETING_VERSION: "\([^"]*\)"/\1/p' project.yml | head -1)
+          test -n "$VERSION" || { echo "MARKETING_VERSION missing from project.yml" >&2; exit 1; }
+          APP="build/dd/Build/Products/Release-iphoneos/NOOP.app"
+          test -d "$APP" || { echo "NOOP.app missing from Release-iphoneos" >&2; exit 1; }
+          test -d "$APP/PlugIns/NOOPWidgets.appex" || {
+            echo "NOOPWidgets.appex missing; refusing to package without the Pulse widget" >&2
+            exit 1
+          }
+          rm -rf "$APP/Watch"
+          Tools/prepare-ios-sideload-app.sh "$APP"
+
+          IPA_NAME="Pulse-ios-unsigned-v${VERSION}.ipa"
+          IPA_PATH="$GITHUB_WORKSPACE/dist/$IPA_NAME"
+          STAGE="$RUNNER_TEMP/pulse-ipa"
+          rm -rf "$STAGE" "$IPA_PATH"
+          mkdir -p "$STAGE/Payload" "$GITHUB_WORKSPACE/dist"
+          cp -R "$APP" "$STAGE/Payload/"
+          (cd "$STAGE" && zip -qr "$IPA_PATH" Payload)
+          python3 Tools/update_pulse_altstore.py inspect "$IPA_PATH"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "ipa_name=$IPA_NAME" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=pulse-ios-$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.artifact_name }}
+          path: dist/${{ steps.package.outputs.ipa_name }}
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish release and update AltStore source
+    if: ${{ inputs.publish }}
+    needs: build-ipa
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Require the Pulse fork's main branch
+        env:
+          REPOSITORY: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          SIMULATOR_FEEDBACK: ${{ inputs.simulator_feedback }}
+        run: |
+          test "$REPOSITORY" = "jmlcoliveira/noop" || {
+            echo "Publishing is configured only for jmlcoliveira/noop." >&2
+            exit 1
+          }
+          test "$REF" = "refs/heads/main" || {
+            echo "Run publish from main after the simulator review and feedback are complete." >&2
+            exit 1
+          }
+          test -n "${SIMULATOR_FEEDBACK//[[:space:]]/}" || {
+            echo "Provide simulator review feedback before publishing the IPA." >&2
+            exit 1
+          }
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-ipa.outputs.artifact_name }}
+          path: dist
+
+      - name: Verify, publish, and advertise the uploaded IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build-ipa.outputs.version }}
+          IPA_NAME: ${{ needs.build-ipa.outputs.ipa_name }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="pulse-v${VERSION}"
+          IPA="dist/${IPA_NAME}"
+          python3 Tools/update_pulse_altstore.py inspect "$IPA"
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+              --jq '.assets[].name' | grep -Fx "$IPA_NAME" >/dev/null; then
+              gh release upload "$TAG" "$IPA" --repo "$GITHUB_REPOSITORY"
+            fi
+          else
+            NOTES_FILE="$RUNNER_TEMP/pulse-release-notes.md"
+            if [ -n "${RELEASE_NOTES:-}" ]; then
+              printf '%s\n' "$RELEASE_NOTES" > "$NOTES_FILE"
+            else
+              printf 'Pulse %s. Unsigned iPhone build for AltStore and compatible sideloaders.\n' \
+                "$VERSION" > "$NOTES_FILE"
+            fi
+            gh release create "$TAG" "$IPA" --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --title "Pulse $VERSION" --notes-file "$NOTES_FILE"
+          fi
+
+          # Source metadata is only changed after the release contains the exact uploaded asset.
+          ASSET_DIR="$RUNNER_TEMP/pulse-release-asset"
+          mkdir -p "$ASSET_DIR"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$IPA_NAME" --dir "$ASSET_DIR"
+          LOCAL_HASH=$(sha256sum "$IPA" | cut -d ' ' -f 1)
+          UPLOADED_HASH=$(sha256sum "$ASSET_DIR/$IPA_NAME" | cut -d ' ' -f 1)
+          test "$LOCAL_HASH" = "$UPLOADED_HASH" || {
+            echo "This version's immutable release asset differs from the reviewed build." >&2
+            echo "Bump MARKETING_VERSION and CURRENT_PROJECT_VERSION before publishing a new IPA." >&2
+            echo "AltStore source was not updated." >&2
+            exit 1
+          }
+          python3 Tools/update_pulse_altstore.py inspect "$ASSET_DIR/$IPA_NAME"
+
+          RELEASE_BODY=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')
+          PUBLISHED_AT=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json publishedAt --jq '.publishedAt')
+          RELEASE_DATE="${PUBLISHED_AT%%T*}"
+          [[ "$RELEASE_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || {
+            echo "Release has no valid published date; source was not updated." >&2
+            exit 1
+          }
+          DESCRIPTION="${RELEASE_BODY:-${RELEASE_NOTES:-Pulse ${VERSION}. See the release notes for details.}}"
+          python3 Tools/update_pulse_altstore.py update \
+            --ipa "$ASSET_DIR/$IPA_NAME" --tag "$TAG" --asset-name "$IPA_NAME" \
+            --version "$VERSION" --description "$DESCRIPTION" --date "$RELEASE_DATE" \
+            --source altstore-source.json
+
+          if ! git diff --quiet -- altstore-source.json; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add altstore-source.json
+            git commit -m "Publish Pulse $VERSION in AltStore source"
+            git push origin HEAD:main
+          else
+            echo "AltStore source already advertises Pulse $VERSION."
+          fi
