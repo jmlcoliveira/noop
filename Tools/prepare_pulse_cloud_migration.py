@@ -22,7 +22,12 @@ OUTPUT_ROOT = ROOT / "build" / "cloud-migration"
 PRODUCTS = ROOT / "build" / "macOS" / "Build" / "Products" / "Debug"
 SWIFT = ROOT / "Tools" / "prepare_pulse_cloud_migration.swift"
 CORE = ROOT / "Strand" / "Data" / "CloudBackupCore"
-CLOUD_SOURCES = [CORE / "CloudBackupEncryption.swift", CORE / "CloudBackupCompression.swift"]
+CLOUD_SOURCES = [
+    CORE / "CloudBackupEncryption.swift",
+    CORE / "CloudBackupCompression.swift",
+    CORE / "CloudBackupPreferences.swift",
+    CORE / "CloudBackupBackground.swift",
+]
 STORE = ROOT / "Packages" / "WhoopStore" / "Sources" / "WhoopStore"
 CSQLITE = ROOT / "build" / "SourcePackages" / "checkouts" / "GRDB.swift" / "Sources" / "CSQLite"
 DEPENDENCIES = ("GRDB", "ZIPFoundation", "WhoopProtocol", "OuraProtocol")
@@ -107,7 +112,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     source.add_argument("--database", type=Path, help="Copy of the Pulse SQLite database with its matching -wal beside it.")
     source.add_argument("--archive", type=Path, help="Copy of an existing .noopbak export.")
     parser.add_argument("--checkpointed", action="store_true", help="Confirm a database-only copy is fully checkpointed.")
-    parser.add_argument("--preferences", type=Path, help="Copied Pulse UserDefaults plist for whitelisted profile settings.")
+    parser.add_argument("--preferences", type=Path, help="Copied Pulse UserDefaults plist for whitelisted cloud backup preferences.")
     parser.add_argument("--app-version", required=True, help="CFBundleShortVersionString of the source app.")
     parser.add_argument("--app-build", required=True, help="CFBundleVersion of the source app.")
     parser.add_argument("--captured-at", required=True, type=capture_date, help="When the source was copied or exported.")

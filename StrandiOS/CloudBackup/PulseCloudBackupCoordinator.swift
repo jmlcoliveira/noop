@@ -21,9 +21,9 @@ final class PulseCloudBackupCoordinator: ObservableObject {
             switch self {
             case .account: "Updating account…"
             case .checking: "Checking backups…"
-            case .preparing: "Preparing encrypted backup…"
+            case .preparing: "Preparing backup…"
             case .uploading(nil): "Waiting to upload…"
-            case .uploading: "Uploading encrypted backup…"
+            case .uploading: "Uploading backup…"
             case .downloading: "Downloading and verifying backup…"
             case .deleting: "Deleting cloud data…"
             }
@@ -41,12 +41,13 @@ final class PulseCloudBackupCoordinator: ObservableObject {
         var nextAttempt: Date?
         var failures = 0
         var pending: PulseCloudPendingUpload?
-        var abandonedUpload: AbandonedMultipart?
+        var protection: CloudBackupProtection?
+        var abandonedUpload: AbandonedUpload?
         var deletingBackupsFromGeneration: Int?
         var deletionStarted = false
     }
 
-    private struct AbandonedMultipart: Codable, Equatable {
+    private struct AbandonedUpload: Codable, Equatable {
         let id: String
         let accountID: String
         let generation: Int
@@ -71,6 +72,10 @@ final class PulseCloudBackupCoordinator: ObservableObject {
 
     var configured: Bool { PulseCloudAuth.apiKey != nil }
     var automatic: Bool { preferences.automatic }
+    var protection: CloudBackupProtection { preferences.protection ?? .recoveryKey }
+    var canBackUp: Bool {
+        (!protection.requiresRecoveryKey || hasRecoveryCode) && (state?.supports(protection) ?? true)
+    }
     var wifiOnly: Bool { preferences.wifiOnly }
     var lastSuccess: Date? { preferences.lastSuccess }
     var pendingRetry: Date? { preferences.failures > 0 ? preferences.nextAttempt : nil }
@@ -255,7 +260,7 @@ final class PulseCloudBackupCoordinator: ObservableObject {
 
     func setAutomatic(_ value: Bool) {
         guard activity == nil, activeHere, !hasPendingRestore else { return }
-        guard !value || (hasRecoveryCode && !backupsDeletionPending) else { return }
+        guard !value || (canBackUp && !backupsDeletionPending) else { return }
         preferences.automatic = value
         if value { preferences.nextAttempt = nil }
         persist()
@@ -269,13 +274,14 @@ final class PulseCloudBackupCoordinator: ObservableObject {
     }
 
     func enableBackup(
-        using recoveryKey: CloudBackupRecoveryKey, reviewed: PulseCloudState
+        protection: CloudBackupProtection, using recoveryKey: CloudBackupRecoveryKey?, reviewed: PulseCloudState
     ) async -> Bool {
         await withActivity(.checking) {
             guard !self.hasPendingRestore, !self.deletionStarted else { return }
             let credential = try await self.credential()
             let current = try await self.api.state(token: credential.idToken)
             self.accept(current)
+            guard current.supports(protection) else { throw PulseCloudAPIError.protectionUnavailable }
             guard current.generation == reviewed.generation,
                   current.activeDeviceId == reviewed.activeDeviceId,
                   current.backups.first?.id == reviewed.backups.first?.id else {
@@ -283,10 +289,10 @@ final class PulseCloudBackupCoordinator: ObservableObject {
             }
             let device = try self.deviceIdentity()
             // Save the code before claiming so a Keychain failure cannot move the active device.
-            try CloudBackupKeychain.save(recoveryKey, accountID: credential.account.id)
-            self.hasRecoveryCode = true
+            try self.saveRecoveryKeyIfRequired(recoveryKey, protection: protection, accountID: credential.account.id)
             let claimed = try await self.api.claim(device: device, generation: current.generation, token: credential.idToken)
             self.preferences.generation = claimed.generation
+            self.preferences.protection = protection
             self.preferences.automatic = true
             self.preferences.nextAttempt = nil
             self.preferences.failures = 0
@@ -295,6 +301,50 @@ final class PulseCloudBackupCoordinator: ObservableObject {
             self.accept(claimed)
             self.updateBackgroundSchedule()
         }
+    }
+
+    func changeBackupProtection(
+        to protection: CloudBackupProtection, using recoveryKey: CloudBackupRecoveryKey?, reviewed: PulseCloudState
+    ) async -> Bool {
+        await withActivity(.checking) {
+            guard self.activeHere, !self.hasPendingRestore, !self.deletionStarted,
+                  !self.backupsDeletionPending else { throw LocalActionError.backupsChanged }
+            guard !protection.requiresRecoveryKey || recoveryKey != nil else {
+                throw PulseCloudAPIError.recoveryKeyMissing
+            }
+            let credential = try await self.credential()
+            let current = try await self.api.state(token: credential.idToken)
+            self.accept(current)
+            guard current.supports(protection) else { throw PulseCloudAPIError.protectionUnavailable }
+            guard self.activeHere, current.generation == reviewed.generation,
+                  current.activeDeviceId == reviewed.activeDeviceId else { throw LocalActionError.backupsChanged }
+            if let pending = self.preferences.pending, await PulseCloudTransfers.shared.contains(id: pending.id) {
+                throw PulseCloudAPIError.service(status: 409, code: "upload_in_progress")
+            }
+            if let pending = self.preferences.pending,
+               let committed = current.backups.first(where: pending.matches) {
+                self.finishUpload(committed, pending: pending)
+            }
+            let device = try self.deviceIdentity()
+            await self.stopPendingUpload()
+            try await self.abortAbandonedUpload(device: device, credential: credential)
+            try self.saveRecoveryKeyIfRequired(recoveryKey, protection: protection, accountID: credential.account.id)
+            self.preferences.protection = protection
+            self.preferences.fingerprint = nil
+            self.preferences.failures = 0
+            self.preferences.nextAttempt = nil
+            self.persist()
+            self.updateBackgroundSchedule()
+        }
+    }
+
+    private func saveRecoveryKeyIfRequired(
+        _ key: CloudBackupRecoveryKey?, protection: CloudBackupProtection, accountID: String
+    ) throws {
+        guard protection.requiresRecoveryKey else { return }
+        guard let key else { throw PulseCloudAPIError.recoveryKeyMissing }
+        try CloudBackupKeychain.save(key, accountID: accountID)
+        hasRecoveryCode = true
     }
 
     func backupNow() async {
@@ -314,10 +364,13 @@ final class PulseCloudBackupCoordinator: ObservableObject {
     }
 
     func restore(
-        _ backup: PulseCloudBackup, using recoveryKey: CloudBackupRecoveryKey
+        _ backup: PulseCloudBackup, using recoveryKey: CloudBackupRecoveryKey?
     ) async -> Bool {
         await withActivity(.downloading) {
             guard !self.hasPendingRestore, let state = self.state, !self.deletionStarted else { return }
+            guard !backup.protection.requiresRecoveryKey || recoveryKey != nil else {
+                throw PulseCloudAPIError.recoveryKeyMissing
+            }
             try self.requireTransferNetwork()
             let credential = try await self.credential()
             let directory = try CloudBackupFiles.makeWorkingDirectory()
@@ -325,14 +378,15 @@ final class PulseCloudBackupCoordinator: ObservableObject {
             let file = try await self.api.download(backup, into: directory, maxBytes: state.maxBackupBytes,
                                                    token: credential.idToken, wifiOnly: self.wifiOnly)
             let stage = Task.detached(priority: .utility) {
-                try CloudBackupSnapshot.stageRestore(from: file, sha256: backup.sha256, using: recoveryKey)
+                try CloudBackupSnapshot.stageRestore(from: file, sha256: backup.sha256, using: recoveryKey,
+                                                     protection: backup.protection)
             }
             try await withTaskCancellationHandler(operation: { try await stage.value }, onCancel: {
                 stage.cancel()
             })
             self.refreshRestoreStatus()
             // An older backup might have used an earlier recovery code. Preserve the active key.
-            if !self.activeHere || !self.hasRecoveryCode {
+            if let recoveryKey, backup.protection.requiresRecoveryKey, !self.activeHere || !self.hasRecoveryCode {
                 try CloudBackupKeychain.save(recoveryKey, accountID: credential.account.id)
                 self.hasRecoveryCode = true
             }
@@ -357,7 +411,8 @@ final class PulseCloudBackupCoordinator: ObservableObject {
             self.completeBackupDeletion(generation: newGeneration)
             if let current = self.state {
                 self.state = PulseCloudState(activeDeviceId: current.activeDeviceId, generation: newGeneration,
-                                             backups: [], maxBackupBytes: current.maxBackupBytes)
+                                             backups: [], maxBackupBytes: current.maxBackupBytes,
+                                             supportedBackupProtections: current.supportedBackupProtections)
             }
         }
     }
@@ -407,6 +462,7 @@ final class PulseCloudBackupCoordinator: ObservableObject {
 
     func uploadProgress(_ upload: PulseCloudUploadTask, fraction: Double) {
         guard let pending = preferences.pending, pending.id == upload.backupID,
+              pending.protection == protection,
               failedUploadID != upload.backupID, fraction.isFinite,
               activity == nil || canCancelUpload else { return }
         let clipped = min(1, max(0, fraction))
@@ -429,7 +485,7 @@ final class PulseCloudBackupCoordinator: ObservableObject {
         _ upload: PulseCloudUploadTask, result: Result<PulseCloudUploadReceipt, any Error>
     ) -> (() async -> Void)? {
         guard var pending = preferences.pending, pending.id == upload.backupID,
-              pending.generation == preferences.generation else { return nil }
+              pending.generation == preferences.generation, pending.protection == protection else { return nil }
         switch result {
         case .success(.backup(let backup)) where pending.matches(backup):
             if canCancelUpload { activity = nil }
@@ -459,7 +515,7 @@ final class PulseCloudBackupCoordinator: ObservableObject {
         if failedUploadID == pending.id, !discard && cloudError?.needsDeviceReview != true { return nil }
         failedUploadID = pending.id
         if discard {
-            rememberAbandonedMultipart(pending)
+            rememberAbandonedUpload(pending)
             preferences.pending = nil
         }
         recordFailure(error, retry: true)
@@ -508,7 +564,8 @@ final class PulseCloudBackupCoordinator: ObservableObject {
         guard activeHere, !hasPendingRestore, !deletionStarted else { throw PulseCloudAPIError.deviceConflict }
         guard !backupsDeletionPending else { return }
         guard let generation = preferences.generation else { throw PulseCloudAPIError.deviceConflict }
-        if let pending = preferences.pending, await PulseCloudTransfers.shared.contains(id: pending.id),
+        if let pending = preferences.pending, pending.protection == protection,
+           await PulseCloudTransfers.shared.contains(id: pending.id),
            preferences.pending?.id == pending.id {
             activity = .uploading(nil)
             return
@@ -519,27 +576,36 @@ final class PulseCloudBackupCoordinator: ObservableObject {
         let initialCredential = try await credential()
         let current = try await api.state(token: initialCredential.idToken)
         accept(current)
+        guard current.supports(protection) else { throw PulseCloudAPIError.protectionUnavailable }
         let device = try deviceIdentity()
         guard current.activeDeviceId == device.id, current.generation == generation else {
             throw PulseCloudAPIError.deviceConflict
         }
-        try await abortAbandonedMultipart(device: device, credential: initialCredential)
+        try await abortAbandonedUpload(device: device, credential: initialCredential)
         if let pending = preferences.pending {
             if let backup = current.backups.first(where: pending.matches) {
                 finishUpload(backup, pending: pending)
                 if !force { return }
-            } else if (!force || pending.isMultipart), pending.generation == generation, pending.retainedFilesExist {
+            } else if (!force || pending.isMultipart), pending.generation == generation,
+                      pending.protection == protection, pending.retainedFilesExist {
                 try await enqueue(pending, device: device)
                 return
             } else {
                 await stopPendingUpload()
-                try await abortAbandonedMultipart(device: device, credential: initialCredential)
+                try await abortAbandonedUpload(device: device, credential: initialCredential)
             }
         }
         if deferAutomaticBackupIfNeeded(force: force, needsExternalPower: true) { return }
         guard ProcessInfo.processInfo.thermalState != .critical else { throw LocalActionError.thermalLimit }
-        guard let key = try CloudBackupKeychain.load(accountID: initialCredential.account.id) else {
-            throw PulseCloudAPIError.recoveryKeyMissing
+        let protection = self.protection
+        let key: CloudBackupRecoveryKey?
+        if protection.requiresRecoveryKey {
+            guard let savedKey = try CloudBackupKeychain.load(accountID: initialCredential.account.id) else {
+                throw PulseCloudAPIError.recoveryKeyMissing
+            }
+            key = savedKey
+        } else {
+            key = nil
         }
         activity = .preparing
         let priorFingerprint = preferences.fingerprint
@@ -548,12 +614,13 @@ final class PulseCloudBackupCoordinator: ObservableObject {
             let directory = try CloudBackupFiles.makeWorkingDirectory()
             defer { try? FileManager.default.removeItem(at: directory) }
             guard let prepared = try CloudBackupSnapshot.prepareIfChanged(
-                in: directory, using: key, previousFingerprint: force ? nil : priorFingerprint
+                in: directory, using: key, protection: protection, previousFingerprint: force ? nil : priorFingerprint
             ) else { return nil }
             guard prepared.byteCount > 0, prepared.byteCount <= maxBytes else { throw PulseCloudAPIError.tooLarge }
             var pending = PulseCloudPendingUpload(
                 id: UUID().uuidString.lowercased(), generation: generation,
-                size: prepared.byteCount, sha256: prepared.sha256, fingerprint: prepared.fingerprint)
+                size: prepared.byteCount, sha256: prepared.sha256, fingerprint: prepared.fingerprint,
+                storedProtection: protection)
             try pending.retain(file: prepared.fileURL)
             return pending
         }
@@ -597,6 +664,7 @@ final class PulseCloudBackupCoordinator: ObservableObject {
 
     private func enqueue(_ pending: PulseCloudPendingUpload, device: PulseCloudDevice) async throws {
         let uploadCredential = try await credential(force: true)
+        try await requireAccountProtectionSupport(for: pending, token: uploadCredential.idToken)
         try Task.checkCancellation()
         failedUploadID = nil
         partProgress.removeAll()
@@ -605,7 +673,7 @@ final class PulseCloudBackupCoordinator: ObservableObject {
             do {
                 status = try await api.startMultipart(pending, device: device, token: uploadCredential.idToken)
             } catch let error as PulseCloudAPIError where error.shouldDiscardUpload {
-                rememberAbandonedMultipart(pending)
+                rememberAbandonedUpload(pending)
                 preferences.pending = nil
                 persist()
                 pending.discard()
@@ -633,8 +701,7 @@ final class PulseCloudBackupCoordinator: ObservableObject {
                 }
             }
         } else {
-            let request = api.uploadRequest(id: pending.id, size: pending.size, sha256: pending.sha256,
-                                        device: device, generation: pending.generation, token: uploadCredential.idToken)
+            let request = api.uploadRequest(pending, device: device, token: uploadCredential.idToken)
             activity = .uploading(nil)
             PulseCloudTransfers.shared.enqueue(request, file: pending.fileURL,
                 upload: PulseCloudUploadTask(backupID: pending.id, kind: .direct), wifiOnly: wifiOnly)
@@ -650,6 +717,7 @@ final class PulseCloudBackupCoordinator: ObservableObject {
 
     private func completionReady(id: String) -> Bool {
         preferences.pending?.id == id && preferences.pending?.allPartsReceived == true && failedUploadID != id
+            && preferences.pending?.protection == protection
             && (activity == nil || canCancelUpload) && activeHere && !hasPendingRestore
             && !deletionStarted && !backupsDeletionPending
             && defaults.string(forKey: "noop.acceptedTermsVersion") == Terms.currentVersion
@@ -660,12 +728,22 @@ final class PulseCloudBackupCoordinator: ObservableObject {
         activity = .uploading(100)
         do {
             let credential = try await credential()
+            try await requireAccountProtectionSupport(for: pending, token: credential.idToken)
             guard completionReady(id: id) else { return }
             enqueueMultipartCompletion(pending, device: try deviceIdentity(), token: credential.idToken)
         } catch {
             guard completionReady(id: id) else { return }
             await uploadFailed(error, pending: pending)?()
         }
+    }
+
+    private func requireAccountProtectionSupport(for pending: PulseCloudPendingUpload, token: String) async throws {
+        guard pending.protection == .account else { return }
+        let current = try await api.state(token: token)
+        guard preferences.pending?.id == pending.id, protection == pending.protection else { throw CancellationError() }
+        accept(current)
+        guard current.supports(.account) else { throw PulseCloudAPIError.protectionUnavailable }
+        guard activeHere, pending.generation == current.generation else { throw PulseCloudAPIError.deviceConflict }
     }
 
     private func finishUpload(_ backup: PulseCloudBackup, pending: PulseCloudPendingUpload) {
@@ -683,35 +761,35 @@ final class PulseCloudBackupCoordinator: ObservableObject {
             // The service owns retention. Refresh the list on the next visit to the screen.
             self.state = PulseCloudState(activeDeviceId: state.activeDeviceId, generation: state.generation,
                 backups: PulseCloudBackupPolicy.history(afterSaving: backup, previous: state.backups),
-                maxBackupBytes: state.maxBackupBytes)
+                maxBackupBytes: state.maxBackupBytes, supportedBackupProtections: state.supportedBackupProtections)
         }
     }
 
     private func stopPendingUpload() async {
         guard let pending = preferences.pending else { return }
-        rememberAbandonedMultipart(pending)
+        rememberAbandonedUpload(pending)
         preferences.pending = nil
         persist()
         partProgress.removeAll()
         failedUploadID = nil
         await PulseCloudTransfers.shared.cancel(id: pending.id)
         pending.discard()
-        if pending.isMultipart, let current = try? await credential(), let device = try? deviceIdentity() {
-            try? await abortAbandonedMultipart(device: device, credential: current)
+        if let current = try? await credential(), let device = try? deviceIdentity() {
+            try? await abortAbandonedUpload(device: device, credential: current)
         }
     }
 
-    private func rememberAbandonedMultipart(_ pending: PulseCloudPendingUpload) {
-        guard pending.isMultipart, let accountID = preferences.accountID else { return }
-        preferences.abandonedUpload = AbandonedMultipart(id: pending.id, accountID: accountID,
-                                                         generation: pending.generation)
+    private func rememberAbandonedUpload(_ pending: PulseCloudPendingUpload) {
+        guard let accountID = preferences.accountID else { return }
+        preferences.abandonedUpload = AbandonedUpload(id: pending.id, accountID: accountID,
+                                                       generation: pending.generation)
     }
 
-    private func abortAbandonedMultipart(device: PulseCloudDevice, credential: PulseCloudCredential) async throws {
+    private func abortAbandonedUpload(device: PulseCloudDevice, credential: PulseCloudCredential) async throws {
         guard let abandoned = preferences.abandonedUpload, abandoned.accountID == credential.account.id else { return }
         if abandoned.generation == preferences.generation {
-            try await api.abortMultipart(id: abandoned.id, generation: abandoned.generation,
-                                        device: device, token: credential.idToken)
+            try await api.abortUpload(id: abandoned.id, generation: abandoned.generation,
+                                      device: device, token: credential.idToken)
         }
         guard preferences.abandonedUpload == abandoned else { return }
         preferences.abandonedUpload = nil

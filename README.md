@@ -9,13 +9,13 @@
 
 <h1 align="center">NOOP</h1>
 
-<p align="center"><b>Pulse: your strap, your data. Local-first, with optional encrypted backup.</b></p>
+<p align="center"><b>Pulse: your strap, your data. Local-first, with optional cloud backup.</b></p>
 
-> This is the iPhone-focused **Pulse** fork. The optional account and encrypted automatic backup
-> implementation is documented in [Pulse cloud backup](docs/PULSE_CLOUD_BACKUP.md). Recording and
-> analytics stay local; backup requires explicit setup and service access. The upstream NOOP material
-> below remains for architecture and attribution; its no-account/no-server statements are superseded
-> for this optional Pulse feature.
+> This is the iPhone-focused **Pulse** fork. Recording and analytics stay local. Backup requires
+> explicit setup and service access. Account-protected backups restore after sign-in without a
+> separate code, and the backup service can read them. Recovery-code-protected backups are encrypted
+> on the iPhone and require the original code to restore. The upstream NOOP material below remains
+> for architecture and attribution. [Pulse cloud backup](docs/PULSE_CLOUD_BACKUP.md)
 
 <p align="center"><sub>Now in the all-new <b>Liquid Metal</b> design: one living look across iPhone, Android and Mac.</sub></p>
 

@@ -5,7 +5,7 @@ import Foundation
 /// Inside the authenticated backup envelope, a stored ZIP is either bare (legacy) or
 /// prefixed with an 8-byte magic, version, codec, and big-endian 64-bit expanded size.
 enum CloudBackupCompression {
-    static let maxExpandedBytes: UInt64 = 2 * 1_024 * 1_024 * 1_024 + 2 * 1_024 * 1_024
+    static let maxExpandedBytes: UInt64 = 2 * 1_024 * 1_024 * 1_024 + 8 * 1_024 * 1_024
     private static let maxEncodedBytes = maxExpandedBytes + 1_024 * 1_024
     private static let bufferBytes = 64 * 1_024
     private static let magic = Data("PULSEZIP".utf8)
@@ -85,6 +85,13 @@ enum CloudBackupCompression {
             try requireZIP(destination)
         }
         return output
+    }
+
+    /// Account-protected backups use only the bounded, versioned compressed payload format.
+    static func requireWrapped(_ input: URL) throws {
+        let source = try FileHandle(forReadingFrom: input)
+        defer { try? source.close() }
+        guard try readExactly(magic.count, from: source) == magic else { throw Failure.invalidFile }
     }
 
     private static func checkExpandedSize(_ size: UInt64) throws {

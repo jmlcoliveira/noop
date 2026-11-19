@@ -14,6 +14,8 @@ export const SHA256 = /^[0-9a-f]{64}$/;
 const BACKUP_PATH = /^\/v1\/backups\/([^/]+)$/;
 const PARTS_PATH = /^\/v1\/backups\/([^/]+)\/parts(?:\/(complete|0|[1-9]\d?))?$/;
 const MIGRATION_EMAIL = "X-Pulse-Internal-Migration-Email";
+const PROTECTION_HEADER = "X-Pulse-Backup-Protection";
+const RECOVERY_KEY = "recoveryKey";
 
 function displayState(state) {
   return {
@@ -21,6 +23,7 @@ function displayState(state) {
     generation: state.generation,
     backups: state.backups.map(({ backup }) => backup),
     maxBackupBytes: MAX_BACKUP_BYTES,
+    supportedBackupProtections: ["recoveryKey", "account"],
   };
 }
 
@@ -58,6 +61,32 @@ function readUpload(request, maxBytes) {
   const sha256 = request.headers.get("X-Pulse-SHA256") ?? "";
   if (!SHA256.test(sha256)) throw new APIError(400, "invalid_checksum");
   return { size, sha256 };
+}
+
+function readProtection(value = RECOVERY_KEY) {
+  if (value === RECOVERY_KEY || value === "account") return value;
+  throw new APIError(400, "invalid_protection");
+}
+
+function parsePartManifest(text) {
+  const manifest = JSON.parse(text);
+  let depth = 0;
+  let seenProtection = false;
+  // JSON.parse keeps the last duplicate key. Reject ambiguous top-level protection, including escaped keys.
+  for (const [token, key, colon] of text.matchAll(/("(?:[^"\\]|\\.)*")(\s*:)?|[{}\[\]]/g)) {
+    if (token === "{" || token === "[") depth++;
+    if (token === "}" || token === "]") depth--;
+    if (colon && depth === 1 && JSON.parse(key) === "protection") {
+      if (seenProtection) throw new APIError(400, "invalid_protection");
+      seenProtection = true;
+    }
+  }
+  return manifest;
+}
+
+function matchesManifest(existing, incoming) {
+  return existing?.size === incoming.size && existing.sha256 === incoming.sha256
+    && (existing.protection ?? RECOVERY_KEY) === incoming.protection;
 }
 
 function matchingObject(object, receipt) {
@@ -205,6 +234,7 @@ export class BackupAccount {
       "Cache-Control": "no-store",
       "Content-Type": "application/octet-stream",
       "Content-Length": String(entry.backup.size),
+      [PROTECTION_HEADER]: entry.backup.protection ?? RECOVERY_KEY,
       "X-Content-Type-Options": "nosniff",
       "X-Pulse-SHA256": entry.backup.sha256,
     };
@@ -225,19 +255,25 @@ export class BackupAccount {
   async #upload(request, id) {
     const device = await readDevice(request);
     const generation = readGeneration(request);
-    const manifest = { id, ...readUpload(request, DIRECT_BACKUP_BYTES) };
+    const protection = readProtection(request.headers.get(PROTECTION_HEADER) ?? undefined);
+    const manifest = { id, ...readUpload(request, DIRECT_BACKUP_BYTES), protection };
     const state = this.#liveState();
     verifyDevice(state, device, generation);
 
     const existing = state.backups.find(({ backup }) => backup.id === id)?.backup;
-    if (existing?.size === manifest.size && existing.sha256 === manifest.sha256) return json(existing);
+    if (matchesManifest(existing, manifest)) return json(existing);
     if (this.storage.kv.get(`used:${id}`)) throw new APIError(409, "backup_id_used");
     if (state.pending?.expires <= Date.now()) this.#abandonUpload(state);
-    if (state.pending) throw new APIError(409, "upload_in_progress");
+    if (state.pending) {
+      if (state.pending.manifest?.id === id && !matchesManifest(state.pending.manifest, manifest)) {
+        throw new APIError(409, "backup_id_used");
+      }
+      throw new APIError(409, "upload_in_progress");
+    }
     verifyCleanupCapacity(state.garbage);
 
     const key = `${this.prefix}/${crypto.randomUUID()}`;
-    state.pending = { key, expires: Date.now() + UPLOAD_LEASE_MS };
+    state.pending = { key, expires: Date.now() + UPLOAD_LEASE_MS, manifest };
     this.#save(state);
     this.uploading.add(key);
 
@@ -247,7 +283,7 @@ export class BackupAccount {
       await this.#scheduleCleanup();
       this.#verifyReservation(key, device, generation);
       try {
-        await this.#writeCiphertext(key, request, manifest);
+        await this.#writePayload(key, request, manifest);
       } catch (error) {
         uncertain = !(error instanceof APIError);
         throw error;
@@ -264,7 +300,8 @@ export class BackupAccount {
   async #startParts(request, id) {
     const device = await readDevice(request);
     const generation = readGeneration(request);
-    const { size, sha256 } = (await smallJSON(request)) ?? {};
+    const { size, sha256, protection: requestedProtection } = (await smallJSON(request, parsePartManifest)) ?? {};
+    const manifest = { id, size, sha256, protection: readProtection(requestedProtection) };
     if (!Number.isSafeInteger(size) || size < 1) throw new APIError(400, "invalid_size");
     if (size > MAX_BACKUP_BYTES) throw new APIError(413, "backup_too_large");
     if (typeof sha256 !== "string" || !SHA256.test(sha256)) throw new APIError(400, "invalid_checksum");
@@ -272,15 +309,16 @@ export class BackupAccount {
     const state = this.#liveState();
     verifyDevice(state, device, generation);
     const existing = state.backups.find(({ backup }) => backup.id === id)?.backup;
-    if (existing?.size === size && existing.sha256 === sha256) {
+    if (matchesManifest(existing, manifest)) {
       return partPlan(size, [], existing);
     }
     if (this.storage.kv.get(`used:${id}`)) throw new APIError(409, "backup_id_used");
     if (state.pending?.expires <= Date.now()) this.#abandonUpload(state);
     if (state.pending) {
-      const { manifest, parts } = state.pending;
-      if (manifest?.id !== id) throw new APIError(409, "upload_in_progress");
-      if (manifest.size !== size || manifest.sha256 !== sha256) throw new APIError(409, "backup_id_used");
+      const { manifest: pendingManifest, parts } = state.pending;
+      if (pendingManifest?.id !== id) throw new APIError(409, "upload_in_progress");
+      if (!matchesManifest(pendingManifest, manifest)) throw new APIError(409, "backup_id_used");
+      if (!parts) throw new APIError(409, "upload_in_progress");
       const received = parts.flatMap((part, index) => part ? [index] : []);
       return partPlan(size, received);
     }
@@ -289,7 +327,7 @@ export class BackupAccount {
     state.pending = {
       key: `${this.prefix}/${crypto.randomUUID()}`,
       expires: Date.now() + UPLOAD_LEASE_MS,
-      manifest: { id, size, sha256 },
+      manifest,
       parts: Array(Math.ceil(size / PART_BYTES)).fill(null),
     };
     this.#save(state);
@@ -324,7 +362,7 @@ export class BackupAccount {
     try {
       await this.#scheduleCleanup();
       this.#verifyReservation(pending.key, device, generation);
-      await this.#writeCiphertext(key, request, receipt, true);
+      await this.#writePayload(key, request, receipt, true);
       const updated = this.#verifyReservation(pending.key, device, generation);
       updated.pending.parts[index] = receipt;
       updated.pending.expires = Date.now() + UPLOAD_LEASE_MS;
@@ -374,6 +412,14 @@ export class BackupAccount {
     const generation = readGeneration(request);
     const state = this.#liveState();
     verifyDevice(state, device, generation);
+    if (state.pending && !state.pending.manifest?.id) {
+      // Older direct reservations did not record an addressable upload ID. Do not
+      // acknowledge a cancellation that cannot fence that still-active writer.
+      if (state.pending.expires > Date.now()) throw new APIError(409, "upload_in_progress");
+      this.#abandonUpload(state);
+      this.#save(state);
+      await this.#scheduleCleanup();
+    }
     if (state.pending?.manifest?.id === id) {
       this.#abandonUpload(state);
       this.#save(state);
@@ -384,13 +430,13 @@ export class BackupAccount {
 
   #pendingParts(state, id) {
     const pending = state.pending;
-    if (pending?.manifest?.id !== id || pending.expires <= Date.now()) {
+    if (pending?.manifest?.id !== id || !pending.parts || pending.expires <= Date.now()) {
       throw new APIError(409, "upload_invalidated");
     }
     return pending;
   }
 
-  async #writeCiphertext(key, request, receipt, allowExisting = false) {
+  async #writePayload(key, request, receipt, allowExisting = false) {
     const checksum = Uint8Array.from(receipt.sha256.match(/../g), (pair) => parseInt(pair, 16));
     let stored;
     try {
@@ -428,7 +474,7 @@ export class BackupAccount {
 
   #commitBackup(state, manifest, entry) {
     if (this.storage.kv.get(`used:${manifest.id}`)) throw new APIError(409, "backup_id_used");
-    const backup = { ...manifest, createdAt: new Date().toISOString() };
+    const backup = { ...manifest, protection: manifest.protection ?? RECOVERY_KEY, createdAt: new Date().toISOString() };
     delete state.pending;
     state.backups.unshift({ ...entry, backup });
     this.#queue(state, state.backups.splice(RETAINED_BACKUPS));

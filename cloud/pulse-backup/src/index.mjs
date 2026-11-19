@@ -9,10 +9,11 @@ export { BackupAccount, BackupMigrationClaim };
 export default {
   async fetch(request, env) {
     try {
-      const path = new URL(request.url).pathname;
+      const { pathname: path, protocol } = new URL(request.url);
       if (request.method === "GET" && path === "/health") return json({ status: "ok" });
       if (request.method === "GET" && path === "/auth/google/callback") return googleOAuthCallback(request);
       if (!path.startsWith("/v1/")) return json({ error: "not_found" }, 404);
+      if (protocol !== "https:") return json({ error: "https_required" }, 400);
 
       const accountDeletion = request.method === "DELETE" && path === "/v1/account";
       const user = await authenticate(request, env, accountDeletion);

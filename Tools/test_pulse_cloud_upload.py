@@ -51,7 +51,7 @@ do {
 let id = "99c53e6e-1647-4d0f-a9e0-839530f7bfe4"
 let original = #"{"id":"99c53e6e-1647-4d0f-a9e0-839530f7bfe4","generation":4,"size":42,"sha256":"old","fingerprint":"old"}"#
 let direct = try JSONDecoder().decode(PulseCloudPendingUpload.self, from: Data(original.utf8))
-precondition(!direct.isMultipart && !direct.allPartsReceived)
+precondition(!direct.isMultipart && !direct.allPartsReceived && direct.protection == .recoveryKey)
 var multipart = PulseCloudPendingUpload(id: id, generation: 4, size: size, sha256: sha, fingerprint: "test",
                                         parts: parts, receivedParts: [])
 try multipart.accept(PulseCloudMultipartStatus(partSize: PulseCloudPendingUpload.partSize, totalParts: 2,
@@ -72,6 +72,38 @@ precondition(multipart.allPartsReceived)
 
 let api = PulseCloudAPI()
 let device = PulseCloudDevice(id: "phone", key: "device-key")
+let legacyRequest = api.uploadRequest(direct, device: device, token: "firebase-token")
+precondition(legacyRequest.value(forHTTPHeaderField: "X-Pulse-Backup-Protection") == "recoveryKey")
+multipart.storedProtection = .account
+let accountRequest = api.uploadRequest(multipart, device: device, token: "firebase-token")
+precondition(accountRequest.value(forHTTPHeaderField: "X-Pulse-Backup-Protection") == "account")
+let startRequest = try api.multipartStartRequest(multipart, device: device, token: "firebase-token")
+let manifest = try JSONSerialization.jsonObject(with: startRequest.httpBody!) as! [String: Any]
+precondition(startRequest.httpMethod == "POST" && startRequest.url?.path == "/v1/backups/\(id)/parts")
+precondition(manifest["sha256"] as? String == sha && manifest["size"] as? Int64 == size)
+precondition(manifest["protection"] as? String == "account")
+
+func backupResponse(protection: Any? = nil) throws -> PulseCloudBackup {
+    let response = HTTPURLResponse(url: legacyRequest.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+    var record: [String: Any] = ["id": id, "size": size, "sha256": sha, "createdAt": "2026-11-19T12:00:00Z"]
+    if let protection { record["protection"] = protection }
+    return try PulseCloudAPI.backupResponse(response, body: JSONSerialization.data(withJSONObject: record))
+}
+let legacyBackup = try backupResponse()
+let accountBackup = try backupResponse(protection: "account")
+precondition(legacyBackup.protection == .recoveryKey && !multipart.matches(legacyBackup))
+precondition(accountBackup.protection == .account && multipart.matches(accountBackup))
+let legacyState = PulseCloudState(activeDeviceId: nil, generation: 0, backups: [], maxBackupBytes: 80)
+precondition(legacyState.supports(.recoveryKey) && !legacyState.supports(.account))
+let modernState = PulseCloudState(activeDeviceId: nil, generation: 0, backups: [], maxBackupBytes: 512,
+                                  supportedBackupProtections: ["recoveryKey", "account", "futureMode"])
+precondition(modernState.supports(.recoveryKey) && modernState.supports(.account))
+for unsupported in ["other", NSNull()] as [Any] {
+    do {
+        _ = try backupResponse(protection: unsupported)
+        fatalError("Unexpected protection must never be accepted")
+    } catch is DecodingError {}
+}
 let upload = api.partRequest(parts[1], upload: multipart, device: device, token: "firebase-token")
 precondition(upload.httpMethod == "PUT")
 precondition(upload.value(forHTTPHeaderField: "Content-Length") == "3")
@@ -116,6 +148,7 @@ class PulseCloudUploadTests(unittest.TestCase):
                     str(sources / "PulseCloudAPI.swift"),
                     str(sources / "PulseCloudBackupPolicy.swift"),
                     str(ROOT / "Strand/Data/CloudBackupCore/CloudBackupEncryption.swift"),
+                    str(ROOT / "Strand/Data/CloudBackupCore/CloudBackupProtection.swift"),
                     str(main),
                     "-o", str(executable),
                 ],

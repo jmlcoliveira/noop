@@ -117,7 +117,10 @@ async function expectError(response, status, error) {
 test("only verified ciphertext is visible, IDs are immutable, and retention keeps seven", async () => {
   const setup = harness();
   const account = setup.create();
-  assert.deepEqual(await state(account), { activeDeviceId: null, generation: 0, backups: [], maxBackupBytes: MAX_BACKUP_BYTES });
+  assert.deepEqual(await state(account), {
+    activeDeviceId: null, generation: 0, backups: [], maxBackupBytes: MAX_BACKUP_BYTES,
+    supportedBackupProtections: ["recoveryKey", "account"],
+  });
   assert.equal((await claim(account, oldDevice, 0)).status, 200);
   const ids = Array.from({ length: 8 }, () => randomUUID());
 
@@ -296,6 +299,7 @@ test("only the matching verified address can claim across UIDs, and the chosen U
   const accounts = [first, second];
   const result = await send(accounts[winner], "GET", `backups/${staged.backup.id}`);
   assert.equal(result.headers.get("X-Pulse-SHA256"), staged.backup.sha256);
+  assert.equal(result.headers.get("X-Pulse-Backup-Protection"), "recoveryKey");
   assert.deepEqual(Buffer.from(await result.arrayBuffer()), ciphertext);
   await expectError(await send(accounts[1 - winner], "GET", `backups/${staged.backup.id}`), 404, "backup_not_found");
 });
@@ -421,11 +425,11 @@ test("adoption follows the seven-snapshot retention rule and removes expired sta
   await expectError(await send(account, "GET", `backups/${staged.backup.id}`), 404, "backup_not_found");
 });
 
-function startParts(account, id, { size, sha256 }, device = oldDevice, generation = 1) {
+function startParts(account, id, { size, sha256, protection }, device = oldDevice, generation = 1) {
   return send(account, "POST", `backups/${id}/parts`, {
     device,
     headers: { "X-Pulse-Generation": generation },
-    body: JSON.stringify({ size, sha256 }),
+    body: JSON.stringify({ size, sha256, protection }),
   });
 }
 
@@ -586,4 +590,160 @@ test("orphaned large reservations apply byte-based backpressure and use bounded 
   await setup.create().alarm();
   assert.deepEqual(batches, [128, 32]);
   assert.equal((await startParts(account, next, manifest)).status, 200);
+});
+
+test("legacy records and in-flight multipart uploads default to recovery-key protection", async (t) => {
+  mockDigestStream(t);
+  const setup = harness();
+  const account = setup.create();
+  assert.equal((await claim(account, oldDevice, 0)).status, 200);
+  const directId = randomUUID();
+  const multipartId = randomUUID();
+  const manifest = { size: ciphertext.length, sha256: hash(ciphertext) };
+  const direct = await put(account, directId);
+  assert.equal(direct.status, 201);
+  assert.equal((await direct.json()).protection, "recoveryKey");
+  assert.equal((await startParts(account, multipartId, manifest)).status, 200);
+
+  // Emulate the JSON persisted by v441 before protection was stored on either record.
+  const legacyState = setup.storage.kv.get("state");
+  const legacyRecord = legacyState.backups[0].backup;
+  delete legacyRecord.protection;
+  delete legacyState.pending.manifest.protection;
+  setup.storage.kv.put("state", legacyState);
+  const restarted = setup.create();
+  assert.deepEqual((await state(restarted)).backups, [legacyRecord]);
+  assert.deepEqual(await (await put(restarted, directId)).json(), legacyRecord);
+  assert.deepEqual(await (await put(restarted, directId, {
+    headers: { "X-Pulse-Backup-Protection": "recoveryKey" },
+  })).json(), legacyRecord);
+  await expectError(await put(restarted, directId, {
+    headers: { "X-Pulse-Backup-Protection": "account" },
+  }), 409, "backup_id_used");
+  await expectError(await startParts(restarted, directId, { ...manifest, protection: "account" }), 409, "backup_id_used");
+  const download = await send(restarted, "GET", `backups/${directId}`);
+  assert.equal(download.headers.get("X-Pulse-Backup-Protection"), "recoveryKey");
+  assert.deepEqual(Buffer.from(await download.arrayBuffer()), ciphertext);
+
+  assert.equal((await startParts(restarted, multipartId, manifest)).status, 200);
+  await expectError(await startParts(restarted, multipartId, { ...manifest, protection: "account" }), 409, "backup_id_used");
+  assert.equal((await putPart(restarted, multipartId, 0, ciphertext)).status, 204);
+  assert.equal((await (await completeParts(restarted, multipartId)).json()).protection, "recoveryKey");
+});
+
+test("direct and multipart uploads retain both explicit modes with matching downloads and replay", async (t) => {
+  mockDigestStream(t);
+  globalThis.FixedLengthStream = class extends TransformStream { constructor() { super(); } };
+  t.after(() => { delete globalThis.FixedLengthStream; });
+  const setup = harness();
+  const account = setup.create();
+  assert.equal((await claim(account, oldDevice, 0)).status, 200);
+  const records = [];
+  for (const protection of ["account", "recoveryKey"]) {
+    const alternate = protection === "account" ? "recoveryKey" : "account";
+    const id = randomUUID();
+    const headers = { "X-Pulse-Backup-Protection": protection };
+    const direct = await put(account, id, { headers });
+    assert.equal(direct.status, 201);
+    const directRecord = await direct.json();
+    assert.equal(directRecord.protection, protection);
+    assert.deepEqual(await (await put(account, id, { headers })).json(), directRecord);
+    await expectError(await put(account, id, {
+      headers: { "X-Pulse-Backup-Protection": alternate },
+    }), 409, "backup_id_used");
+    records.push(directRecord);
+
+    const multipartId = randomUUID();
+    const manifest = { size: ciphertext.length, sha256: hash(ciphertext), protection };
+    assert.equal((await startParts(account, multipartId, manifest)).status, 200);
+    await expectError(await startParts(account, multipartId, { ...manifest, protection: alternate }), 409, "backup_id_used");
+    assert.equal((await putPart(account, multipartId, 0, ciphertext)).status, 204);
+    const complete = await completeParts(account, multipartId);
+    assert.equal(complete.status, 201);
+    const record = await complete.json();
+    assert.equal(record.protection, protection);
+    assert.deepEqual((await (await startParts(account, multipartId, manifest)).json()).backup, record);
+    await expectError(await startParts(account, multipartId, { ...manifest, protection: alternate }), 409, "backup_id_used");
+    assert.deepEqual(await (await completeParts(account, multipartId)).json(), record);
+    records.push(record);
+
+    for (const backup of [directRecord, record]) {
+      const result = await send(account, "GET", `backups/${backup.id}`);
+      assert.equal(result.status, 200);
+      assert.equal(result.headers.get("X-Pulse-Backup-Protection"), protection);
+      assert.equal(result.headers.get("X-Pulse-SHA256"), manifest.sha256);
+      assert.equal(result.headers.get("Cache-Control"), "no-store");
+      assert.deepEqual(Buffer.from(await result.arrayBuffer()), ciphertext);
+    }
+  }
+
+  for (let i = 0; i < 4; i++) records.push(await (await put(account, randomUUID())).json());
+  assert.deepEqual((await state(account)).backups, records.slice(-7).reverse());
+  assert.equal(setup.objects.size, 7);
+  await expectError(await send(account, "GET", `backups/${records[0].id}`), 404, "backup_not_found");
+  assert.equal((await send(account, "DELETE", "account")).status, 204);
+  assert.equal(setup.objects.size, 0);
+});
+
+test("rejects unknown and ambiguous protection values without reserving or storing a file", async () => {
+  const setup = harness();
+  const account = setup.create();
+  assert.equal((await claim(account, oldDevice, 0)).status, 200);
+  const id = randomUUID();
+  for (const protection of ["", "RecoveryKey", "account, account", "account, recoveryKey"]) {
+    await expectError(await put(account, id, { headers: { "X-Pulse-Backup-Protection": protection } }), 400, "invalid_protection");
+  }
+  const manifest = { size: ciphertext.length, sha256: hash(ciphertext) };
+  for (const protection of [null, true, "", "unknown", ["account"], {}]) {
+    await expectError(await startParts(account, id, { ...manifest, protection }), 400, "invalid_protection");
+  }
+  const manifestPrefix = JSON.stringify(manifest).slice(0, -1);
+  for (const key of ["protection", "prote\\u0063tion"]) {
+    await expectError(await send(account, "POST", `backups/${id}/parts`, {
+      device: oldDevice,
+      headers: { "X-Pulse-Generation": "1" },
+      body: `${manifestPrefix},"protection":"account","${key}":"recoveryKey"}`,
+    }), 400, "invalid_protection");
+  }
+  assert.equal(setup.objects.size, 0);
+  assert.equal(setup.storage.kv.get("state").pending, undefined);
+});
+
+test("canceling a matching pending direct upload prevents finalization and keeps other IDs untouched", async () => {
+  const setup = harness();
+  const account = setup.create();
+  assert.equal((await claim(account, oldDevice, 0)).status, 200);
+  const id = randomUUID();
+  const waiting = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  setup.bucket.beforePut = () => { waiting.resolve(); return release.promise; };
+  const writing = put(account, id);
+  await waiting.promise;
+  const manifest = { size: ciphertext.length, sha256: hash(ciphertext) };
+  await expectError(await startParts(account, id, manifest), 409, "upload_in_progress");
+  await expectError(await startParts(account, id, { ...manifest, protection: "account" }), 409, "backup_id_used");
+  assert.equal((await abortParts(account, randomUUID())).status, 204);
+  assert.equal(setup.storage.kv.get("state").pending.manifest.id, id);
+  assert.equal((await abortParts(account, id)).status, 204);
+  assert.equal((await abortParts(account, id)).status, 204);
+  release.resolve();
+  await expectError(await writing, 409, "upload_invalidated");
+  assert.equal(setup.objects.size, 0);
+  assert.deepEqual((await state(account)).backups, []);
+});
+
+test("legacy direct uploads cannot be falsely acknowledged as canceled before their lease expires", async () => {
+  const setup = harness();
+  const account = setup.create();
+  await claim(account, oldDevice, 0);
+  const original = setup.storage.kv.get("state");
+  original.pending = { key: "legacy-direct", expires: Date.now() + 60_000 };
+  setup.storage.kv.put("state", original);
+  await expectError(await abortParts(account, randomUUID()), 409, "upload_in_progress");
+  assert.equal(setup.storage.kv.get("state").pending.key, "legacy-direct");
+  original.pending.expires = Date.now() - 1;
+  setup.storage.kv.put("state", original);
+  assert.equal((await abortParts(account, randomUUID())).status, 204);
+  assert.equal(setup.storage.kv.get("state").pending, undefined);
+  assert.deepEqual((await state(account)).backups, []);
 });

@@ -18,7 +18,7 @@ export function errorResponse(error) {
   return json({ error: "service_unavailable" }, 503);
 }
 
-export async function smallJSON(request) {
+export async function smallJSON(request, parse = JSON.parse) {
   const buffer = new Uint8Array(512);
   const reader = request.body?.getReader();
   if (!reader) throw new APIError(400, "invalid_request");
@@ -34,7 +34,7 @@ export async function smallJSON(request) {
       buffer.set(value, size);
       size += value.length;
     }
-    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(0, size)));
+    return parse(new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(0, size)));
   } catch (error) {
     if (error instanceof APIError) throw error;
     throw new APIError(400, "invalid_request");

@@ -91,6 +91,11 @@ test("the Worker enforces Firebase signature, claim, invitation, and recent-auth
   }
 
   await check({ error: "unauthorized" }, { status: 401, bearer: null });
+  const insecure = await worker.fetch(new Request("http://pulse.example/v1/state", {
+    headers: { Authorization: `Bearer ${token()}` },
+  }), env);
+  assert.equal(insecure.status, 400);
+  assert.deepEqual(await insecure.json(), { error: "https_required" });
   await check({ name: "pulse-test:owner-by-email", method: "GET" });
   await check({ name: "pulse-test:owner-by-uid", method: "GET" }, {
     bearer: token({ sub: "owner-by-uid", email: "other@example.net" }), migrationEmail: "other@example.net",

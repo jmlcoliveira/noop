@@ -37,6 +37,7 @@ struct StrandiOSApp: App {
     /// double-tap handler. See `LiftSessionController`.
     @StateObject private var liftSession: LiftSessionController
     @Environment(\.scenePhase) private var scenePhase
+    @State private var appliedRestoredIcon = false
     /// Appearance preference (System/Light/Dark). Default follows the OS; the Settings picker writes it.
     @AppStorage(AppearanceMode.storageKey) private var appearanceRaw = AppearanceMode.dark.rawValue
     /// Chart data-colour style (Titanium / Classic throwback). Re-colours gauges + charts.
@@ -355,6 +356,15 @@ struct StrandiOSApp: App {
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active {
                 PulseCloudBackupCoordinator.shared.appBecameActive()
+                if !appliedRestoredIcon, CloudBackupSnapshot.lastRestoreOutcome == .restored {
+                    appliedRestoredIcon = true
+                    let target = UserDefaults.standard.bool(forKey: "appIcon.alt") ? "AppIcon-Navy" : nil
+                    if UIApplication.shared.supportsAlternateIcons, UIApplication.shared.alternateIconName != target {
+                        Task { @MainActor in
+                            try? await UIApplication.shared.setAlternateIconName(target)
+                        }
+                    }
+                }
                 CoachBriefScheduler.activateIfEnabled { await model.coach.generateBrief() }
                 model.drainPendingIntents(router: router)
                 // iOS starts a Lift Log banner only for an app on screen, so a banner lost while NOOP was in

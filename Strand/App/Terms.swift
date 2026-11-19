@@ -2,19 +2,19 @@ import Foundation
 
 /// The Terms of Use the first-run gate presents. Bump `currentVersion` when the terms MATERIALLY
 /// change (risk / liability / medical / affiliation wording) to re-prompt every user for a fresh
-/// acknowledgment; leave it for typo fixes. Mirrored on Android by `NoopPrefs.TERMS_VERSION`. The
-/// full text lives in `TERMS.md`, shipped with NOOP.
+/// acknowledgment. The upstream Android gate tracks its own version in `NoopPrefs.TERMS_VERSION`.
+/// The full text lives in `TERMS.md`, shipped with Pulse.
 enum Terms {
-    static let currentVersion = "2.1"
+    static let currentVersion = "2.2"
 
     /// The load-bearing points the user must accept on first launch — the plain-English summary of
-    /// `TERMS.md` §1–§6. Kept identical to the Android `Terms.points`. Each is (headline, body).
+    /// the Pulse addition and §1–§6 in `TERMS.md`. Each is (headline, body).
     /// Wrapped in `String(localized:)` (the `RhythmView.points` pattern) so the gate is localized
     /// like the rest of the app (PR #984); the English wording is the key, and the binding text
     /// stays `TERMS.md` — a translation here is a courtesy, not the agreement.
     static let points: [(String, String)] = [
-        (String(localized: "Local-first, with optional encrypted backup"),
-         String(localized: "Pulse records and computes metrics on your device. If you create an account and enable cloud backup, Firebase handles your account and Cloudflare stores an encrypted copy of your history and included settings. Save your recovery key: your account password cannot decrypt a backup.")),
+        (String(localized: "Local-first, with optional cloud backup"),
+         String(localized: "Pulse records and computes metrics on your device. If you enable cloud backup, Firebase handles sign-in and Cloudflare stores your Pulse history and included settings. You can restore account-protected backups after signing in. Pulse’s backup service can read them. Recovery-code-protected backups are encrypted on your iPhone and require the original recovery code to restore.")),
         (String(localized: "Independent: not affiliated with WHOOP"),
          String(localized: "Pulse is an unofficial project: not affiliated with, endorsed by, or sponsored by WHOOP, Inc. \"WHOOP\" is their trademark, used only to name the hardware Pulse works with.")),
         (String(localized: "Using Pulse may breach WHOOP's Terms of Service"),

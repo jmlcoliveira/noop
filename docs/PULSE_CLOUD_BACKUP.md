@@ -1,4 +1,4 @@
-# Pulse account and encrypted cloud backup
+# Pulse account and cloud backup
 
 Pulse supports optional automatic backup and explicit restore for one active iPhone installation.
 The app continues to record, calculate scores and read screens from its local SQLite database.
@@ -11,7 +11,7 @@ There is no continuous record synchronization or server-side score calculation.
 | --- | --- |
 | Firebase Authentication | Google and email/password sign-in, email verification, password reset and session tokens |
 | `https://pulse.joliveira.xyz` | Authenticated Cloudflare Worker API |
-| Private EU R2 bucket | Encrypted full-history archives |
+| Private EU R2 bucket | Full-history archives with Cloudflare encryption at rest |
 | One SQLite Durable Object per account | Device ownership, completed backup index, deletion fencing and retention |
 | Existing iPhone SQLite database | Collection, history and calculations |
 
@@ -27,14 +27,20 @@ does not grant backup-service access.
 2. For email/password accounts, verify the email, then refresh verification in Pulse.
 3. Review any existing backups before choosing to back up this iPhone. A fresh installation does
    not automatically replace the previous installation's cloud history.
-4. Save the generated recovery key separately and confirm it during setup. The account password
-   does not decrypt archives. Keep the key available after a reinstall or device loss.
+4. Choose **Account protected** or **Recovery code protected**. Account protection lets you
+   restore after signing in without a separate code and lets the backup service read your backup.
+   Recovery-code protection encrypts the backup on your iPhone. Save the generated code separately
+   and confirm it during setup. You need the original code after a reinstall or device loss.
 5. Enable automatic backup. Wi-Fi-only is the default. **Back up now** is also available.
+
+Upgrading from a version with only recovery-code protection keeps that mode. You can explicitly
+change protection for new backups in **Pulse Account & Backup**. Existing archives keep their
+original mode and still need their original recovery code if they had one.
 
 Automatic work is roughly daily when data has changed and the phone is connected to power. It
 defers during active workouts, strap offloads, rescoring, Low Power Mode and serious thermal pressure.
 iOS controls background execution;
-the last-success timestamp is the evidence that a backup completed. Cloud preparation and encryption
+the last-success timestamp is the evidence that a backup completed. Compression and any client encryption
 run away from the main actor. File-backed background URLSession transfers can continue while the
 app is suspended, subject to iOS/network constraints. Force-quitting can cancel background transfers.
 
@@ -43,22 +49,29 @@ app is suspended, subject to iOS/network constraints. Force-quitting can cancel 
 - `CloudBackupDatabase.snapshot` uses SQLite's backup API to capture a committed view including WAL
   pages while recording can continue. It does not copy a live main database file after a checkpoint.
 - The portable copy retains stored history, runs supported schema migrations in staging, and clears
-  source-device cursors and peripheral pairing identifiers. Included settings use the existing backup
-  whitelist. Account credentials, refresh tokens, device keys and recovery keys are excluded.
-- Cloud archives use lossless compression before encryption. All measured history, database indexes
+  source-device cursors and peripheral pairing identifiers. The cloud archive includes
+  `pulse-preferences.json` for portable preferences such as profile details (including date of
+  birth), appearance and layouts, and workout and notification settings. Sign-in state, credentials,
+  device and recovery keys, operating system permissions, and sync cursors are excluded.
+  The selected custom background photo, enable switch and fill mode are also carried; photo recents
+  remain local. Photo staging leaves the current background intact until the database restore commits.
+- Cloud archives use lossless compression. All measured history, database indexes
   and portable settings are retained; no heart-rate sampling, index deletion or `VACUUM` is performed.
   Manual `.noopbak` exports retain their existing ZIP format. Cloud restore also accepts the earlier
   encrypted ZIP payloads.
-- The encryption envelope uses AES-256-GCM in bounded
-  1 MiB chunks, a fresh 32-byte salt, and an HKDF-SHA256 per-file key. Each chunk authenticates the
-  header and chunk position; size/truncation checks reject missing, reordered or extra records.
-- The recovery key contains 256 random bits. It is stored in ThisDeviceOnly Keychain storage and
-  displayed for the owner to save. Its copy action uses a local-only clipboard with a short expiry.
-- The service receives ciphertext and metadata such as account identity, timestamps, file size and
-  ciphertext checksum. It does not receive plaintext archives or the recovery key.
-- The encrypted archive limit is 512 MiB. Files through 80 MiB use a direct upload; larger files use
-  resumable 16 MiB parts. Every part and the whole ciphertext are checked before a backup is visible.
-  Interrupted uploads resume from server-confirmed parts and retain device/generation fencing.
+- Each archive carries its protection mode. **Account protected** uploads the compressed archive
+  without client-side encryption. The Pulse backup service can read it. **Recovery code protected**
+  wraps the compressed archive on the iPhone in AES-256-GCM using 1 MiB chunks, a fresh 32-byte salt
+  and an HKDF-SHA256 per-file key. Each chunk authenticates the header and its position. The
+  recovery key contains 256 random bits and stays with the owner. Pulse stores it in ThisDeviceOnly
+  Keychain storage. Its copy action uses a local-only clipboard with a short expiry.
+- Both modes use HTTPS, private R2 storage with Cloudflare-managed AES-256 encryption at rest,
+  and account and device authorization. The service receives the file and metadata including account
+  identity, protection mode, timestamps, size and SHA-256 checksum. Legacy backups with no mode
+  metadata are recovery-code protected. [Cloudflare R2 data security](https://developers.cloudflare.com/r2/reference/data-security/)
+- The archive limit is 512 MiB. Files through 80 MiB use a direct upload. Larger files use resumable
+  16 MiB parts. The service verifies every part and the complete file before a backup is visible.
+  Interrupted uploads resume from server-confirmed parts and retain device and generation fencing.
 
 The Worker verifies Firebase RS256 signatures against Google's cached public certificates and checks
 issuer, audience, expiry, authentication time, verified email, provider and invitation. It needs no
@@ -69,7 +82,7 @@ checks protect data. Keep the local configuration ignored despite that key not b
 Google sign-in opens the system authentication session, uses Firebase's one-time authorization flow,
 and validates the expected state on return. The fixed HTTPS callback redirects only to Pulse's
 registered native URL. Google client secrets remain in Firebase's provider configuration, not in
-the app or Worker. Signing in does not provide the separate backup recovery key.
+the app or Worker. Recovery-code-protected backups always require their original code.
 
 ## Migration before account creation
 
@@ -89,7 +102,7 @@ Each installation has a UUID and a random ThisDeviceOnly device secret. An expli
 advances an account generation; old installations and already queued writes cannot finalize under
 the previous generation. The server stores only a fingerprint of the device secret.
 
-An immutable upload UUID, exact size and native R2 SHA-256 verification identify each ciphertext.
+An immutable upload UUID, exact size, protection mode and native R2 SHA-256 verification identify each backup.
 Only fully stored, verified uploads enter the restore list. Replaying the same retained upload is
 idempotent, including after a lost HTTP response. The latest seven successful backups are retained.
 Failed writes and retired archives enter a durable cleanup queue; R2 failures are retried by alarm.
@@ -101,8 +114,9 @@ Signing out is separate from deleting stored cloud copies.
 
 ## Restore and Apple Health
 
-Restore downloads into protected staging, verifies and decrypts the file, validates the archive and
-SQLite contents, and checks schema compatibility before requesting installation. The current process
+Restore downloads into protected staging and verifies the file before expanding the archive.
+Recovery-code-protected restores decrypt the file first. Both modes validate the archive and
+SQLite contents and check schema compatibility before requesting installation. The current process
 keeps its existing database open and reports that a full quit/reopen is needed. Readings collected
 after the restore was prepared can be replaced by the chosen historical snapshot.
 
@@ -132,8 +146,9 @@ Firebase identity or global Worker metadata processing occurs in the EU.
 
 ## Validation
 
-Acceptance checks cover consistent snapshots during WAL writes, corruption/wrong-key/size rejection,
-interrupted restore and rollback, stale-device fencing, immutable upload replay, seven-copy retention,
-deletion races, lost responses, token verification, and absence of uploads before consent.
+Acceptance checks cover consistent snapshots during WAL writes, protection choices and legacy defaults,
+corruption, wrong-key and size rejection, interrupted restore and rollback, stale-device fencing,
+immutable upload replay, seven-copy retention, deletion races, lost responses, token verification,
+and absence of uploads before consent.
 Backend tests and local Workerd use synthetic identities and payloads. A simulator build and UI
 review precede any physical-iPhone update; installation requires the owner's explicit approval.

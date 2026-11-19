@@ -67,10 +67,10 @@ final class ProfileStore: ObservableObject {
     /// `ProfileStore.stepsHasBankedMotion`.
     @Published var stepsHasBankedMotion: Bool { didSet { d.set(stepsHasBankedMotion, forKey: K.stepsHasMotion) } }
 
-    // ── Profile picture (optional, on-device only) ──────────────────────────────────────────────
+    // ── Profile picture (optional) ─────────────────────────────────────────────────────────────
     /// The user's chosen profile photo as JPEG bytes, or nil for the default SF-Symbol fallback.
-    /// LOCAL-ONLY — like every other field here it lives in UserDefaults on this device; NOOP is
-    /// fully offline so this is never uploaded anywhere. Always set via ``setAvatar(_:)`` (which
+    /// Stored in UserDefaults on this device and included in a cloud backup only when enabled.
+    /// Always set via ``setAvatar(_:)`` (which
     /// downscales) rather than written directly, so the persisted blob stays small (~256px).
     @Published var avatarImageData: Data? {
         didSet {

@@ -79,9 +79,13 @@ enum CloudBackupSnapshot {
         return FileManager.default.fileExists(atPath: pending.path)
     }
 
-    static func prepareIfChanged(in directory: URL, using recoveryKey: CloudBackupRecoveryKey,
+    static func prepareIfChanged(in directory: URL, using recoveryKey: CloudBackupRecoveryKey?,
+                                 protection: CloudBackupProtection = .recoveryKey,
                                  previousFingerprint: String?) throws -> Prepared? {
         guard !hasPendingRestore else { throw Failure.restorePending }
+        guard !protection.requiresRecoveryKey || recoveryKey != nil else {
+            throw CloudBackupPayload.Failure.recoveryKeyRequired
+        }
         let sourcePath = try StorePaths.defaultDatabasePath()
         let fm = FileManager.default
         guard fm.fileExists(atPath: sourcePath) else { throw Failure.missingDatabase }
@@ -89,7 +93,7 @@ enum CloudBackupSnapshot {
         let database = directory.appendingPathComponent("snapshot.sqlite")
         let archive = directory.appendingPathComponent("snapshot.noopbak")
         let compressed = directory.appendingPathComponent("snapshot.compressed")
-        let encrypted = directory.appendingPathComponent("snapshot.pulsebackup")
+        let payload = directory.appendingPathComponent("snapshot.pulsebackup")
         defer {
             for url in [database, archive, compressed] { try? fm.removeItem(at: url) }
         }
@@ -97,22 +101,27 @@ enum CloudBackupSnapshot {
         _ = try CloudBackupDatabase.preparePortableCopy(at: database.path)
 
         let settings = DataBackup.currentSettingsJSON()
+        let preferences = try CloudBackupPreferences.currentJSON()
         let databaseHash = try CloudBackupEncryption.fileSHA256(database)
         let settingsHash = CloudBackupEncryption.hex(SHA256.hash(data: settings ?? Data()))
-        let fingerprint = CloudBackupEncryption.hex(SHA256.hash(data: Data((databaseHash + settingsHash).utf8)))
+        let preferencesHash = CloudBackupEncryption.hex(SHA256.hash(data: preferences))
+        let identity = databaseHash + settingsHash + preferencesHash + protection.rawValue
+        let fingerprint = CloudBackupEncryption.hex(SHA256.hash(data: Data(identity.utf8)))
         guard fingerprint != previousFingerprint else { return nil }
 
-        try DataBackup.writeCloudArchive(database: database, settingsJSON: settings, to: archive)
+        try DataBackup.writeCloudArchive(database: database, settingsJSON: settings,
+                                        preferencesJSON: preferences, to: archive)
         try fm.removeItem(at: database)
         try CloudBackupCompression.compress(archive, to: compressed)
         try fm.removeItem(at: archive)
-        let sealed = try CloudBackupEncryption.seal(compressed, to: encrypted, using: recoveryKey)
-        return Prepared(fileURL: encrypted, byteCount: sealed.byteCount, sha256: sealed.sha256, fingerprint: fingerprint)
+        let stored = try CloudBackupPayload.prepare(compressed, to: payload, protection: protection, using: recoveryKey)
+        return Prepared(fileURL: payload, byteCount: stored.byteCount, sha256: stored.sha256, fingerprint: fingerprint)
     }
 
     /// Authenticate and validate before publishing a restore request. The current process
     /// keeps its store open. A later process installs the staged copy before opening SQLite.
-    static func stageRestore(from fileURL: URL, sha256: String, using recoveryKey: CloudBackupRecoveryKey) throws {
+    static func stageRestore(from fileURL: URL, sha256: String, using recoveryKey: CloudBackupRecoveryKey?,
+                             protection: CloudBackupProtection = .recoveryKey) throws {
         let fm = FileManager.default
         let working = try CloudBackupFiles.makeWorkingDirectory()
         defer { try? fm.removeItem(at: working) }
@@ -121,9 +130,10 @@ enum CloudBackupSnapshot {
         let staged = working.appendingPathComponent("staged", isDirectory: true)
         try CloudBackupFiles.makeProtectedDirectory(staged)
 
-        try CloudBackupEncryption.open(fileURL, to: decrypted, sha256: sha256, using: recoveryKey)
-        let archive = try CloudBackupCompression.expandIfNeeded(decrypted, to: expanded)
-        if archive != decrypted { try fm.removeItem(at: decrypted) }
+        let payload = try CloudBackupPayload.open(fileURL, to: decrypted, sha256: sha256,
+                                                protection: protection, using: recoveryKey)
+        let archive = try CloudBackupCompression.expandIfNeeded(payload, to: expanded)
+        if payload == decrypted, archive != decrypted { try fm.removeItem(at: decrypted) }
         let database = try DataBackup.extractCloudArchive(archive, into: staged)
         try fm.removeItem(at: archive)
         let latestWorkout = try CloudBackupDatabase.preparePortableCopy(at: database.path)
@@ -169,6 +179,7 @@ enum CloudBackupSnapshot {
             let staged = pending.appendingPathComponent(DataBackup.backupEntryName)
             let transaction = CloudBackupRestoreFiles(pending: pending, database: database, staged: staged)
             let receipt: CloudBackupRestoreFiles.Receipt
+            let preferences: CloudBackupPreferences?
             do {
                 guard let loaded = try transaction.readReceipt() else {
                     // Preserve both database versions. Without a valid receipt the incoming
@@ -179,6 +190,16 @@ enum CloudBackupSnapshot {
                     return
                 }
                 receipt = loaded
+                do {
+                    preferences = try DataBackup.readExtractedCloudPreferences(from: pending)
+                } catch let error as CocoaError where error.code == .fileReadCorruptFile {
+                    // Validation errors are not temporary file-protection failures. Restore the
+                    // previous database even after an interrupted installation and quarantine both.
+                    outcome = .failed(error.localizedDescription)
+                    try transaction.quarantineInvalidReceipt()
+                    settledThisLaunch = true
+                    return
+                }
             } catch {
                 // Data protection can temporarily make a valid receipt unreadable.
                 outcome = .failed(error.localizedDescription)
@@ -187,15 +208,21 @@ enum CloudBackupSnapshot {
             let completed = pending.deletingLastPathComponent()
                 .appendingPathComponent("rollback-\(UUID().uuidString)", isDirectory: true)
             do {
+                let preparedBackground = try preferences?.prepareBackgroundRestore()
                 try transaction.install(preservingPreviousAt: completed,
                                         createRollbackDirectory: CloudBackupFiles.makeProtectedDirectory) {
                     DataBackup.applyExtractedSettings(from: pending)
+                    preferences?.apply(to: .standard)
+                    preparedBackground?.apply(to: .standard)
                     CloudBackupRestoreHealthPolicy.protectRestoredWorkouts(latestStart: receipt.latestWorkoutStart)
                     HealthKitBridge.resetReadAnchorsAfterCloudRestore()
                     UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "backup.lastRestoreAt")
                 }
                 settledThisLaunch = true
                 outcome = .restored
+                if preparedBackground != nil {
+                    Task { @MainActor in BackgroundImageStore.shared.reloadStoredPreferences() }
+                }
                 cleanup(keeping: completed)
             } catch {
                 outcome = .failed(error.localizedDescription)

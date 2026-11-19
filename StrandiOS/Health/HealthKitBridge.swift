@@ -19,12 +19,8 @@ final class HealthKitBridge: ObservableObject {
 
     enum AuthState: Equatable {
         case unknown, unavailable, denied, authorized
-        /// The build can't talk to HealthKit at all: it was re-signed (free Apple ID / AltStore /
-        /// Sideloadly) WITHOUT the `com.apple.developer.healthkit` entitlement, so the framework is
-        /// present but the app can never read/write Health and can never appear under
-        /// Settings › Health › Data Access & Devices. Distinct from `.denied` (entitled build, user
-        /// said no) and `.unavailable` (no HealthKit hardware) so the UI can route to the honest
-        /// file/Shortcuts import path instead of giving impossible Settings instructions (#348).
+        /// The embedded provisioning profile lacks the HealthKit entitlement. The app needs
+        /// a profile and signature that include it before it can request permission (#348).
         case entitlementMissing
     }
 
@@ -78,10 +74,7 @@ final class HealthKitBridge: ObservableObject {
         self.repo = repo
         self.appleDeviceId = appleDeviceId
         self.noopDeviceId = noopDeviceId
-        // Order matters: a free-signed build with no HealthKit entitlement is dead in the water even
-        // where the hardware supports Health, so surface that first. `.unavailable` (no HealthKit at
-        // all, e.g. iPad without the framework) still wins where it applies because we only reach the
-        // entitlement check when `isHealthDataAvailable()` is true.
+        // Check device support before looking for the entitlement in the provisioning profile.
         if !HKHealthStore.isHealthDataAvailable() {
             auth = .unavailable
         } else if !HealthKitBridge.hasHealthKitEntitlement {
@@ -216,30 +209,16 @@ final class HealthKitBridge: ObservableObject {
     /// treat a successful request as `.authorized` and let queries return empty if the user declined.
     func requestAuthorization() async {
         guard HKHealthStore.isHealthDataAvailable() else { auth = .unavailable; return }
-        // A free-signed build (no `com.apple.developer.healthkit` entitlement) can NEVER reach Health:
-        // `requestAuthorization` either throws "Missing application-identifier"/"missing entitlement"
-        // or returns without ever presenting the sheet and leaves every type `.notDetermined`. Either
-        // way the honest answer is "this build can't use Apple Health directly", NOT "you denied it" —
-        // so never fall through to `.denied` (which tells the user to fix it in Settings, where the app
-        // can never appear). Detect via the embedded provisioning profile up front (#348).
+        // Report the missing capability before asking HealthKit to present the permission sheet.
         guard HealthKitBridge.hasHealthKitEntitlement else { auth = .entitlementMissing; return }
         do {
             try await store.requestAuthorization(toShare: writeTypes, read: readTypes)
-            // The entitlement is present (the guard above proved it via the embedded profile, or there's
-            // no profile = App Store build), so a successful request means the bridge is usable. We do
-            // NOT reclassify to `.entitlementMissing` off the post-request `.notDetermined` heuristic
-            // here: on a genuinely-entitled build the user could grant only reads (writes stay
-            // `.notDetermined`) or dismiss the share sheet, and that must stay `.authorized` with the
-            // normal Settings guidance — never the file-import reroute. The provisioning-profile check is
-            // the authoritative signal; the `.notDetermined` fallback only matters when that check can't
-            // run, which on iOS means an App Store build that by definition has the entitlement.
+            // A successful request can leave write types undetermined when the user grants
+            // read access only or dismisses the sheet.
             auth = .authorized
             // Record the current read and share sets — see `requestNewAuthorizationTypesIfNeeded`.
             persistAuthorizationTypeSignature()
         } catch {
-            // A thrown error here is on a build that carries the entitlement (guarded above), so it's a
-            // genuine denial / request failure — keep the normal `.denied` "enable in Settings" path,
-            // never the entitlement-missing reroute.
             auth = .denied
         }
         // First successful grant in this process: arm the live HealthKit stream so a watch-only user
@@ -2164,27 +2143,14 @@ final class HealthKitBridge: ObservableObject {
 
     // MARK: - Entitlement detection (#348)
 
-    /// True when this running build actually carries the `com.apple.developer.healthkit` entitlement —
-    /// i.e. it can genuinely reach Apple Health. False for a free-Apple-ID / AltStore / Sideloadly
-    /// re-sign, which strips the HealthKit capability: the framework links and `isHealthDataAvailable()`
-    /// is still true, but `requestAuthorization` is a dead-end and the app can never appear under
-    /// Settings › Health › Data Access & Devices.
-    ///
-    /// Resolution order (most authoritative first), mirroring `IOSDiagnostics`'s profile parse:
-    ///  1. If an `embedded.mobileprovision` is present (every dev / sideloaded / TestFlight build ships
-    ///     one), slice the wrapped XML plist and look for `com.apple.developer.healthkit` in its
-    ///     `Entitlements` dict. A free re-sign re-writes this profile WITHOUT that key. This is the
-    ///     definitive signal and is unaffected by whether the user later granted/denied permission.
-    ///  2. No embedded profile → an App Store install (App Store strips it). Those are properly signed
-    ///     with whatever capabilities the app declares, so treat the entitlement as PRESENT. This is the
-    ///     conservative default: it never down-routes a legitimately-signed build, so a user who simply
-    ///     denied permission keeps the normal Settings guidance rather than the file-import reroute.
-    ///
-    /// Computed once and cached: the bundle's profile can't change within a process lifetime.
+    /// Checks the embedded provisioning profile for the HealthKit entitlement. A signer may
+    /// replace the profile when re-signing an IPA, so this uses the installed build's profile.
+    /// A missing or unreadable profile leaves the HealthKit authorization request available.
+    /// Cached for the lifetime of the process.
     static let hasHealthKitEntitlement: Bool = {
         guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
               let data = try? Data(contentsOf: url) else {
-            // No embedded profile = App Store build = properly signed. Assume present.
+            // An App Store install can legitimately lack an embedded profile.
             return true
         }
         guard let xmlStart = data.range(of: Data("<?xml".utf8)),
@@ -2198,7 +2164,7 @@ final class HealthKitBridge: ObservableObject {
               let entitlements = plist["Entitlements"] as? [String: Any] else {
             return true
         }
-        // The key is present (and truthy) on an entitled build; a free re-sign omits it entirely.
+        // The entitlement must appear in the provisioning profile.
         return entitlements["com.apple.developer.healthkit"] != nil
     }()
 

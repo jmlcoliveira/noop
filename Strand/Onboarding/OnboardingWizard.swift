@@ -324,7 +324,7 @@ private struct WhatItDoesStep: View {
         .init(icon: "lock.shield",
               tint: StrandPalette.statusPositive,
               title: String(localized: "Own your data, offline"),
-              body: String(localized: "Your history lives on \(Platform.deviceNounPhrase). You can optionally enable encrypted cloud backup to recover it after reinstalling or changing your iPhone.")),
+              body: String(localized: "Your history lives on \(Platform.deviceNounPhrase). You can optionally enable cloud backup to recover it after reinstalling or changing your iPhone.")),
     ]
 
     var body: some View {
@@ -478,7 +478,7 @@ private struct BluetoothStep: View {
                     icon: "lock.fill",
                     tint: StrandPalette.statusPositive,
                     title: String(localized: "A direct Bluetooth connection"),
-                    message: String(localized: "Pulse reads your strap directly over Bluetooth and stores readings locally. Your readings stay on this device unless you enable encrypted cloud backup or choose to export them.")
+                    message: String(localized: "Pulse reads your strap directly over Bluetooth and stores readings locally. Your readings stay on this device unless you enable cloud backup or choose to export them.")
                 )
 
                 Text("When the system prompt appears, choose Allow so Pulse can find your strap.")

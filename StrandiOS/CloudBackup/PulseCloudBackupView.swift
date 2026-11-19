@@ -14,7 +14,7 @@ struct PulseCloudBackupView: View {
 
     var body: some View {
         ScreenScaffold(title: "Pulse Account & Backup",
-                       subtitle: "Keep an encrypted copy of your Pulse history for this iPhone or its replacement.",
+                       subtitle: "Keep a copy of your Pulse history for this iPhone or its replacement.",
                        pulseStyle: true) {
             if cloud.configured {
                 if let email = cloud.email {
@@ -53,11 +53,22 @@ struct PulseCloudBackupView: View {
                 }
             }
         }
-        .task { await cloud.screenOpened() }
+        .task {
+            await cloud.screenOpened()
+            #if DEBUG
+            if CommandLine.arguments.contains("--demo-cloud-protection") {
+                let review = PulseCloudState(activeDeviceId: nil, generation: 0, backups: [],
+                                            maxBackupBytes: 512 * 1_024 * 1_024,
+                                            supportedBackupProtections: ["recoveryKey", "account"])
+                sheet = .setup(review, changing: false)
+            }
+            #endif
+        }
         .sheet(item: $sheet) { item in
             switch item {
-            case .setup(let state):
-                PulseCloudSetupSheet(cloud: cloud, reviewed: state, existingCode: try? cloud.storedRecoveryCode())
+            case .setup(let state, let changing):
+                PulseCloudSetupSheet(cloud: cloud, reviewed: state, existingCode: try? cloud.storedRecoveryCode(),
+                                     changing: changing, protection: setupProtection)
             case .restore(let backup):
                 PulseCloudRestoreSheet(cloud: cloud, backup: backup)
             case .recoveryCode(let code):
@@ -76,7 +87,7 @@ struct PulseCloudBackupView: View {
         }
         .alert("Use this iPhone as the backup device?", isPresented: $confirmDeviceChange) {
             Button("Use this iPhone") {
-                if let state = cloud.state { sheet = .setup(state) }
+                if let state = cloud.state { sheet = .setup(state, changing: false) }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -86,7 +97,7 @@ struct PulseCloudBackupView: View {
 
     private var signInCard: some View {
         card(createAccount ? "Create a Pulse account" : "Sign in", icon: "person.crop.circle") {
-            help("A Pulse account is optional. It gives you access to encrypted cloud backup on one active iPhone.")
+            help("A Pulse account is optional. It gives you access to cloud backup on one active iPhone.")
             TextField("Email address", text: $email)
                 .textContentType(.emailAddress)
                 .keyboardType(.emailAddress)
@@ -151,6 +162,13 @@ struct PulseCloudBackupView: View {
 
     private var cleanEmail: String { email.trimmingCharacters(in: .whitespacesAndNewlines) }
 
+    private var setupProtection: CloudBackupProtection {
+        #if DEBUG
+        if CommandLine.arguments.contains("--demo-cloud-protection") { return .account }
+        #endif
+        return cloud.protection
+    }
+
     private func accountCard(_ email: String) -> some View {
         card("Pulse Account", icon: "person.crop.circle") {
             Text(email)
@@ -212,6 +230,9 @@ struct PulseCloudBackupView: View {
                                     Text(ByteCountFormatter.string(fromByteCount: backup.size, countStyle: .file))
                                         .font(StrandFont.caption)
                                         .foregroundStyle(StrandPalette.textSecondary)
+                                    Text(backup.protection.title)
+                                        .font(StrandFont.caption)
+                                        .foregroundStyle(StrandPalette.textSecondary)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
@@ -231,15 +252,21 @@ struct PulseCloudBackupView: View {
 
     @ViewBuilder
     private var backupControls: some View {
-        if !cloud.hasRecoveryCode, let state = cloud.state {
-            NoopButton("Set up a recovery code", systemImage: "key", kind: .secondary) {
-                sheet = .setup(state)
+        Label(cloud.protection.title, systemImage: cloud.protection.requiresRecoveryKey ? "key" : "person.crop.circle")
+            .font(StrandFont.subhead)
+            .foregroundStyle(StrandPalette.textPrimary)
+        if let state = cloud.state, !state.supports(cloud.protection) {
+            help("Account-protected backup is unavailable right now.")
+        }
+        if let state = cloud.state {
+            NoopButton("Change backup protection", kind: .tertiary) {
+                sheet = .setup(state, changing: true)
             }
-            .disabled(cloud.activity != nil)
+            .disabled(cloud.activity != nil || cloud.backupsDeletionPending)
         }
         Toggle("Automatic backup", isOn: Binding(get: { cloud.automatic }, set: { cloud.setAutomatic($0) }))
             .tint(StrandPalette.accent)
-            .disabled(cloud.activity != nil || !cloud.hasRecoveryCode || cloud.backupsDeletionPending)
+            .disabled(cloud.activity != nil || !cloud.canBackUp || cloud.backupsDeletionPending)
         help("Pulse checks for changes about once a day while your iPhone is charging. iOS decides when it can run in the background.")
         if let date = cloud.lastSuccess ?? cloud.state?.backups.first?.createdAt {
             let formatted = date.formatted(date: .abbreviated, time: .shortened)
@@ -252,7 +279,7 @@ struct PulseCloudBackupView: View {
         NoopButton("Back up now", systemImage: "arrow.up.circle", kind: .secondary) {
             Task { await cloud.backupNow() }
         }
-        .disabled(cloud.activity != nil || !cloud.hasRecoveryCode || cloud.backupsDeletionPending)
+        .disabled(cloud.activity != nil || !cloud.canBackUp || cloud.backupsDeletionPending)
         if cloud.hasRecoveryCode {
             NoopButton("Show recovery code", systemImage: "key", kind: .tertiary) {
                 if let code = try? cloud.storedRecoveryCode() { sheet = .recoveryCode(code) }
@@ -275,12 +302,12 @@ struct PulseCloudBackupView: View {
         } else if state.activeDeviceId != nil {
             help("Another installation is the active backup device. Making this iPhone active stops uploads from that installation.")
         } else {
-            help("Pulse encrypts your health history and included settings on this iPhone before uploading.")
+            help("Back up your health history and included settings from this iPhone.")
         }
         NoopButton(state.backups.isEmpty || cloud.restoreOutcome == .restored ? "Set up cloud backup" : "Keep this iPhone’s data",
                    systemImage: "icloud.and.arrow.up", fullWidth: true) {
             if state.backups.isEmpty, state.activeDeviceId == nil {
-                sheet = .setup(state)
+                sheet = .setup(state, changing: false)
             } else {
                 confirmDeviceChange = true
             }
@@ -362,7 +389,7 @@ struct PulseCloudBackupView: View {
     }
 
     private enum Sheet: Identifiable {
-        case setup(PulseCloudState)
+        case setup(PulseCloudState, changing: Bool)
         case restore(PulseCloudBackup)
         case recoveryCode(String)
         case deleteAccount
@@ -370,7 +397,7 @@ struct PulseCloudBackupView: View {
 
         var id: String {
             switch self {
-            case .setup: "setup"
+            case .setup(_, let changing): changing ? "protection" : "setup"
             case .restore(let backup): backup.id
             case .recoveryCode: "recovery"
             case .deleteAccount: "delete"
@@ -385,29 +412,68 @@ private struct PulseCloudSetupSheet: View {
     @ObservedObject var cloud: PulseCloudBackupCoordinator
     let reviewed: PulseCloudState
     let existingCode: String?
+    let changing: Bool
+    @State private var protection: CloudBackupProtection
     @State private var newKey = CloudBackupRecoveryKey.generate()
     @State private var saved = false
 
     private var code: String { existingCode ?? newKey.code }
+    private var canSave: Bool {
+        reviewed.supports(protection) && (!protection.requiresRecoveryKey || saved)
+            && (!changing || protection != cloud.protection || !cloud.canBackUp)
+    }
+
+    init(cloud: PulseCloudBackupCoordinator, reviewed: PulseCloudState, existingCode: String?,
+         changing: Bool, protection: CloudBackupProtection) {
+        self.cloud = cloud
+        self.reviewed = reviewed
+        self.existingCode = existingCode
+        self.changing = changing
+        _protection = State(initialValue: protection)
+    }
 
     var body: some View {
-        PulseCloudSheet(title: "Set up cloud backup", busy: cloud.activity != nil) {
-            Text("Save this recovery code somewhere you can reach if you lose this iPhone. It unlocks your backup. Pulse can’t reset the code or recover your backup without it.")
-            if existingCode == nil, !reviewed.backups.isEmpty {
-                Text("This code will unlock new backups. To restore an earlier backup, use its original recovery code.")
+        PulseCloudSheet(title: changing ? "Change backup protection" : "Set up cloud backup", busy: cloud.activity != nil) {
+            Picker("Backup protection", selection: $protection) {
+                ForEach(CloudBackupProtection.allCases, id: \.self) { mode in
+                    Text(mode.title).tag(mode)
+                }
             }
-            PulseCloudRecoveryCode(code: code)
-            Toggle("I saved my recovery code", isOn: $saved).tint(StrandPalette.accent)
-            NoopButton("Enable automatic backup", systemImage: "lock.icloud", fullWidth: true) {
+            .pickerStyle(.menu)
+            .disabled(cloud.activity != nil)
+            Text(protection.description)
+            if !reviewed.supports(protection) {
+                Text("Account-protected backup is unavailable right now.")
+            }
+            if changing {
+                Text("Changes apply to new backups. Existing backups keep their protection.")
+            }
+            if protection.requiresRecoveryKey {
+                Text("Save this recovery code somewhere you can reach if you lose this iPhone. It unlocks your backup. Pulse can’t reset the code or recover your backup without it.")
+                if existingCode == nil, reviewed.backups.contains(where: { $0.protection.requiresRecoveryKey }) {
+                    Text("This code will unlock new backups. To restore an earlier backup, use its original recovery code.")
+                }
+                PulseCloudRecoveryCode(code: code)
+                Toggle("I saved my recovery code", isOn: $saved).tint(StrandPalette.accent)
+            }
+            NoopButton(changing ? "Save backup protection" : "Enable automatic backup",
+                       systemImage: "lock.icloud", fullWidth: true) {
+                let selected = protection
+                let key = selected.requiresRecoveryKey ? try? CloudBackupRecoveryKey(code: code) : nil
                 Task {
-                    guard let key = try? CloudBackupRecoveryKey(code: code) else { return }
-                    if await cloud.enableBackup(using: key, reviewed: reviewed) {
+                    let updated: Bool
+                    if changing {
+                        updated = await cloud.changeBackupProtection(to: selected, using: key, reviewed: reviewed)
+                    } else {
+                        updated = await cloud.enableBackup(protection: selected, using: key, reviewed: reviewed)
+                    }
+                    if updated {
                         dismiss()
                         await cloud.runAutomaticBackupIfDue()
                     }
                 }
             }
-            .disabled(!saved || cloud.activity != nil)
+            .disabled(!canSave || cloud.activity != nil)
             PulseCloudSheetStatus(cloud: cloud)
         }
     }
@@ -421,37 +487,46 @@ private struct PulseCloudRestoreSheet: View {
     @State private var confirm = false
     @State private var invalidCode = false
 
+    private var needsRecoveryCode: Bool { backup.protection.requiresRecoveryKey }
+
     var body: some View {
         PulseCloudSheet(title: "Restore cloud backup", busy: cloud.activity != nil) {
             Text(backup.createdAt.formatted(date: .abbreviated, time: .shortened))
                 .font(StrandFont.headline)
-            Text("Enter the recovery code used for this backup. Pulse verifies the backup before replacing your local history.")
-            Text("Restored workouts stay in Pulse. New workouts can still be written to Apple Health.")
-            SecureField("Recovery code", text: $code)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .pulseCloudField()
-            if cloud.hasRecoveryCode {
-                Button("Use saved recovery code") {
-                    if let saved = try? cloud.storedRecoveryCode() { code = saved }
-                }
-                .buttonStyle(NoopButtonStyle(.tertiary))
-                .disabled(cloud.activity != nil)
+            if needsRecoveryCode {
+                Text("Enter the recovery code used for this backup. Pulse verifies the backup before replacing your local history.")
+            } else {
+                Text("This backup is protected by your Pulse account and doesn’t require a recovery code.")
             }
-            if invalidCode {
-                Text("Check the recovery code and try again.").foregroundStyle(StrandPalette.statusWarning)
+            Text("Restored workouts stay in Pulse. New workouts can still be written to Apple Health.")
+            if needsRecoveryCode {
+                SecureField("Recovery code", text: $code)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .pulseCloudField()
+                if cloud.hasRecoveryCode {
+                    Button("Use saved recovery code") {
+                        if let saved = try? cloud.storedRecoveryCode() { code = saved }
+                    }
+                    .buttonStyle(NoopButtonStyle(.tertiary))
+                    .disabled(cloud.activity != nil)
+                }
+                if invalidCode {
+                    Text("Check the recovery code and try again.").foregroundStyle(StrandPalette.statusWarning)
+                }
             }
             NoopButton("Prepare restore", kind: .secondary, fullWidth: true) {
-                invalidCode = (try? CloudBackupRecoveryKey(code: code)) == nil
+                invalidCode = needsRecoveryCode && (try? CloudBackupRecoveryKey(code: code)) == nil
                 confirm = !invalidCode
             }
-            .disabled(code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || cloud.activity != nil)
+            .disabled((needsRecoveryCode && code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                      || cloud.activity != nil)
             PulseCloudSheetStatus(cloud: cloud)
         }
         .alert("Replace data on this iPhone?", isPresented: $confirm) {
             Button("Prepare restore", role: .destructive) {
                 Task {
-                    guard let key = try? CloudBackupRecoveryKey(code: code) else { return }
+                    let key = needsRecoveryCode ? try? CloudBackupRecoveryKey(code: code) : nil
                     let staged = await cloud.restore(backup, using: key)
                     if staged || cloud.hasPendingRestore { dismiss() }
                 }
@@ -459,6 +534,22 @@ private struct PulseCloudRestoreSheet: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Pulse will replace your local history and included settings the next time you fully quit and reopen it.")
+        }
+    }
+}
+
+private extension CloudBackupProtection {
+    var title: LocalizedStringKey {
+        switch self {
+        case .account: "Account protected"
+        case .recoveryKey: "Recovery code protected"
+        }
+    }
+
+    var description: LocalizedStringKey {
+        switch self {
+        case .account: "No separate recovery code is needed. Pulse’s backup service can read these backups."
+        case .recoveryKey: "Only someone with the recovery code can open these backups."
         }
     }
 }

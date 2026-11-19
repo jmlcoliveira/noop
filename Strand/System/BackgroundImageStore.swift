@@ -10,8 +10,8 @@ import StrandDesign
 // the BackgroundFillMode rawValues are byte-identical (both read StrandDesign's BackgroundImagePrefs /
 // BackgroundFillMode). Cloned from the avatar pipeline (ProfileAvatarView.AvatarImage.downscaledJPEG),
 // but the bytes live in a FILE under Application Support rather than a UserDefaults blob — a full-screen
-// photo is far larger than a 256px avatar. Like the avatar, the file + its toggles are device-local and
-// deliberately NOT in the `.noopbak` whitelist.
+// photo is far larger than a 256px avatar. Manual `.noopbak` exports use the cross-platform settings
+// whitelist. iPhone cloud snapshots carry the active photo and its display settings separately.
 //
 // A single shared, @MainActor ObservableObject: the decoded `Image` is cached once and every scaffold's
 // backdrop (LiquidScaffoldSky) + Today's inline sky observe THE SAME instance, so the identical picture
@@ -46,7 +46,9 @@ final class BackgroundImageStore: ObservableObject {
 
     /// How the ACTIVE image is scaled — the fill mode of the most-recent entry. Backed by `recents`
     /// (`@Published`), so the backdrop re-reads it whenever the list changes.
-    var fillMode: BackgroundFillMode { recents.first?.fillMode ?? .fill }
+    var fillMode: BackgroundFillMode {
+        recents.first?.fillMode ?? BackgroundFillMode.resolve(d.string(forKey: BackgroundImagePrefs.fillModeKey) ?? "")
+    }
 
     /// The custom image is the ACTIVE backdrop (top of the precedence: enabled AND actually decoded).
     var isActive: Bool { enabled && image != nil }
@@ -55,7 +57,14 @@ final class BackgroundImageStore: ObservableObject {
     var hasImage: Bool { image != nil }
 
     private init() {
-        enabled = d.bool(forKey: BackgroundImagePrefs.enabledKey)                       // default false
+        enabled = d.bool(forKey: BackgroundImagePrefs.enabledKey)
+        reloadStoredPreferences()
+    }
+
+    /// Refresh the cached backdrop after a cloud restore commits the installed photo's defaults.
+    func reloadStoredPreferences() {
+        let storedEnabled = d.bool(forKey: BackgroundImagePrefs.enabledKey)
+        if enabled != storedEnabled { enabled = storedEnabled }
         var list = Self.parse(d.string(forKey: BackgroundImagePrefs.recentsKey) ?? "")
             .filter { Self.fileExists($0.id) }
         // Migration: pre-recents installs stored ONE `background.jpg`; adopt it as the sole recent so an

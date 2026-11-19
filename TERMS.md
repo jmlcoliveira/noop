@@ -1,24 +1,35 @@
 # Pulse — Terms of Use & Acknowledgment
 
-**Pulse version 2.1 — based on upstream NOOP terms**
+**Pulse version 2.2 — based on upstream NOOP terms**
 
-### Pulse fork and optional encrypted backup
+### Pulse fork and optional cloud backup
 
 Pulse is an independent iPhone-focused fork of NOOP and retains its upstream attribution and
 noncommercial license. The upstream terms below continue to apply, with this explicit addition:
-Pulse can optionally use an account and hosted encrypted backup service. Statements below that
+Pulse can optionally use an account and hosted backup service. Statements below that
 describe NOOP as having no account/server or keeping all data solely on the device describe the
 upstream project, and do not describe enabled Pulse backup.
 
-Recording and analysis remain local. Creating an account uses Firebase Authentication. Enabling
-backup separately uploads an encrypted archive of Pulse history and included settings, which may
-contain imported Apple Health data, through `pulse.joliveira.xyz` to private Cloudflare R2 storage.
-The providers process account and network metadata; the backup service does not receive plaintext
-health records or the recovery key. Save the recovery key separately: resetting the account password
-does not decrypt backups. Backup timing depends on iOS/network availability and is not a guarantee
-against data loss. Restore replaces local history after validation and retains a rollback copy.
-See [Privacy & Security](docs/PRIVACY_SECURITY.md#pulse-fork-optional-encrypted-backup) for the data
-boundary, retention and deletion controls. Account and backup use are optional.
+Recording and analysis remain local. Creating an account uses Firebase Authentication. If you
+separately enable cloud backup, Pulse uploads a compressed archive of your Pulse history and
+included settings over HTTPS through `pulse.joliveira.xyz` to private Cloudflare R2 storage.
+The archive can include imported Apple Health data. The providers process account and network
+metadata. Cloudflare encrypts stored objects at rest. You choose how Pulse protects new backups.
+
+- **Account protected.** You can restore after signing in to Pulse without a separate recovery
+  code. Pulse sends the archive over HTTPS without a separate layer of encryption, so the backup
+  service can read its contents.
+- **Recovery code protected.** Your iPhone encrypts the archive before upload. Only someone with
+  the original recovery code can open it. Save the code separately. Your account password cannot
+  recover the code or decrypt the backup.
+
+Changing protection applies to new backups. Existing copies keep their original protection.
+Upgrading from an earlier version keeps recovery-code protection until you choose to change it.
+Backup timing depends on iOS and network availability. Cloud backup does not guarantee against
+data loss. Restore replaces local history after validation and retains a rollback copy. Account and
+backup use are optional.
+See [Privacy & Security](docs/PRIVACY_SECURITY.md#pulse-fork-optional-cloud-backup) for the data
+boundary, retention and deletion controls.
 
 > **This is not legal advice.** This document was drafted with the help of an AI tool, not a lawyer.
 > It is offered honestly and in good faith, but the NOOP maintainers are not lawyers and nothing here

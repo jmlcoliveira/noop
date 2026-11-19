@@ -1,6 +1,6 @@
 # Privacy & Security
 
-## Pulse fork: optional encrypted backup
+## Pulse fork: optional cloud backup
 
 Pulse keeps recording, analytics and screen reads on the iPhone. Its optional account and backup
 feature is a deliberate fork-specific addition to the upstream model described below.
@@ -13,23 +13,34 @@ feature is a deliberate fork-specific addition to the upstream model described b
   Google processes the selected account and sign-in metadata; Firebase links the verified identity
   to the same Pulse account. The fixed API callback relays the one-time authorization response to
   Pulse. Google account passwords and OAuth client secrets are not handled by the app or backup API.
-- Only explicit backup setup, including recovery-key confirmation, permits health-data uploads.
-  Pulse compresses a consistent database snapshot and included settings, then encrypts the archive
-  on the iPhone. Requests go to `https://pulse.joliveira.xyz`; a private Cloudflare R2 bucket stores
-  the encrypted file. This includes imported Apple Health records already stored in Pulse.
+- Explicit backup setup permits health-data uploads. Pulse compresses a consistent database
+  snapshot, including imported Apple Health records already stored in Pulse, with portable
+  settings such as your profile (including date of birth), appearance, and workout preferences.
+  The selected custom background photo and its display settings are included. Backups exclude
+  sign-in state, credentials, operating system permissions and device sync cursors. Uploads use HTTPS
+  through `pulse.joliveira.xyz` and go to a private Cloudflare R2 bucket.
+  Cloudflare encrypts stored objects at rest with AES-256. [Cloudflare R2 data security](https://developers.cloudflare.com/r2/reference/data-security/)
+- **Account protected.** You can restore after signing in to Pulse without a separate recovery
+  code. The iPhone uploads the compressed archive without an additional layer of encryption.
+  The backup service can read its contents.
+- **Recovery code protected.** The iPhone encrypts the archive before upload using a separate recovery
+  code you confirm during setup. The backup service receives ciphertext and has no recovery code.
+  Save the code separately. Resetting your account password cannot recover a lost code or decrypt
+  a backup that requires it.
 - Cloudflare processes network metadata, Firebase identity tokens, a backup-device identifier,
-  ciphertext, byte counts, ciphertext checksums and backup timestamps. End-to-end encryption hides
-  backup contents, not account identity, traffic metadata or file sizes. Operational platform logs
-  are separate from app analytics; the application does not log tokens or health payloads.
-- Recovery keys stay on the device and in a copy the owner chooses to save. Account password reset
-  cannot recover a lost encryption key. The service does not receive the recovery key or plaintext.
+  backup protection mode, byte counts, checksums and backup timestamps. Operational platform logs
+  are separate from app analytics. The application does not log tokens or health payloads.
+- Upgrading from the recovery-code-only version keeps that protection until you explicitly choose
+  a different mode. Changing the mode applies to new backups. Existing copies keep their protection
+  and still require their original recovery code if they had one.
 - Automatic backup is off until enabled. It is intended for one active installation, attempts a
   changed-data backup roughly daily while connected to power, and defaults to Wi-Fi only. iOS may
   defer background work. Compression is lossless and preserves full recorded history.
   The app displays the last successful backup and supports manual backup. Failed/incomplete uploads
   are not advertised as successful backups; the service retains the latest seven completed copies.
-- Restore is explicit, validates/decrypts into staging, and applies before database handles open on
-  the next launch. A local rollback copy is kept. Restored historical workouts and their calories
+- Restore is explicit, decrypts recovery-code-protected backups and validates either mode in staging.
+  It applies before database handles open on the next launch. A local rollback copy is kept.
+  Restored historical workouts and their calories
   are excluded from automatic Apple Health replay; later workouts can continue exporting.
 - Signing out stops account-based automatic backup. Deleting cloud backups or the account is a
   separate action. Account deletion clears stored backups and Firebase identity; the service keeps
@@ -101,7 +112,7 @@ these are features, not a count of individual requests or destinations.
 | Oura history import / opt-in macOS, iOS build (§1.1b) | Compiled out by default; user starts authorization/import | OAuth credentials, authorization/refresh tokens and history query parameters; no existing NOOP health data | `cloud.ouraring.com`, `api.ouraring.com` |
 | Update check / macOS, iOS, Android (§1.1c) | Automatic check **on by default**, at most daily after onboarding/Terms; manual check on tap | Public release `GET`; no health data or app-added user/account identifier | `api.github.com` |
 | Self-hosted push / Android (§1.1d) | Experimental, **off by default**; configured export after offload/launch or on tap; explicit connection test | Bearer authentication; capability `GET`; versioned health batches with local installation/device IDs on export | User-owned HTTP(S) endpoint |
-| Pulse encrypted backup / iPhone | **Off by default**; explicit account/backup setup, then daily opportunities or manual action | Firebase account requests; authenticated encrypted archives and backup metadata | Firebase Authentication and `pulse.joliveira.xyz` / private Cloudflare R2 |
+| Pulse cloud backup / iPhone | **Off by default**. Explicit account and backup setup, then daily opportunities or manual action | Firebase account requests, backup metadata, and archives with account or recovery-code protection | Firebase Authentication and `pulse.joliveira.xyz` / private Cloudflare R2 |
 
 **Platform services are a separate boundary.** Apple's workout route view uses `MKMapView`
 (`Strand/Screens/WorkoutDetailView.swift`), which can load map data for the displayed region.

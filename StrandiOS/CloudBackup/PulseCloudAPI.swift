@@ -10,6 +10,21 @@ struct PulseCloudBackup: Decodable, Identifiable, Sendable {
     let size: Int64
     let sha256: String
     let createdAt: Date
+    let protection: CloudBackupProtection
+
+    private enum CodingKeys: String, CodingKey {
+        case id, size, sha256, createdAt, protection
+    }
+
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        size = try values.decode(Int64.self, forKey: .size)
+        sha256 = try values.decode(String.self, forKey: .sha256)
+        createdAt = try values.decode(Date.self, forKey: .createdAt)
+        protection = values.contains(.protection) ? try values.decode(CloudBackupProtection.self, forKey: .protection)
+            : .recoveryKey
+    }
 }
 
 struct PulseCloudState: Decodable, Sendable {
@@ -17,6 +32,11 @@ struct PulseCloudState: Decodable, Sendable {
     let generation: Int
     let backups: [PulseCloudBackup]
     let maxBackupBytes: Int64
+    var supportedBackupProtections: [String]?
+
+    func supports(_ protection: CloudBackupProtection) -> Bool {
+        supportedBackupProtections?.contains(protection.rawValue) ?? protection.requiresRecoveryKey
+    }
 }
 
 struct PulseCloudMultipartStatus: Decodable, Sendable {
@@ -33,6 +53,7 @@ enum PulseCloudAPIError: LocalizedError {
     case tooLarge
     case deviceConflict
     case recoveryKeyMissing
+    case protectionUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -44,6 +65,8 @@ enum PulseCloudAPIError: LocalizedError {
             String(localized: "This iPhone is no longer the active backup device. Review the backup settings to make it active again.")
         case .recoveryKeyMissing:
             String(localized: "Enter your recovery code on this iPhone to resume backups.")
+        case .protectionUnavailable:
+            String(localized: "Account-protected backup is unavailable right now.")
         case .invalidResponse:
             String(localized: "Pulse received an unexpected response from the backup service.")
         case .service(401, _):
@@ -100,19 +123,27 @@ struct PulseCloudAPI: Sendable {
     }
 
     func uploadRequest(
-        id: String, size: Int64, sha256: String, device: PulseCloudDevice, generation: Int,
-        token: String
+        _ upload: PulseCloudPendingUpload, device: PulseCloudDevice, token: String
     ) -> URLRequest {
-        put("backups/\(id)", size: size, sha256: sha256, device: device, generation: generation, token: token)
+        var request = put("backups/\(upload.id)", size: upload.size, sha256: upload.sha256,
+                          device: device, generation: upload.generation, token: token)
+        request.setValue(upload.protection.rawValue, forHTTPHeaderField: "X-Pulse-Backup-Protection")
+        return request
     }
 
     func startMultipart(_ upload: PulseCloudPendingUpload, device: PulseCloudDevice, token: String) async throws
         -> PulseCloudMultipartStatus {
+        try await decode(multipartStartRequest(upload, device: device, token: token))
+    }
+
+    func multipartStartRequest(_ upload: PulseCloudPendingUpload, device: PulseCloudDevice, token: String) throws
+        -> URLRequest {
         var request = request("backups/\(upload.id)/parts", method: "POST", token: token, device: device,
                               generation: upload.generation)
-        request.httpBody = try JSONEncoder().encode(Multipart(size: upload.size, sha256: upload.sha256))
+        request.httpBody = try JSONEncoder().encode(Multipart(size: upload.size, sha256: upload.sha256,
+                                                              protection: upload.protection))
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        return try await decode(request)
+        return request
     }
 
     func partRequest(
@@ -127,7 +158,7 @@ struct PulseCloudAPI: Sendable {
                 generation: upload.generation)
     }
 
-    func abortMultipart(id: String, generation: Int, device: PulseCloudDevice, token: String) async throws {
+    func abortUpload(id: String, generation: Int, device: PulseCloudDevice, token: String) async throws {
         let request = request("backups/\(id)/parts", method: "DELETE", token: token, device: device, generation: generation)
         let (body, response) = try await Self.controlSession.data(for: request)
         try Self.validate(response, body: body)
@@ -152,6 +183,10 @@ struct PulseCloudAPI: Sendable {
         let (temporary, response) = try await (wifiOnly ? Self.wifiSession : Self.controlSession).download(for: request)
         defer { try? FileManager.default.removeItem(at: temporary) }
         try Self.validate(response, body: Data())
+        let reportedProtection = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "X-Pulse-Backup-Protection")
+        guard reportedProtection.map({ $0 == backup.protection.rawValue }) ?? backup.protection.requiresRecoveryKey else {
+            throw PulseCloudAPIError.invalidResponse
+        }
         let byteCount = try temporary.resourceValues(forKeys: [.fileSizeKey]).fileSize
         guard byteCount.map(Int64.init) == backup.size else { throw PulseCloudAPIError.invalidResponse }
         let destination = directory.appendingPathComponent("download.pulsebackup")
@@ -241,6 +276,10 @@ struct PulseCloudAPI: Sendable {
     }
 
     private struct Claim: Encodable { let expectedGeneration: Int }
-    private struct Multipart: Encodable { let size: Int64; let sha256: String }
+    private struct Multipart: Encodable {
+        let size: Int64
+        let sha256: String
+        let protection: CloudBackupProtection
+    }
     private struct ServiceError: Decodable { let error: String }
 }

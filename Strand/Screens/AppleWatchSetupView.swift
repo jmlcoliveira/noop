@@ -263,15 +263,13 @@ struct AppleWatchSetupView: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                 case .entitlementMissing:
-                    // The sideload was re-signed without the HealthKit entitlement (free Apple IDs always
-                    // lack it, and some paid reseller certs do too, #930), so the request can never present
-                    // and the app can never appear under Settings › Health. Give the honest path instead
-                    // of an impossible Settings instruction (mirrors #348).
-                    Text("This install can't connect to Apple Health directly. It was signed with a profile that doesn't include Apple's Health permission, so there's nothing to grant here.")
+                    // A profile without HealthKit cannot present its permission request. Whether a
+                    // profile carries the capability depends on its provisioning and signing path.
+                    Text("This build was signed with a profile that lacks the Apple Health capability. Reinstall Pulse with a signer that preserves this capability, then enable Apple Health in Pulse.")
                         .font(StrandFont.subhead)
                         .foregroundStyle(StrandPalette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("You can still bring your data in by importing a Health export from Data Sources. A build from the App Store, or one signed with a paid Apple Developer account, connects directly.")
+                    Text("You can import an Apple Health export ZIP in Data Sources or use Shortcuts Export to send strap data to Apple Health.")
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)

@@ -397,16 +397,11 @@ struct AppleHealthView: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                 case .entitlementMissing:
-                    // #348 / #930: the sideload was re-signed WITHOUT the HealthKit entitlement (free
-                    // Apple IDs always lack it; some paid reseller certs do too), so "Enable Apple Health"
-                    // can never work and the app can never appear under Settings › Health › Data Access
-                    // & Devices. Give the honest path instead of impossible Settings instructions: bring
-                    // data in via a file import or the HealthKit-free Shortcuts export.
-                    Text("This install can't connect to Apple Health directly. It was signed with a profile that doesn't include Apple's Health permission, so there's nothing to enable, and Pulse won't appear under Settings › Health.")
+                    Text("This build was signed with a profile that lacks the Apple Health capability. Reinstall Pulse with a signer that preserves this capability, then enable Apple Health in Pulse.")
                         .font(StrandFont.subhead)
                         .foregroundStyle(StrandPalette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("To get your Apple Health data in anyway: import a Health export .zip in Data Sources, or turn on Shortcuts Export to feed your strap data into Health without the entitlement. (A build installed from the App Store or signed with a paid Apple Developer account connects directly.)")
+                    Text("You can import an Apple Health export ZIP in Data Sources or use Shortcuts Export to send strap data to Apple Health.")
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)

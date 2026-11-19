@@ -3,8 +3,13 @@
 ## Pulse fork scope
 
 This fork targets iPhone. At the owner's explicit request, Pulse adds optional account-based,
-encrypted automatic backup and restore for one active installation. Firebase Authentication supplies
-account identity; the API is `https://pulse.joliveira.xyz`; private Cloudflare R2 stores ciphertext.
+automatic backup and restore for one active installation. Firebase Authentication supplies account
+identity; the API is `https://pulse.joliveira.xyz`; private Cloudflare R2 stores backup files.
+The owner also explicitly requested a choice of protection: recovery-key backups encrypt on the
+device; account-protected backups omit client encryption and can be restored through sign-in.
+Explain that the service can read account-protected backups. Existing backups and upgraded users
+retain recovery-key protection until an explicit choice changes future backups. Both modes retain
+HTTPS, private storage, lossless compression and the same account/device authorization.
 This is a deliberate fork-specific exception to the upstream no-account/no-hosted-service rules
 below. It does not authorize telemetry, cloud-dependent collection or analytics, social features,
 or uploading before explicit backup consent. Keep upstream attribution and licensing intact.

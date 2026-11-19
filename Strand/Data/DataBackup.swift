@@ -223,13 +223,15 @@ enum DataBackup {
     }
 
     private static func writeVerifiedBackupZip(dbURL: URL, to dest: URL, settingsJSON: Data?,
+                                              preferencesJSON: Data? = nil,
                                               stagingDirectory: URL? = nil,
                                               compressionMethod: CompressionMethod = .deflate) throws {
         if let complaint = DatabaseIntegrity.quickCheckFailure(atPath: dbURL.path) {
             throw ExportIntegrityFailure(complaint: complaint)
         }
         try writeBackupZip(dbURL: dbURL, to: dest, settingsJSON: settingsJSON,
-                           manifestJSON: currentManifestJSON(), stagingDirectory: stagingDirectory,
+                           manifestJSON: currentManifestJSON(), preferencesJSON: preferencesJSON,
+                           stagingDirectory: stagingDirectory,
                            compressionMethod: compressionMethod)
         switch verifyWrittenBackup(at: dest) {
         case .intact:
@@ -264,6 +266,7 @@ enum DataBackup {
     }
 
     private static func writeBackupZip(dbURL: URL, to dest: URL, settingsJSON: Data?, manifestJSON: Data,
+                                       preferencesJSON: Data? = nil,
                                        stagingDirectory: URL? = nil,
                                        compressionMethod: CompressionMethod = .deflate) throws {
         let archive = try Archive(url: dest, accessMode: .create)
@@ -277,6 +280,13 @@ enum DataBackup {
             try settingsJSON.write(to: tmpJSON)
             defer { try? fm.removeItem(at: tmpJSON) }
             try archive.addEntry(with: BackupSettings.entryName, fileURL: tmpJSON, compressionMethod: compressionMethod)
+        }
+        if let preferencesJSON {
+            let tmpJSON = scratch.appendingPathComponent("preferences-\(UUID().uuidString).json")
+            try preferencesJSON.write(to: tmpJSON)
+            defer { try? fm.removeItem(at: tmpJSON) }
+            try archive.addEntry(with: CloudBackupPreferences.entryName, fileURL: tmpJSON,
+                                 compressionMethod: compressionMethod)
         }
         // #1410: manifest LAST (after the DB + optional settings) and ALWAYS written — even a legacy
         // nil-settings backup states which build produced it.
@@ -582,15 +592,28 @@ enum DataBackup {
 
     #if os(iOS)
     /// The cloud path wraps a verified stored ZIP in lossless compression before encryption.
-    static func writeCloudArchive(database: URL, settingsJSON: Data?, to destination: URL) throws {
+    static func writeCloudArchive(database: URL, settingsJSON: Data?, preferencesJSON: Data,
+                                  to destination: URL) throws {
         let size = try database.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         guard Int64(size) <= maxBackupSQLiteBytes else { throw BackupArchiveError.entryTooLarge(backupEntryName) }
+        _ = try CloudBackupPreferences.decode(preferencesJSON)
         try writeVerifiedBackupZip(dbURL: database, to: destination, settingsJSON: settingsJSON,
+                                   preferencesJSON: preferencesJSON,
                                    stagingDirectory: destination.deletingLastPathComponent(), compressionMethod: .none)
+        let written = try Archive(url: destination, accessMode: .read)
+        guard let entry = written[CloudBackupPreferences.entryName], entry.type == .file,
+              entry.uncompressedSize == UInt64(preferencesJSON.count) else { throw BackupWriteIncomplete() }
+        var bytes = Data()
+        let checksum = try written.extract(entry) { chunk in
+            guard chunk.count <= preferencesJSON.count - bytes.count else { throw BackupWriteIncomplete() }
+            bytes.append(chunk)
+        }
+        guard checksum == entry.checksum, bytes == preferencesJSON else { throw BackupWriteIncomplete() }
     }
 
     static func extractCloudArchive(_ archive: URL, into directory: URL) throws -> URL {
         try extractBackupZip(at: archive, into: directory, verifyChecksum: true)
+        _ = try readExtractedCloudPreferences(from: directory)
         let database = directory.appendingPathComponent(backupEntryName)
         guard isSQLiteFile(at: database), backupOrigin(of: sqliteTableNames(at: database)) == .mac else {
             throw CocoaError(.fileReadCorruptFile)
@@ -599,6 +622,18 @@ enum DataBackup {
             throw ExportIntegrityFailure(complaint: complaint)
         }
         return database
+    }
+
+    static func readExtractedCloudPreferences(from directory: URL) throws -> CloudBackupPreferences? {
+        let url = directory.appendingPathComponent(CloudBackupPreferences.entryName)
+        do {
+            let input = try FileHandle(forReadingFrom: url)
+            defer { try? input.close() }
+            let data = try input.read(upToCount: CloudBackupPreferences.maxBytes + 1) ?? Data()
+            return try CloudBackupPreferences.decode(data)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+            return nil
+        }
     }
     #endif
 
@@ -704,23 +739,27 @@ enum DataBackup {
                                          allowOversize: Bool = false, verifyChecksum: Bool = false) throws {
         let archive = try Archive(url: zipURL, accessMode: .read)
         var acceptedEntries = Set<String>()
-        for entry in archive where entry.type == .file {
-            let name = (entry.path as NSString).lastPathComponent
+        for entry in archive {
+            let path = verifyChecksum ? entry.path.replacingOccurrences(of: "\\", with: "/") : entry.path
+            let name = (path as NSString).lastPathComponent
             let limit: Int64
             switch name {
             case backupEntryName:
                 limit = allowOversize ? Int64.max : maxBackupSQLiteBytes
             case BackupSettings.entryName:
                 limit = maxBackupSettingsBytes
+            case CloudBackupPreferences.entryName where verifyChecksum:
+                limit = Int64(CloudBackupPreferences.maxBytes)
             default:
                 continue
             }
             if verifyChecksum {
-                guard name == entry.path, acceptedEntries.insert(name).inserted else {
+                guard entry.type == .file, name == entry.path, acceptedEntries.insert(name).inserted else {
                     throw CocoaError(.fileReadCorruptFile)
                 }
                 guard entry.uncompressedSize <= UInt64(limit) else { throw BackupArchiveError.entryTooLarge(name) }
             }
+            guard entry.type == .file else { continue }
             let out = destDir.appendingPathComponent(name)
             if FileManager.default.fileExists(atPath: out.path) { try FileManager.default.removeItem(at: out) }
             FileManager.default.createFile(atPath: out.path, contents: nil)

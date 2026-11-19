@@ -21,6 +21,7 @@ struct PulseCloudPendingUpload: Codable, Sendable {
     let size: Int64
     let sha256: String
     let fingerprint: String
+    var storedProtection: CloudBackupProtection?
     // Earlier installations stored only the five fields above for a direct PUT.
     var parts: [Part]?
     var receivedParts: Set<Int>?
@@ -33,6 +34,7 @@ struct PulseCloudPendingUpload: Codable, Sendable {
     private var partsDirectory: URL { Self.directory.appendingPathComponent(id + ".parts", isDirectory: true) }
     var completionFile: URL { partsDirectory.appendingPathComponent("complete") }
     var isMultipart: Bool { parts != nil }
+    var protection: CloudBackupProtection { storedProtection ?? .recoveryKey }
     var allPartsReceived: Bool { parts?.count == receivedParts?.count && isMultipart }
 
     func file(for number: Int) -> URL { partsDirectory.appendingPathComponent(String(number)) }
@@ -54,7 +56,7 @@ struct PulseCloudPendingUpload: Codable, Sendable {
     }
 
     func matches(_ backup: PulseCloudBackup) -> Bool {
-        backup.id == id && backup.sha256 == sha256 && backup.size == size
+        backup.id == id && backup.sha256 == sha256 && backup.size == size && backup.protection == protection
     }
 
     mutating func retain(file: URL) throws {

@@ -55,16 +55,20 @@ private enum PulseCloudMigration {
         let fm = FileManager.default
 
         var settings: [String: Any] = [:]
+        var preferencesJSON: Data?
         var source = input
         if args[0] == "archive" {
             let extracted = work.appendingPathComponent("extracted", isDirectory: true)
             try fm.createDirectory(at: extracted, withIntermediateDirectories: false)
-            let (extractedDatabase, extractedSettings) = try extract(input, into: extracted)
+            let (extractedDatabase, extractedSettings, extractedPreferences) = try extract(input, into: extracted)
             source = extractedDatabase
+            preferencesJSON = extractedPreferences
             settings = extractedSettings.map(BackupSettings.decode) ?? [:]
         }
         if let preferences {
-            try mergePreferences(from: preferences, into: &settings)
+            let defaults = try loadPreferences(from: preferences)
+            mergeLegacyPreferences(defaults, into: &settings)
+            preferencesJSON = try CloudBackupPreferences.encode(from: defaults, preservingBackgroundFrom: preferencesJSON)
         }
 
         let counts: [String: Int]
@@ -89,7 +93,8 @@ private enum PulseCloudMigration {
         let provenance = BackupManifest.json(appVersion: appVersion, appBuild: appBuild, platform: "apple",
                                              schemaVersion: schemaVersion,
                                              exportedAtMs: Int64(createdAt.timeIntervalSince1970 * 1000))
-        try writeArchive(archive, database: database, settings: settingsJSON, provenance: Data(provenance.utf8))
+        try writeArchive(archive, database: database, settings: settingsJSON,
+                         preferences: preferencesJSON, provenance: Data(provenance.utf8))
         let archiveHash = try CloudBackupEncryption.fileSHA256(archive)
         let databaseHash = try CloudBackupEncryption.fileSHA256(database)
         try CloudBackupCompression.compress(archive, to: payload)
@@ -110,9 +115,9 @@ private enum PulseCloudMigration {
         }
         let checked = work.appendingPathComponent("verified", isDirectory: true)
         try fm.createDirectory(at: checked, withIntermediateDirectories: false)
-        let (checkedDatabase, checkedSettings) = try extract(verified, into: checked)
+        let (checkedDatabase, checkedSettings, checkedPreferences) = try extract(verified, into: checked)
         guard try CloudBackupEncryption.fileSHA256(checkedDatabase) == databaseHash,
-              checkedSettings == settingsJSON else {
+              checkedSettings == settingsJSON, checkedPreferences == preferencesJSON else {
             throw MigrationFailure.preparation
         }
 
@@ -146,10 +151,14 @@ private enum PulseCloudMigration {
         }
     }
 
-    private static func mergePreferences(from file: URL, into settings: inout [String: Any]) throws {
+    private static func loadPreferences(from file: URL) throws -> [String: Any] {
         guard let bytes = try? Data(contentsOf: file),
               let plist = try? PropertyListSerialization.propertyList(from: bytes, format: nil),
               let defaults = plist as? [String: Any] else { throw MigrationFailure.preferences }
+        return defaults
+    }
+
+    private static func mergeLegacyPreferences(_ defaults: [String: Any], into settings: inout [String: Any]) {
         for (canonical, key) in BackupSettings.appleDefaultsKey {
             if let value = defaults[key] { settings[canonical] = value }
         }
@@ -161,12 +170,16 @@ private enum PulseCloudMigration {
         }
     }
 
-    private static func writeArchive(_ destination: URL, database: URL, settings: Data?, provenance: Data) throws {
+    private static func writeArchive(_ destination: URL, database: URL, settings: Data?,
+                                     preferences: Data?, provenance: Data) throws {
         let archive = try Archive(url: destination, accessMode: .create)
         try archive.addEntry(with: databaseEntry, fileURL: database, compressionMethod: .none)
         if let settings {
             guard settings.count <= settingsLimit else { throw MigrationFailure.preferences }
             try add(settings, named: BackupSettings.entryName, to: archive, beside: destination)
+        }
+        if let preferences {
+            try add(preferences, named: CloudBackupPreferences.entryName, to: archive, beside: destination)
         }
         try add(provenance, named: BackupManifest.entryName, to: archive, beside: destination)
     }
@@ -178,19 +191,21 @@ private enum PulseCloudMigration {
         try archive.addEntry(with: name, fileURL: file, compressionMethod: .none)
     }
 
-    private static func extract(_ source: URL, into destination: URL) throws -> (URL, Data?) {
+    private static func extract(_ source: URL, into destination: URL) throws -> (URL, Data?, Data?) {
         do {
             let archive = try Archive(url: source, accessMode: .read)
             var accepted = Set<String>()
-            for entry in archive where entry.type == .file {
-                let name = (entry.path as NSString).lastPathComponent
+            for entry in archive {
+                let path = entry.path.replacingOccurrences(of: "\\", with: "/")
+                let name = (path as NSString).lastPathComponent
                 let limit: Int64
                 switch name {
                 case databaseEntry: limit = databaseLimit
                 case BackupSettings.entryName: limit = settingsLimit
+                case CloudBackupPreferences.entryName: limit = Int64(CloudBackupPreferences.maxBytes)
                 default: continue
                 }
-                guard name == entry.path, accepted.insert(name).inserted,
+                guard entry.type == .file, name == entry.path, accepted.insert(name).inserted,
                       entry.uncompressedSize <= UInt64(limit) else { throw MigrationFailure.archive }
                 let file = destination.appendingPathComponent(name)
                 try Data().write(to: file, options: .withoutOverwriting)
@@ -210,7 +225,11 @@ private enum PulseCloudMigration {
             let settings = accepted.contains(BackupSettings.entryName)
                 ? try Data(contentsOf: destination.appendingPathComponent(BackupSettings.entryName))
                 : nil
-            return (destination.appendingPathComponent(databaseEntry), settings)
+            let preferences = accepted.contains(CloudBackupPreferences.entryName)
+                ? try Data(contentsOf: destination.appendingPathComponent(CloudBackupPreferences.entryName))
+                : nil
+            if let preferences { _ = try CloudBackupPreferences.decode(preferences) }
+            return (destination.appendingPathComponent(databaseEntry), settings, preferences)
         } catch {
             throw MigrationFailure.archive
         }

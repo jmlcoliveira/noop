@@ -1,11 +1,11 @@
 # Scope & non-goals
 
-> **Pulse fork exception:** the owner has explicitly added optional, account-based encrypted
-> automatic backup and restore for one active iPhone. Collection, scoring and screen reads remain
-> local. The backup service receives ciphertext only after consent; account identity is handled by
-> Firebase Authentication. This exception supersedes the upstream no-account/no-server rules for
-> this feature only. See [Pulse cloud backup](PULSE_CLOUD_BACKUP.md). The upstream scope below
-> remains the reference for other features.
+> **Pulse fork exception.** The owner has explicitly added optional account-based automatic backup
+> and restore for one active iPhone. Collection, scoring and screen reads remain local. Backup
+> requires explicit setup and offers a choice of protection. The service can read account-protected
+> backups. Recovery-code-protected backups are encrypted on the iPhone before upload. Firebase
+> Authentication handles account identity. This exception supersedes the upstream no-account and
+> no-server rules only for Pulse backup. [Pulse cloud backup](PULSE_CLOUD_BACKUP.md)
 
 NOOP exists to give you **your own strap data, offline and on-device**. That mission sets hard limits
 on what belongs in the app. This page names the WHOOP-app features that stay **out of scope** — and the

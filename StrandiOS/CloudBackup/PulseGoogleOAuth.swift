@@ -29,21 +29,52 @@ struct PulseGoogleOAuth: Sendable {
         case invalid
     }
 
+    enum CallbackFailure: String, Sendable {
+        case endpointMismatch
+        case stateMissing
+        case stateMismatch
+        case providerError
+        case codeMissing
+        case ambiguousParameters
+    }
+
+    enum CheckedCallback: Equatable, Sendable {
+        case authorized(URL)
+        case cancelled
+        case rejected(CallbackFailure)
+    }
+
     func callback(_ url: URL) -> Callback {
+        switch checkedCallback(url) {
+        case .authorized(let requestURI): .authorized(requestURI)
+        case .cancelled: .cancelled
+        case .rejected: .invalid
+        }
+    }
+
+    func checkedCallback(_ url: URL) -> CheckedCallback {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.scheme == Self.callbackScheme, components.host == "google",
               components.percentEncodedPath == "/callback",
               components.port == nil, components.user == nil, components.password == nil,
-              components.fragment == nil,
-              Self.value("state", in: components) == state else { return .invalid }
+              components.percentEncodedFragment?.isEmpty != false else { return .rejected(.endpointMismatch) }
         let items = components.queryItems ?? []
-        if Self.value("error", in: components) == "access_denied", !items.contains(where: { $0.name == "code" }) {
-            return .cancelled
+        let states = items.filter { $0.name == "state" }
+        let codes = items.filter { $0.name == "code" }
+        let errors = items.filter { $0.name == "error" }
+        guard states.count <= 1, codes.count <= 1, errors.count <= 1, codes.isEmpty || errors.isEmpty else {
+            return .rejected(.ambiguousParameters)
         }
-        guard !items.contains(where: { $0.name == "error" }),
-              Self.value("code", in: components) != nil,
-              let query = components.percentEncodedQuery,
-              let requestURI = URL(string: "\(Self.redirectURI)?\(query)") else { return .invalid }
+        guard let receivedState = states.first?.value, !receivedState.isEmpty else { return .rejected(.stateMissing) }
+        guard receivedState == state else { return .rejected(.stateMismatch) }
+        if let error = errors.first {
+            return error.value == "access_denied" ? .cancelled : .rejected(.providerError)
+        }
+        guard let code = codes.first?.value, !code.isEmpty else { return .rejected(.codeMissing) }
+        guard let query = components.percentEncodedQuery,
+              let requestURI = URL(string: "\(Self.redirectURI)?\(query)") else {
+            return .rejected(.endpointMismatch)
+        }
         return .authorized(requestURI)
     }
 

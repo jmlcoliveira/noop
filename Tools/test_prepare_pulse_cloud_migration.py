@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from contextlib import closing
+from datetime import datetime
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -90,15 +92,19 @@ def test_migration_restores_committed_wal_and_only_portable_settings(tmp_path, r
     originals = (copied.read_bytes(), copied_wal.read_bytes())
 
     preferences = tmp_path / "preferences.plist"
+    dob = datetime(1990, 5, 24, 4, 5, 6)
+    journal = json.dumps([
+        {"canonical": "Kept behavior", "custom": True},
+        {"canonical": "Default behavior", "custom": False},
+    ]).encode()
     preferences.write_bytes(plistlib.dumps({
         "profile.hrMaxOverride": 188,
-        "profile.age": True,
+        "profile.dateOfBirth": dob,
+        "theme.appearance": "light",
+        "appIcon.alt": True,
         "profile.sex": "synthetic-profile",
         "noop.healthAnchor": b"secret-health-anchor",
-        "journal.catalog.v2": json.dumps([
-            {"canonical": "Kept behavior", "custom": True},
-            {"canonical": "Default behavior", "custom": False},
-        ]).encode(),
+        "journal.catalog.v2": journal,
     }, fmt=plistlib.FMT_BINARY))
     result, output = run_tool("--database", copied, "--preferences", preferences)
     assert result.returncode == 0, result.stderr
@@ -144,13 +150,23 @@ def test_migration_restores_committed_wal_and_only_portable_settings(tmp_path, r
     legacy = tmp_path / "legacy.noopbak"
     with zipfile.ZipFile(plaintext) as archive:
         assert archive.testzip() is None
-        assert archive.namelist() == ["noop-backup.sqlite", "settings.json", "manifest.json"]
+        assert archive.namelist() == ["noop-backup.sqlite", "settings.json", "pulse-preferences.json", "manifest.json"]
         assert all(entry.compress_type == zipfile.ZIP_STORED for entry in archive.infolist())
         migrated.write_bytes(archive.read("noop-backup.sqlite"))
         assert json.loads(archive.read("settings.json")) == {
             "profile.hrMax": 188,
             "profile.sex": "synthetic-profile",
             "journal.customBehaviors": "Kept behavior",
+        }
+        cloud_preferences = json.loads(archive.read("pulse-preferences.json"))
+        assert cloud_preferences["today.dashboardCards"] is None
+        assert {key: value for key, value in cloud_preferences.items() if value is not None} == {
+            "appIcon.alt": True,
+            "profile.dateOfBirth": (dob - datetime(2001, 1, 1)).total_seconds(),
+            "profile.hrMaxOverride": 188,
+            "profile.sex": "synthetic-profile",
+            "theme.appearance": "light",
+            "journal.catalog.v2": base64.b64encode(journal).decode(),
         }
         provenance = json.loads(archive.read("manifest.json"))
         assert provenance["appVersion"] == "12.1.0"
@@ -159,7 +175,8 @@ def test_migration_restores_committed_wal_and_only_portable_settings(tmp_path, r
         assert provenance["schemaVersion"] == manifest["schemaVersion"]
         with zipfile.ZipFile(legacy, "w", compression=zipfile.ZIP_DEFLATED) as old_archive:
             for name in archive.namelist():
-                old_archive.writestr(name, archive.read(name))
+                if name != "pulse-preferences.json":
+                    old_archive.writestr(name, archive.read(name))
     with closing(sqlite3.connect(migrated)) as database:
         assert database.execute("PRAGMA quick_check").fetchone() == ("ok",)
         assert database.execute("PRAGMA journal_mode").fetchone() == ("delete",)
@@ -177,6 +194,15 @@ def test_migration_restores_committed_wal_and_only_portable_settings(tmp_path, r
     assert restored_manifest["recordCounts"] == manifest["recordCounts"]
     assert restored_manifest["settingsCount"] == manifest["settingsCount"]
     assert restored_manifest["sha256"] != manifest["sha256"]
+
+    malformed = tmp_path / "malformed.noopbak"
+    with zipfile.ZipFile(legacy) as existing, zipfile.ZipFile(malformed, "w") as bad_archive:
+        for name in existing.namelist():
+            bad_archive.writestr(name, existing.read(name))
+        bad_archive.writestr("pulse-preferences.json", '{"profile.dateOfBirth":true}')
+    result, output = run_tool("--archive", malformed)
+    assert result.returncode == 1
+    assert not output.exists()
 
 
 def test_migration_refuses_a_wrong_database_or_missing_wal(tmp_path, run_tool):

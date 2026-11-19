@@ -20,7 +20,7 @@ HELPER = ROOT / "Strand" / "Data" / "CloudBackupCore" / "CloudBackupCompression.
 SWIFTC = shutil.which("swiftc")
 WRAPPER_BYTES = 18
 XZ_PREFIX_BYTES = 24
-MAX_EXPANDED_BYTES = 2 * 1024**3 + 2 * 1024**2
+MAX_EXPANDED_BYTES = 2 * 1024**3 + 8 * 1024**2
 HARNESS = r"""
 import Foundation
 

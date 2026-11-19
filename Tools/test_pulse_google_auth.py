@@ -30,20 +30,40 @@ let native = "pulseauth://google/callback?"
 let callbackURL = URL(string: native + query)!
 let requestURI = URL(string: PulseGoogleOAuth.redirectURI + "?" + query)!
 precondition(flow.callback(callbackURL) == .authorized(requestURI))
-precondition(flow.callback(URL(string: native + "error=access_denied&state=random%2Bstate")!) == .cancelled)
-for invalid in [
-    native + "code=other&state=other",
-    native + query + "&state=random%2Bstate",
-    native + query + "&code=duplicate",
-    native + query + "&error=",
-    native + query + "#fragment",
-    native + "code=&state=random%2Bstate",
-    "pulseauth://fake/callback?" + query,
-    "pulseauth://google:443/callback?" + query,
-    "pulseauth://google/call%62ack?" + query,
-    "https://pulse.joliveira.xyz/auth/google/callback?" + query
-] {
-    precondition(flow.callback(URL(string: invalid)!) == .invalid, invalid)
+guard case .authorized(let forwarded) = flow.checkedCallback(callbackURL) else { fatalError("Valid callback") }
+precondition(forwarded.absoluteString == PulseGoogleOAuth.redirectURI + "?" + query)
+let bareFragment = URL(string: native + query + "#")!
+guard case .authorized(let fromBareFragment) = flow.checkedCallback(bareFragment) else {
+    fatalError("An empty fragment does not affect a valid callback")
+}
+precondition(fromBareFragment.absoluteString == forwarded.absoluteString)
+let cancelled = URL(string: native + "error=access_denied&state=random%2Bstate")!
+precondition(flow.callback(cancelled) == .cancelled && flow.checkedCallback(cancelled) == .cancelled)
+let invalid: [(String, PulseGoogleOAuth.CallbackFailure)] = [
+    (native + "code=other", .stateMissing),
+    (native + "code=other&state=", .stateMissing),
+    (native + "code=other&state=other", .stateMismatch),
+    (native + "code=other&state=other#", .stateMismatch),
+    (native + "error=access_denied&state=other", .stateMismatch),
+    (native + "error=temporary_error&error_description=provider-detail&state=random%2Bstate", .providerError),
+    (native + "error=&state=random%2Bstate", .providerError),
+    (native + "state=random%2Bstate", .codeMissing),
+    (native + "code=&state=random%2Bstate", .codeMissing),
+    (native + query + "&st%61te=random%2Bstate", .ambiguousParameters),
+    (native + query + "&code=duplicate", .ambiguousParameters),
+    (native + query + "&error=", .ambiguousParameters),
+    (native + "error=access_denied&error=access_denied&state=random%2Bstate", .ambiguousParameters),
+    (native + query + "#fragment", .endpointMismatch),
+    (native + query + "#%20", .endpointMismatch),
+    ("pulseauth://fake/callback?" + query, .endpointMismatch),
+    ("pulseauth://google:443/callback?" + query, .endpointMismatch),
+    ("pulseauth://google/call%62ack?" + query, .endpointMismatch),
+    ("https://pulse.joliveira.xyz/auth/google/callback?" + query, .endpointMismatch)
+]
+for (url, reason) in invalid {
+    let callback = URL(string: url)!
+    precondition(flow.callback(callback) == .invalid)
+    precondition(flow.checkedCallback(callback) == .rejected(reason))
 }
 precondition(PulseGoogleOAuth(authorizationURL: googleURL(), sessionID: "") == nil)
 precondition(PulseGoogleOAuth(authorizationURL: googleURL(state: ""), sessionID: "session") == nil)
