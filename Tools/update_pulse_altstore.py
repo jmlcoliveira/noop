@@ -314,9 +314,10 @@ def _base_app() -> dict[str, Any]:
         "subtitle": "An offline-first companion for your WHOOP strap.",
         "localizedDescription": (
             "Pulse is an independent iPhone companion for a WHOOP strap you own. "
-            "Strap metrics are computed and stored on-device, without a Pulse account or "
-            "Pulse-operated cloud service. Optional integrations may contact services you "
-            "configure. Pulse is not affiliated with WHOOP. "
+            "Strap metrics are computed and stored on-device. An optional Pulse account enables "
+            "encrypted cloud backup and recovery; recording and scoring work without an account. "
+            "Save your separate recovery key to restore a backup. Optional integrations may contact "
+            "services you configure. Pulse is not affiliated with WHOOP. "
             "Source: https://github.com/jmlcoliveira/noop"
         ),
         "iconURL": SOURCE_ICON,
