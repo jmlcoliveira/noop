@@ -15,6 +15,7 @@ final class RescoreBackgroundSchedulerTests: XCTestCase {
     private var savedSeconds: Any?
     private var savedToken: Any?
     private var savedAfterCompleted: Any?
+    private var savedRequiresForcedPass: Any?
     private var savedAttemptAt: Any?
 
     override func setUp() {
@@ -26,12 +27,15 @@ final class RescoreBackgroundSchedulerTests: XCTestCase {
         savedToken = UserDefaults.standard.object(forKey: RescoreBackgroundScheduler.owedTokenKey)
         savedAfterCompleted = UserDefaults.standard.object(
             forKey: RescoreBackgroundScheduler.owedAfterCompletedPassKey)
+        savedRequiresForcedPass = UserDefaults.standard.object(
+            forKey: RescoreBackgroundScheduler.owedRequiresForcedPassKey)
         savedAttemptAt = UserDefaults.standard.object(forKey: RescoreBackgroundScheduler.lastAttemptStartedAtKey)
         UserDefaults.standard.removeObject(forKey: RescoreBackgroundScheduler.lastAttemptStartedAtKey)
         UserDefaults.standard.removeObject(forKey: RescoreBackgroundScheduler.owedKey)
         UserDefaults.standard.removeObject(forKey: RescoreBackgroundScheduler.lastPassSecondsKey)
         UserDefaults.standard.removeObject(forKey: RescoreBackgroundScheduler.owedTokenKey)
         UserDefaults.standard.removeObject(forKey: RescoreBackgroundScheduler.owedAfterCompletedPassKey)
+        UserDefaults.standard.removeObject(forKey: RescoreBackgroundScheduler.owedRequiresForcedPassKey)
     }
 
     override func tearDown() {
@@ -39,6 +43,7 @@ final class RescoreBackgroundSchedulerTests: XCTestCase {
         restore(savedSeconds, RescoreBackgroundScheduler.lastPassSecondsKey)
         restore(savedToken, RescoreBackgroundScheduler.owedTokenKey)
         restore(savedAfterCompleted, RescoreBackgroundScheduler.owedAfterCompletedPassKey)
+        restore(savedRequiresForcedPass, RescoreBackgroundScheduler.owedRequiresForcedPassKey)
         restore(savedAttemptAt, RescoreBackgroundScheduler.lastAttemptStartedAtKey)
         super.tearDown()
     }
@@ -157,7 +162,9 @@ final class RescoreBackgroundSchedulerTests: XCTestCase {
         let runningToken = RescoreBackgroundScheduler.markRescoreOwed()
 
         var ran = false
-        await RescoreBackgroundScheduler.run(isBackground: true, passInProgress: true, log: { _ in }) { ran = true }
+        let outcome = await RescoreBackgroundScheduler.run(
+            isBackground: true, passInProgress: true, log: { _ in }) { ran = true }
+        XCTAssertEqual(outcome, .queuedBehindRunningPass)
         XCTAssertTrue(ran)
         XCTAssertEqual(RescoreBackgroundScheduler.currentOwedToken, runningToken)
     }

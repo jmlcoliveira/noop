@@ -29,6 +29,25 @@ final class LiveHRBannerPushPolicyTests: XCTestCase {
                                                  staleAfter: staleAfter))
     }
 
+    func testAnUnchangedDashNeedsNoFreshnessPush() {
+        let dash = Shown(bpm: nil, recovery: 71, effort: 4)
+        for since: TimeInterval in [15, 30, 60, 3600, .infinity] {
+            XCTAssertFalse(LiveHRBannerPushPolicy.due(shown: dash, next: dash, reading: \.bpm,
+                                                      sinceLastPush: since, staleAfter: 30), "\(since) s")
+        }
+        // Other visible fields still update while the heart rate is missing.
+        XCTAssertTrue(LiveHRBannerPushPolicy.due(shown: dash, next: Shown(bpm: nil, recovery: 72, effort: 4),
+                                                 reading: \.bpm, sinceLastPush: 3, staleAfter: 30))
+    }
+
+    func testThirtySecondFreshnessKeepsASteadyNumberAlive() {
+        let steady = Shown(bpm: 58, recovery: 80, effort: 2)
+        XCTAssertFalse(LiveHRBannerPushPolicy.due(shown: steady, next: steady, reading: \.bpm,
+                                                  sinceLastPush: 14, staleAfter: 30))
+        XCTAssertTrue(LiveHRBannerPushPolicy.due(shown: steady, next: steady, reading: \.bpm,
+                                                 sinceLastPush: 15, staleAfter: 30))
+    }
+
     /// A change reaches the banner as soon as before: any field, after the same 2 s spacing.
     func testAChangeIsPushedAfterTheSameSpacingAsBefore() {
         let shown = Shown(bpm: 62, recovery: 71, effort: 4)

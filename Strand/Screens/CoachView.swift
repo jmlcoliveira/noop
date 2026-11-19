@@ -13,6 +13,11 @@ import StrandDesign
 /// contract): `hasKey`, `provider` / `provider.modelOptions`, `model`, `messages`,
 /// `sending`, `errorText`, `setKey(_:)`, `clearKey()`, and `send(_:)`.
 struct CoachView: View {
+    @Environment(\.isScreenActive) private var isScreenActive
+    @State private var transcriptReady = false
+    // A tab change cancels presentation work, but a subsequent activation must still wait for the
+    // same in-flight restore before it can append a handed-off question.
+    @State private var transcriptRestore: Task<Void, Never>?
     @EnvironmentObject var coach: AICoachEngine
     /// K8: used by "Save to Journal" — saves the coach advice as a journal entry with the text
     /// in the notes field, so it appears alongside other journal entries in Insights.
@@ -150,9 +155,19 @@ struct CoachView: View {
         // notification already generated (if any), THEN the interactive first-open brief — so
         // `startBriefIfNeeded` only ever runs over the network when BOTH of the above left the
         // transcript genuinely empty.
-        .task {
-            await coach.loadPersistedMessagesIfNeeded()
-            coach.retireStaleConversationIfNeeded()
+        .task(id: isScreenActive) {
+            guard isScreenActive, !Task.isCancelled else { return }
+            if transcriptRestore == nil {
+                transcriptRestore = Task { await coach.loadPersistedMessagesIfNeeded() }
+            }
+            await transcriptRestore?.value
+            guard isScreenActive, !Task.isCancelled else { return }
+            if !coach.sending { coach.retireStaleConversationIfNeeded() }
+            transcriptReady = true
+            // An explicit question takes precedence over an unsolicited first-open brief. An existing
+            // reply can finish while its tab is hidden; do not start another conversation operation.
+            guard coach.pendingPrompt == nil, !coach.sending else { return }
+            CoachBriefScheduler.activateIfEnabled { await coach.generateBrief() }
             // Gated on the transcript BEFORE consuming. `consumeStoredBrief()` clears the unconsumed
             // flag, and `surfaceScheduledBrief` then drops the text if a transcript exists, so a brief
             // that arrived on a day with a conversation already open was consumed and thrown away, gone
@@ -160,18 +175,23 @@ struct CoachView: View {
             if coach.messages.isEmpty, let stored = CoachBriefScheduler.consumeStoredBrief() {
                 coach.surfaceScheduledBrief(stored)
             }
-            CoachBriefScheduler.activateIfEnabled { await coach.generateBrief() }
-            await coach.startBriefIfNeeded()
+            Task {
+                guard coach.pendingPrompt == nil, !coach.sending else { return }
+                await coach.startBriefIfNeeded()
+            }
         }
         // #1862: a question handed over by the Today launcher sheet. Cleared BEFORE sending so a view
         // rebuild mid-flight cannot send it twice, and gated on `isConfigured` so an unconfigured handoff
         // (which the launcher does not produce, but a future caller might) degrades to showing setup
         // rather than a failed request.
-        .task(id: coach.pendingPrompt) {
+        .task(id: "\(isScreenActive)-\(transcriptReady)-\(coach.sending)-\(coach.pendingPrompt ?? "")") {
+            guard isScreenActive, transcriptReady, !coach.sending, !Task.isCancelled else { return }
             guard let prompt = coach.pendingPrompt, !prompt.isEmpty else { return }
             coach.pendingPrompt = nil
             guard coach.isConfigured else { return }
-            await coach.send(prompt)
+            // Consuming the one-shot prompt changes this task's ID. The requested reply belongs to
+            // the conversation, so it continues if that ID changes or the wearer switches tabs.
+            Task { await coach.send(prompt) }
         }
         // K15: persist the composer draft so it survives an app relaunch.
         .onChangeCompat(of: draft) { newValue in
@@ -179,7 +199,7 @@ struct CoachView: View {
         }
         // K14: haptic feedback when a reply arrives (sending goes true → false).
         .onChangeCompat(of: coach.sending) { isSending in
-            if !isSending && !coach.messages.isEmpty {
+            if isScreenActive && !isSending && !coach.messages.isEmpty {
                 triggerReplyHaptic()
             }
         }
@@ -187,6 +207,7 @@ struct CoachView: View {
         // behaviour); the guard inside `startBriefIfNeeded` (messages.isEmpty) keeps this a no-op once
         // a conversation exists.
         .onChangeCompat(of: coach.dataConsent) { _ in
+            guard isScreenActive, transcriptReady, !coach.sending, coach.pendingPrompt == nil else { return }
             Task { await coach.startBriefIfNeeded() }
         }
     }
@@ -904,7 +925,8 @@ struct CoachView: View {
         .help(voiceInput.statusMessage ?? "Ask out loud")
         .accessibilityLabel(voiceInput.isRecording ? "Stop voice input" : "Voice input")
         .accessibilityHint(voiceInput.statusMessage ?? "Transcribes your question on-device")
-        .task {
+        .task(id: isScreenActive) {
+            guard isScreenActive else { return }
             // Pre-check on appear so the button reflects the right state without a tap.
             if voiceInput.authorization == .notDetermined {
                 voiceInput.requestAuthorization { _ in }

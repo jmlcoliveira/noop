@@ -1747,6 +1747,7 @@ struct MetricDetailView: View {
     private func readingSourceTint(_ label: String) -> Color {
         switch label {
         case "Whoop":         return StrandPalette.accent
+        case "Apple Health + Pulse": return StrandPalette.metricAmber
         case "Apple Health":  return StrandPalette.metricCyan
         case "Health Connect": return StrandPalette.metricPurple
         default:              return StrandPalette.statusPositive

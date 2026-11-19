@@ -1,8 +1,9 @@
 # Pulse iPhone performance review
 
-The reviewed UI checkpoint is `cd7ef00d` on `main`. Performance changes are isolated on
-`pulse/performance` for simulator validation. This pass preserves the score formulas, stored
-data, Bluetooth behavior, and approved screen designs.
+The initial UI checkpoint was `cd7ef00d`; the first performance pass was merged into `main`
+through `186978c6`. That pass preserves the score formulas, stored data, Bluetooth behavior,
+and approved screen designs. The later release also caches calendar layouts, isolates scroll geometry, and gates hidden-screen work.
+Physical-device results depend on the workload, device temperature, and signing configuration.
 
 ## Selected improvements
 

@@ -553,7 +553,10 @@ final class HealthKitBridge: ObservableObject {
             lastError = String(localized: "Apple Health sync failed: \(String(localized: "Steps"))")
             return false
         }
-        let activeEnergyBurnedRead = await collect(.activeEnergyBurned, unit: .kilocalorie(), start: start, end: end, op: .cumulativeSum) { day, v in
+        // Preserve Health's native merged total as a raw import. Pulse's displayed combination lives
+        // separately under pulse-energy because Health can suppress an exported Pulse workout.
+        let activeEnergyBurnedRead = await collect(.activeEnergyBurned, unit: .kilocalorie(), start: start, end: end,
+                                                  op: .cumulativeSum, excludingAppAuthored: false) { day, v in
             var a = agg(day); a.activeKcal = v; byDay[day] = a
         }
         note(activeEnergyBurnedRead, "activeEnergyBurned")
@@ -620,6 +623,29 @@ final class HealthKitBridge: ObservableObject {
             return false
         }
 
+        // HealthKit returns an empty result when read access is withheld, with no way to distinguish
+        // that from an empty history. Do not erase previously read energy on a wholly empty window.
+        // A non-empty snapshot can still remove stale days within its authoritative window.
+        let hasEnergySnapshot = byDay.values.contains { $0.activeKcal != nil }
+        if !hasEnergySnapshot {
+            do {
+                let cached = try await store.appleDaily(deviceId: appleDeviceId,
+                    from: Self.dayString(start), to: Self.dayString(end))
+                let cachedEnergy = Dictionary(uniqueKeysWithValues: cached.compactMap { row in
+                    row.activeKcal.map { (row.day, $0) }
+                })
+                for day in Array(byDay.keys) {
+                    if let kcal = cachedEnergy[day] {
+                        var a = agg(day); a.activeKcal = kcal; byDay[day] = a
+                    }
+                }
+            } catch {
+                lastSyncDays = 0
+                lastError = String(localized: "Apple Health sync failed: \(String(localized: "Active Energy"))")
+                return false
+            }
+        }
+
         // Build + upsert the store rows under the apple-health source.
         let appleRows = byDay.map { (day, a) in
             AppleDaily(day: day, steps: a.steps.map { Int($0) },
@@ -679,7 +705,22 @@ final class HealthKitBridge: ObservableObject {
         // import (e.g. a disk-full GRDB write) dropped rows yet still cleared lastError and advanced
         // lastSync — a false "success", and the next delta sync skipped the window. (Reimplemented
         // from @vulnix0x4's PR #375.)
+        var importedEnergyChanged = false
+        defer {
+            // Publish even when a later independent write fails, after the full-row import has ended.
+            if importedEnergyChanged { repo.appleActiveEnergyDidChange() }
+        }
         do {
+            // Compare before the full-row upsert, otherwise its new energy value would conceal the
+            // change from the targeted post-write refresh. Both Home and detail use this revision.
+            if activeEnergyBurnedRead == .read, hasEnergySnapshot {
+                let kcalByDay = Dictionary(uniqueKeysWithValues: appleRows.compactMap { row in
+                    row.activeKcal.map { (row.day, $0) }
+                })
+                importedEnergyChanged = try await store.replaceAppleActiveEnergy(
+                    kcalByDay, deviceId: appleDeviceId,
+                    from: Self.dayString(start), to: Self.dayString(end))
+            }
             try await store.upsertAppleDaily(appleRows, deviceId: appleDeviceId)
             try await store.upsertDailyMetrics(dmRows, deviceId: appleDeviceId)
             try await store.upsertMetricSeries(points, deviceId: appleDeviceId)
@@ -743,7 +784,7 @@ final class HealthKitBridge: ObservableObject {
                     UserDefaults.standard.set(true, forKey: Self.hourlyStepsBackfilledKey)
                 }
             }
-            try await writeBack(whoopStore: store)
+            try await writeBack(whoopStore: store, energyStart: start)
             lastSync = Date()
             // Record the window alongside the time: an observer wake may only stand down for a sync that
             // actually covered ITS days (see `observerCoalesceWindow`). Set on the success path only.
@@ -759,7 +800,7 @@ final class HealthKitBridge: ObservableObject {
         }
     }
 
-    /// Write-back only, for when fresh strap data lands (#1021).
+    /// Write-back plus a bounded daily-energy refresh, for when fresh strap data lands (#1021).
     ///
     /// `sync` is the two-way pass and runs on foreground entry, which is the wrong moment: the same
     /// scenePhase block kicks the strap offload, so the write raced the data it was meant to publish and
@@ -771,8 +812,8 @@ final class HealthKitBridge: ObservableObject {
     /// caffeine imports on every offload, to write the same rows. The Android twin is the same shape -
     /// `WhoopBleClient` calls `HealthConnectWriter.write` after the backfill, not a full re-sync.
     ///
-    /// `lastSync` is left alone: it marks the last full two-way pass, and a write-only run advancing it
-    /// would misreport when NOOP last READ from Health.
+    /// `lastSync` is left alone: it marks the last full two-way pass, not the single energy query after
+    /// workout write-back.
     ///
     /// Shares the `syncing` flag with `sync()` on purpose: two write-backs must never interleave, because
     /// the vitals dedup deletes our prior samples for a key before saving the fresh batch. A call that
@@ -832,7 +873,7 @@ final class HealthKitBridge: ObservableObject {
     /// (no metadata, no delete) flooded Health with duplicates on every `sync()`.
     ///
     /// Throws on save failure so the caller can decide whether to advance `lastSync`.
-    private func writeBack(whoopStore: WhoopStore, days: Int = 14) async throws {
+    private func writeBack(whoopStore: WhoopStore, days: Int = 14, energyStart: Date? = nil) async throws {
         guard auth == .authorized else { return }
         let now = Date()
         guard let fromDate = Calendar.current.date(byAdding: .day, value: -days, to: now) else { return }
@@ -876,7 +917,46 @@ final class HealthKitBridge: ObservableObject {
         await attempt { try await writeSleep(sessions: sessions) }
         await attempt { try await writeHeartRate(fromTs: fromTs, nowTs: nowTs) }
         await attempt { try await writeWorkouts(whoopStore: whoopStore, fromTs: fromTs, toTs: nowTs) }
+        // Read after the writes: a just-finished workout must appear in this pass's daily figure,
+        // including on the write-back-only path. This is one bounded energy query, not another sync.
+        await attempt {
+            try await refreshDailyActiveEnergy(whoopStore: whoopStore,
+                                              start: energyStart ?? Calendar.current.startOfDay(for: fromDate), end: Date())
+        }
         if let firstError { throw firstError }
+    }
+
+    private enum DailyEnergyReadError: LocalizedError {
+        case failed
+        var errorDescription: String? { String(localized: "Active Energy") }
+    }
+
+    private func refreshDailyActiveEnergy(whoopStore: WhoopStore, start: Date, end: Date) async throws {
+        var kcalByDay: [String: Double] = [:]
+        let result = await collect(.activeEnergyBurned, unit: .kilocalorie(), start: start, end: end,
+                                   op: .cumulativeSum, excludingAppAuthored: false) { day, kcal in
+            kcalByDay[day] = kcal
+        }
+        guard result != .failed else { throw DailyEnergyReadError.failed }
+        var changed = false
+        defer { if changed { repo.appleActiveEnergyDidChange() } }
+        if result == .read, !kcalByDay.isEmpty {
+            changed = try await whoopStore.replaceAppleActiveEnergy(
+                kcalByDay, deviceId: appleDeviceId,
+                from: Self.dayString(start), to: Self.dayString(end))
+        }
+        let local = try await repo.activeEnergyWorkoutRows(from: Int(start.timeIntervalSince1970),
+                                                          to: Int(end.timeIntervalSince1970))
+        let combined = try await PulseActiveEnergyCollector.snapshot(store: store, local: local,
+                                                                    start: start, end: end)
+        // Health hides read denial as an empty result. Preserve the last good combination in that
+        // ambiguous case, as for the native import; a populated snapshot replaces stale days.
+        if !combined.isEmpty {
+            let combinedChanged = try await whoopStore.replaceMetricSeriesSnapshot(combined,
+                deviceId: "pulse-energy", key: "active_kcal",
+                from: Self.dayString(start), to: Self.dayString(end))
+            changed = changed || combinedChanged
+        }
     }
 
     /// UserDefaults key for the #1503 stranded-records sweep completion set. Stores the set of
@@ -1181,16 +1261,6 @@ final class HealthKitBridge: ObservableObject {
         }
     }
 
-    /// Write strap-detected and manual workouts into Health via `HKWorkoutBuilder`, with an
-    /// `activeEnergyBurned` sample when the row has energy and a distance sample for distance
-    /// sports. Workouts whose source is `apple-health` are EXCLUDED — those were imported FROM
-    /// Health, and writing them back would duplicate the user's own Apple Watch/gym-app workouts.
-    ///
-    /// Dedup: `HKMetadataKeyExternalUUID = noop:workout:<startTs>` in the workout
-    /// metadata; delete-then-write scoped to our own source, like sleep and the vitals. The key
-    /// carries NO device-id segment (#1503): the active strap id is not durable, and embedding it
-    /// stranded every prior workout as unreachable duplicates after a re-pair. Matches the Android
-    /// twin's `noop-workout-<startTs>` `clientRecordId`.
     /// How many workout rows each write-back read asks the store for, per source.
     ///
     /// Named rather than inline because [deleteOrphanedWorkouts] has to compare against it: a read that
@@ -1198,33 +1268,9 @@ final class HealthKitBridge: ObservableObject {
     /// used to decide that a Health workout has no counterpart. (#2210)
     private static let workoutReadLimit = 500
 
-    /// Delete the workouts we wrote into [fromTs, toTs] whose key is no longer among [keeping].
-    ///
-    /// Reads the window back from Health and deletes only objects that are ours by source AND carry a
-    /// `noop:workout:` external UUID, so a workout written by another app, or by us under some future
-    /// scheme, is never touched. Everything removed was observed first; nothing is deleted by range.
-    ///
-    /// A workout of ours with no external UUID at all is LEFT ALONE. It cannot be matched against the
-    /// store, so deleting it would be guessing, and the #1503 sweep already exists for that class.
-    ///
-    /// ONE assumption this rests on, and it is newly load-bearing: that deleting an `HKWorkout` also
-    /// removes the energy and distance samples `writeWorkouts` attached through its `HKWorkoutBuilder`.
-    /// The key-based delete already assumed it, but harmlessly, because every delete there is followed
-    /// immediately by a rewrite of the same key, so a surviving child is replaced rather than stranded.
-    /// An orphan is deleted and NOT rewritten, so if the assumption is wrong its children are left in
-    /// Health attributed to us with no workout above them, and nothing here will ever collect them.
-    ///
-    /// There is no fallback handle. `builder.addMetadata` puts the external UUID on the WORKOUT; the
-    /// samples go through `builder.addSamples` carrying no metadata at all, so they cannot be found by
-    /// key. Finding them by type and range instead would sweep `activeEnergyBurned` written by our own
-    /// vitals path and by every other source, which is precisely the blind range delete this function
-    /// exists to avoid. Verifying the assumption needs a device (#2210).
-    ///
-    /// Note also that this reads. `authorizationStatus` reports SHARE permission only, and HealthKit
-    /// does not let an app ask whether it may read. With write granted and read withheld the query
-    /// returns nothing rather than failing, so reconciliation quietly does nothing and the duplicates
-    /// stay. That fails safe, but it fails silent.
-    private func deleteOrphanedWorkouts(fromTs: Int, toTs: Int, keeping: Set<String>) async {
+    /// Read the app-authored workout snapshot for matching and orphan reconciliation. HealthKit hides
+    /// read authorization, so a successful empty result may mean either no records or read access off.
+    private func readExportedWorkouts(fromTs: Int, toTs: Int) async -> [HKWorkout]? {
         let pred = NSCompoundPredicate(andPredicateWithSubpredicates: [
             HKQuery.predicateForObjects(from: HKSource.default()),
             // `.strictStartDate`, and it is load-bearing. A workout is an INTERVAL, and the default
@@ -1241,23 +1287,141 @@ final class HealthKitBridge: ObservableObject {
                                         end: Date(timeIntervalSince1970: TimeInterval(toTs)),
                                         options: [.strictStartDate]),
         ])
-        let orphans: [HKWorkout] = await withCheckedContinuation { (cont: CheckedContinuation<[HKWorkout], Never>) in
+        return await withCheckedContinuation { (cont: CheckedContinuation<[HKWorkout]?, Never>) in
             let q = HKSampleQuery(sampleType: HKObjectType.workoutType(), predicate: pred,
-                                  limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+                                  limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, error in
+                guard error == nil, let samples else { cont.resume(returning: nil); return }
                 var out: [HKWorkout] = []
-                for case let workout as HKWorkout in samples ?? [] {
+                for case let workout as HKWorkout in samples {
                     guard let uuid = workout.metadata?[HKMetadataKeyExternalUUID] as? String,
                           uuid.hasPrefix(HealthWriteback.appleHealthWorkoutKeyPrefix) else { continue }
-                    if !keeping.contains(uuid) { out.append(workout) }
+                    out.append(workout)
                 }
                 cont.resume(returning: out)
             }
             store.execute(q)
         }
+    }
+
+    /// Remove only observed, app-authored workouts absent from a complete local snapshot.
+    /// Associated legacy quantity samples are left for a separately reviewed repair.
+    private func deleteOrphanedWorkouts(_ workouts: [HKWorkout], keeping: Set<String>) async {
+        let orphans = workouts.filter {
+            guard let key = $0.metadata?[HKMetadataKeyExternalUUID] as? String else { return false }
+            return !keeping.contains(key)
+        }
         guard !orphans.isEmpty else { return }
         _ = try? await store.delete(orphans)
     }
 
+    private static let workoutExportLedgerDefaultsKey = "hkWorkoutExportLedger.v1"
+
+    private func loadWorkoutExportLedger() -> [String: WorkoutExportLedgerEntry] {
+        guard let data = UserDefaults.standard.data(forKey: Self.workoutExportLedgerDefaultsKey),
+              let ledger = try? JSONDecoder().decode([String: WorkoutExportLedgerEntry].self, from: data)
+        else { return [:] }
+        return ledger
+    }
+
+    private func saveWorkoutExportLedger(_ ledger: [String: WorkoutExportLedgerEntry]) {
+        guard let data = try? JSONEncoder().encode(ledger) else { return }
+        UserDefaults.standard.set(data, forKey: Self.workoutExportLedgerDefaultsKey)
+    }
+
+    private static func workoutSyncVersion(_ object: HKObject) -> Int? {
+        guard let version = object.metadata?[HKMetadataKeySyncVersion] as? NSNumber,
+              version.intValue >= 0 else { return nil }
+        return version.intValue
+    }
+
+    private static func exportPayload(for workout: HKWorkout) -> WorkoutExportPayload? {
+        WorkoutExportPayload(
+            startTs: Int(workout.startDate.timeIntervalSince1970),
+            endTs: Int(workout.endDate.timeIntervalSince1970),
+            activityType: String(workout.workoutActivityType.rawValue),
+            activeEnergyKcal: workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()),
+            distanceType: workout.totalDistance == nil ? nil
+                : Self.distanceTypeId(forSport: Self.sportName(workout.workoutActivityType))?.rawValue,
+            distanceM: workout.totalDistance?.doubleValue(for: .meter()))
+    }
+
+    private func deleteLegacyWorkouts(_ workouts: [HKWorkout], key: String) async throws {
+        let legacy = workouts.filter { ($0.metadata?[HKMetadataKeySyncIdentifier] as? String) != key }
+        guard !legacy.isEmpty else { return }
+        try await store.delete(legacy)
+    }
+
+    private func deleteSyncedQuantitySamples(for key: String, typeIds: [String]) async throws {
+        for rawValue in Set(typeIds) {
+            let id: HKQuantityTypeIdentifier
+            switch rawValue {
+            case HKQuantityTypeIdentifier.activeEnergyBurned.rawValue: id = .activeEnergyBurned
+            case HKQuantityTypeIdentifier.distanceWalkingRunning.rawValue: id = .distanceWalkingRunning
+            case HKQuantityTypeIdentifier.distanceCycling.rawValue: id = .distanceCycling
+            default: continue
+            }
+            guard let type = HKQuantityType.quantityType(forIdentifier: id),
+                  store.authorizationStatus(for: type) == .sharingAuthorized else { continue }
+            let syncId = "\(key):\(rawValue)"
+            let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                HKQuery.predicateForObjects(from: HKSource.default()),
+                HKQuery.predicateForObjects(withMetadataKey: HKMetadataKeySyncIdentifier,
+                                            allowedValues: [syncId]),
+            ])
+            _ = try await store.deleteObjects(of: type, predicate: predicate)
+        }
+    }
+
+    private enum WorkoutWritebackError: LocalizedError {
+        case invalidWorkout
+        case missingFinishedWorkout
+        var errorDescription: String? {
+            switch self {
+            case .invalidWorkout: return "Invalid workout values"
+            case .missingFinishedWorkout: return "Workout export did not produce a HealthKit workout"
+            }
+        }
+    }
+
+    /// Attach a late or previously failed route without rebuilding an unchanged workout.
+    private func attachRouteIfNeeded(for row: WorkoutRow, to workout: HKWorkout,
+                                     key: String, version: Int) async {
+        guard Self.distanceTypeId(forSport: row.sport) != nil,
+              store.authorizationStatus(for: HKSeriesType.workoutRoute()) == .sharingAuthorized,
+              let route = RouteStore.loadWithPoints(startTs: row.startTs, sport: row.sport),
+              !route.polyline.isEmpty, route.hasExportableMeasurements,
+              let points = route.points else { return }
+
+        let hasRoute = await withCheckedContinuation { (continuation: CheckedContinuation<Bool?, Never>) in
+            let query = HKSampleQuery(sampleType: HKSeriesType.workoutRoute(),
+                                      predicate: HKQuery.predicateForObjects(from: workout),
+                                      limit: 1, sortDescriptors: nil) { _, samples, error in
+                continuation.resume(returning: error == nil ? !(samples ?? []).isEmpty : nil)
+            }
+            store.execute(query)
+        }
+        guard hasRoute == false else { return }
+
+        let builder = HKWorkoutRouteBuilder(healthStore: store, device: .local())
+        do {
+            let locations = points.map { point in
+                CLLocation(coordinate: CLLocationCoordinate2D(latitude: point.lat, longitude: point.lon),
+                           altitude: 0, horizontalAccuracy: point.accuracyM, verticalAccuracy: -1,
+                           timestamp: Date(timeIntervalSince1970: Double(point.tMs) / 1000))
+            }
+            try await builder.insertRouteData(locations)
+            try await builder.finishRoute(with: workout, metadata: [
+                HKMetadataKeySyncIdentifier: "\(key):route",
+                HKMetadataKeySyncVersion: NSNumber(value: max(1, version)),
+            ])
+        } catch {
+            // Optional enrichment retries on a later pass, without changing the workout or energy.
+            builder.discard()
+        }
+    }
+
+    /// Export one canonical row per stable workout key. Unchanged exports are adopted, and changed
+    /// exports use versioned sync identifiers for both workouts and their quantity samples.
     private func writeWorkouts(whoopStore: WhoopStore, fromTs: Int, toTs: Int) async throws {
         guard store.authorizationStatus(for: .workoutType()) == .sharingAuthorized else { return }
         // Read result kept OPTIONAL rather than collapsed with `?? []`, because the reconciliation below
@@ -1270,93 +1434,182 @@ final class HealthKitBridge: ObservableObject {
                                                          limit: Self.workoutReadLimit)
         let mine = mineRead ?? []
         let computed = computedRead ?? []
-        var byKey: [String: WorkoutRow] = [:]
-        for w in computed + mine where w.source != HealthKitBridge.appleWorkoutSource {
-            byKey["\(w.startTs):\(w.sport)"] = w
+        // The HealthKit external key contains startTs only. A startTs:sport map could export two
+        // workouts and two energy samples for one key when sources disagreed about the sport.
+        let candidates = computed.map { (row: $0, priority: 0) }
+            + mine.map { (row: $0, priority: 1) }
+        let eligible = candidates.filter { $0.row.source != HealthKitBridge.appleWorkoutSource }
+        let candidateKeys = eligible.map { candidate in
+            WorkoutExportCandidate(key: HealthWriteback.appleHealthWorkoutKey(startTs: candidate.row.startTs),
+                                   sourcePriority: candidate.priority,
+                                   stableTieBreak: "\(candidate.row.sport.lowercased())|\(candidate.row.endTs)|\(candidate.row.source)|\(candidate.row.durationS ?? 0)|\(candidate.row.energyKcal ?? 0)|\(candidate.row.distanceM ?? 0)")
         }
-        let rows = byKey.values.sorted { $0.startTs < $1.startTs }
+        let rows = WorkoutExportLedgerPolicy.canonicalIndices(candidateKeys)
+            .map { eligible[$0].row }
+            .sorted { $0.startTs < $1.startTs }
 
         func key(_ row: WorkoutRow) -> String { HealthWriteback.appleHealthWorkoutKey(startTs: row.startTs) }
 
-        // #2210: remove workouts we wrote that the store no longer holds. The delete below only ever
-        // names the keys it is about to rewrite, so a row that LEFT the store keeps its Health copy for
-        // good: a detected bout dropped for overlapping an Apple workout, a bout whose startTs drifted
-        // and was rewritten under a new key, or a workout deleted, dismissed or merged in the app.
-        //
-        // Deliberately NOT a range delete. This reads the window back, keeps only what carries our own
-        // key, and deletes the ones absent from `rows`, so nothing is removed that was not first
-        // observed and identified as ours. A blind range delete would also have to trust that the store
-        // read returned everything, and the two guards below are exactly the cases where it did not.
-        //
-        // Runs BEFORE the empty-rows return: a window whose last workout was deleted in the app is the
-        // case where every Health copy is an orphan, and returning early would leave all of them.
+        let existingRead = await readExportedWorkouts(fromTs: fromTs, toTs: toTs)
         if mineRead != nil, computedRead != nil,
-           mine.count < Self.workoutReadLimit, computed.count < Self.workoutReadLimit {
-            await deleteOrphanedWorkouts(fromTs: fromTs, toTs: toTs, keeping: Set(rows.map(key)))
+           mine.count < Self.workoutReadLimit, computed.count < Self.workoutReadLimit,
+           let existingRead {
+            await deleteOrphanedWorkouts(existingRead, keeping: Set(rows.map(key)))
         }
 
         guard !rows.isEmpty else { return }
-        let pred = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            HKQuery.predicateForObjects(from: HKSource.default()),
-            HKQuery.predicateForObjects(withMetadataKey: HKMetadataKeyExternalUUID,
-                                        allowedValues: rows.map(key)),
-        ])
-        _ = try? await store.deleteObjects(of: .workoutType(), predicate: pred)
+
+        var ledger = loadWorkoutExportLedger()
 
         for row in rows {
             let start = Date(timeIntervalSince1970: TimeInterval(row.startTs))
             let end = Date(timeIntervalSince1970: TimeInterval(row.endTs))
-            guard end > start else { continue }
+            guard end > start else { throw WorkoutWritebackError.invalidWorkout }
+            let workoutKey = key(row)
+            let existing = existingRead?.filter {
+                ($0.metadata?[HKMetadataKeyExternalUUID] as? String) == workoutKey
+            } ?? []
             let config = HKWorkoutConfiguration()
             config.activityType = Self.activityType(forSport: row.sport)
+            let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
+            let energyWritable = energyType.map { store.authorizationStatus(for: $0) == .sharingAuthorized } ?? false
+            let distanceId = Self.distanceTypeId(forSport: row.sport)
+            let distanceType = distanceId.flatMap { HKQuantityType.quantityType(forIdentifier: $0) }
+            let distanceWritable = distanceType.map { store.authorizationStatus(for: $0) == .sharingAuthorized } ?? false
+            let payload = WorkoutExportPayload(
+                startTs: row.startTs, endTs: row.endTs,
+                activityType: String(config.activityType.rawValue),
+                activeEnergyKcal: energyWritable ? row.energyKcal : nil,
+                distanceType: distanceWritable ? distanceId?.rawValue : nil,
+                distanceM: distanceWritable ? row.distanceM : nil)
+            guard let payload else { throw WorkoutWritebackError.invalidWorkout }
+
+            let keyed = existing.filter {
+                ($0.metadata?[HKMetadataKeySyncIdentifier] as? String) == workoutKey
+            }
+            let canonical = keyed.max {
+                (Self.workoutSyncVersion($0) ?? 0) < (Self.workoutSyncVersion($1) ?? 0)
+            }
+            let matching = canonical.flatMap {
+                Self.exportPayload(for: $0)?.matches(payload) == true ? $0 : nil
+            } ?? (keyed.isEmpty ? existing.first {
+                Self.exportPayload(for: $0)?.matches(payload) == true
+            } : nil)
+            let previous = ledger[workoutKey]
+            let observedVersion = existing.compactMap(Self.workoutSyncVersion).max()
+            let action = WorkoutExportLedgerPolicy.action(
+                payload: payload, previous: previous, hasMatchingExisting: matching != nil,
+                matchingExistingVersion: matching.flatMap(Self.workoutSyncVersion),
+                highestObservedVersion: observedVersion, nowVersion: Int(Date().timeIntervalSince1970))
+            var pendingRetireTypeIds = previous?.pendingRetireTypeIds ?? []
+            if previous == nil {
+                // Recover after missing local ledger state. Only these exact, app-owned sync keys
+                // can be retired; legacy unkeyed samples are never included.
+                pendingRetireTypeIds += [
+                    HKQuantityTypeIdentifier.activeEnergyBurned.rawValue,
+                    HKQuantityTypeIdentifier.distanceWalkingRunning.rawValue,
+                    HKQuantityTypeIdentifier.distanceCycling.rawValue,
+                ]
+            }
+            if energyWritable, payload.activeEnergyKcal == nil,
+               previous?.payload.activeEnergyKcal != nil || existing.contains(where: { $0.totalEnergyBurned != nil }) {
+                pendingRetireTypeIds.append(HKQuantityTypeIdentifier.activeEnergyBurned.rawValue)
+            }
+            if let oldDistanceType = previous?.payload.distanceType,
+               oldDistanceType != payload.distanceType {
+                pendingRetireTypeIds.append(oldDistanceType)
+            } else if payload.distanceType == nil,
+                      let oldDistanceType = existing.first(where: { $0.totalDistance != nil })
+                        .flatMap({ Self.distanceTypeId(forSport: Self.sportName($0.workoutActivityType))?.rawValue }) {
+                pendingRetireTypeIds.append(oldDistanceType)
+            }
+            pendingRetireTypeIds = WorkoutExportLedgerPolicy.pendingRetireTypes(
+                pendingRetireTypeIds, preserving: payload)
+
+            let version: Int
+            switch action {
+            case .skip:
+                continue
+            case .adopt(let version):
+                // A matching legacy row is already the requested export. If this was a retry after
+                // saving a replacement, remove only captured stale legacy workouts for this key.
+                if let previous, !previous.isComplete, canonical != nil, matching != nil {
+                    let stale = existing.filter {
+                        ($0.metadata?[HKMetadataKeySyncIdentifier] as? String) != workoutKey
+                    }
+                    do { if !stale.isEmpty { try await store.delete(stale) } }
+                    catch { ledger[workoutKey] = previous; saveWorkoutExportLedger(ledger); throw error }
+                }
+                do { try await deleteSyncedQuantitySamples(for: workoutKey, typeIds: pendingRetireTypeIds) }
+                catch {
+                    ledger[workoutKey] = WorkoutExportLedgerPolicy.intent(
+                        payload: payload, version: version, pendingRetireTypeIds: pendingRetireTypeIds)
+                    saveWorkoutExportLedger(ledger)
+                    throw error
+                }
+                ledger[workoutKey] = WorkoutExportLedgerPolicy.completed(payload: payload, version: version)
+                saveWorkoutExportLedger(ledger)
+                if let matching {
+                    await attachRouteIfNeeded(for: row, to: matching, key: workoutKey, version: version)
+                }
+                continue
+            case .save(let saveVersion):
+                version = saveVersion
+                // Record intent before HealthKit writes. An interrupted retry uses this version;
+                // sync identifiers make HealthKit replace/deduplicate instead of appending a copy.
+                ledger[workoutKey] = WorkoutExportLedgerPolicy.intent(
+                    payload: payload, version: version, pendingRetireTypeIds: pendingRetireTypeIds)
+                saveWorkoutExportLedger(ledger)
+            }
+
             let builder = HKWorkoutBuilder(healthStore: store, configuration: config, device: .local())
             do {
                 try await builder.beginCollection(at: start)
-                try await builder.addMetadata([HKMetadataKeyExternalUUID: key(row)])
+                try await builder.addMetadata([
+                    HKMetadataKeyExternalUUID: workoutKey,
+                    HKMetadataKeySyncIdentifier: workoutKey,
+                    HKMetadataKeySyncVersion: NSNumber(value: version),
+                ])
                 var extras: [HKSample] = []
-                if let kcal = row.energyKcal, kcal > 0,
-                   let t = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
-                   store.authorizationStatus(for: t) == .sharingAuthorized {
-                    extras.append(HKQuantitySample(type: t, quantity: .init(unit: .kilocalorie(), doubleValue: kcal),
-                                                   start: start, end: end))
+                if let kcal = payload.activeEnergyKcal, let energyType {
+                    let syncId = "\(workoutKey):\(HKQuantityTypeIdentifier.activeEnergyBurned.rawValue)"
+                    extras.append(HKQuantitySample(
+                        type: energyType, quantity: .init(unit: .kilocalorie(), doubleValue: kcal),
+                        start: start, end: end,
+                        metadata: [HKMetadataKeySyncIdentifier: syncId,
+                                   HKMetadataKeySyncVersion: NSNumber(value: version)]))
                 }
-                if let meters = row.distanceM, meters > 0,
-                   let id = Self.distanceTypeId(forSport: row.sport),
-                   let t = HKQuantityType.quantityType(forIdentifier: id),
-                   store.authorizationStatus(for: t) == .sharingAuthorized {
-                    extras.append(HKQuantitySample(type: t, quantity: .init(unit: .meter(), doubleValue: meters),
-                                                   start: start, end: end))
+                if let meters = payload.distanceM, let distanceType, let distanceId {
+                    let syncId = "\(workoutKey):\(distanceId.rawValue)"
+                    extras.append(HKQuantitySample(
+                        type: distanceType, quantity: .init(unit: .meter(), doubleValue: meters),
+                        start: start, end: end,
+                        metadata: [HKMetadataKeySyncIdentifier: syncId,
+                                   HKMetadataKeySyncVersion: NSNumber(value: version)]))
                 }
                 if !extras.isEmpty { try await builder.addSamples(extras) }
                 try await builder.endCollection(at: end)
-                let workout = try await builder.finishWorkout()
-
-                // #2340: workout route write-back. Load the encoded polyline and its original point
-                // measurements from the Apple-only side-store and attach them to the finished workout.
-                // We only do this if the workout type supports a distance (GPS) route.
-                if let workout,
-                   Self.distanceTypeId(forSport: row.sport) != nil,
-                   store.authorizationStatus(for: HKSeriesType.workoutRoute()) == .sharingAuthorized,
-                   let route = RouteStore.loadWithPoints(startTs: row.startTs, sport: row.sport),
-                   !route.polyline.isEmpty,
-                   route.hasExportableMeasurements,
-                   let points = route.points {
-                    let routeBuilder = HKWorkoutRouteBuilder(healthStore: store, device: .local())
-                    do {
-                        let locs = points.map { point in
-                            CLLocation(coordinate: CLLocationCoordinate2D(latitude: point.lat, longitude: point.lon),
-                                       altitude: 0, horizontalAccuracy: point.accuracyM, verticalAccuracy: -1,
-                                       timestamp: Date(timeIntervalSince1970: Double(point.tMs) / 1000))
-                        }
-                        try await routeBuilder.insertRouteData(locs)
-                        try await routeBuilder.finishRoute(with: workout, metadata: nil)
-                    } catch {
-                        // Route is optional enrichment. Discard its uncommitted series and retain the workout.
-                        routeBuilder.discard()
-                        // HealthKit route attachment failures are intentionally silent: writeBack's
-                        // lastError describes workout/sync failures, while this enrichment can safely be retried.
-                    }
+                guard let workout = try await builder.finishWorkout() else {
+                    throw WorkoutWritebackError.missingFinishedWorkout
                 }
+
+                await attachRouteIfNeeded(for: row, to: workout, key: workoutKey, version: version)
+
+                // The replacement is committed before retiring old externalUUID-only workouts. A
+                // read-denied query may be empty, so the ledger and quantity sync IDs also protect
+                // subsequent write-only passes from appending another active-energy sample.
+                do {
+                    try await deleteSyncedQuantitySamples(for: workoutKey, typeIds: pendingRetireTypeIds)
+                    try await deleteLegacyWorkouts(existing, key: workoutKey)
+                }
+                catch {
+                    ledger[workoutKey] = WorkoutExportLedgerPolicy.intent(
+                        payload: payload, version: version, pendingRetireTypeIds: pendingRetireTypeIds)
+                    saveWorkoutExportLedger(ledger)
+                    throw error
+                }
+                ledger[workoutKey] = WorkoutExportLedgerPolicy.completed(payload: payload, version: version)
+                saveWorkoutExportLedger(ledger)
             } catch {
                 builder.discardWorkout()
                 throw error
@@ -1368,7 +1621,11 @@ final class HealthKitBridge: ObservableObject {
     /// Labels the forward map collapses (e.g. boxing/kickboxing → "Boxing") reverse to the first
     /// member; unknown labels fall back to `.other`, never dropped.
     private static func activityType(forSport sport: String) -> HKWorkoutActivityType {
-        if sport == LiftingImporter.sport { return .traditionalStrengthTraining }
+        switch HealthKitWorkoutSportAlias.resolve(sport) {
+        case .stairClimbing: return .stairClimbing
+        case .traditionalStrengthTraining: return .traditionalStrengthTraining
+        case nil: break
+        }
         switch sport.lowercased() {
         case "running":       return .running
         case "walking":       return .walking
@@ -1428,6 +1685,8 @@ final class HealthKitBridge: ObservableObject {
     /// output back in as "apple-health" data — which would make the strap and "Apple Health" plot the
     /// same line for a strap-only user, and bias the apple-health average for someone who also has a
     /// watch. `HKSource.default()` is this app's own source. (Reimplemented from @vulnix0x4's PR #375.)
+    /// The daily active-energy aggregate is the deliberate exception: it represents Health's total,
+    /// including energy attached to our exported workouts. It is never exported as a daily energy row.
     private static var notNoopAuthored: NSPredicate {
         NSCompoundPredicate(notPredicateWithSubpredicate: HKQuery.predicateForObjects(from: [HKSource.default()]))
     }
@@ -1504,14 +1763,15 @@ final class HealthKitBridge: ObservableObject {
     }
 
     private func collect(_ id: HKQuantityTypeIdentifier, unit: HKUnit, start: Date, end: Date,
-                         op: HKStatisticsOptions, sink: @escaping (String, Double) -> Void) async -> HealthRead {
+                         op: HKStatisticsOptions, excludingAppAuthored: Bool = true,
+                         sink: @escaping (String, Double) -> Void) async -> HealthRead {
         guard let type = HKQuantityType.quantityType(forIdentifier: id) else { return .unavailable }
         let cal = Calendar.current
         let anchor = cal.startOfDay(for: start)
-        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate),
-            Self.notNoopAuthored,
-        ])
+        let datePredicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        let predicate = excludingAppAuthored
+            ? NSCompoundPredicate(andPredicateWithSubpredicates: [datePredicate, Self.notNoopAuthored])
+            : datePredicate
         return await withCheckedContinuation { (cont: CheckedContinuation<HealthRead, Never>) in
             let q = HKStatisticsCollectionQuery(quantityType: type, quantitySamplePredicate: predicate,
                                                 options: op, anchorDate: anchor,

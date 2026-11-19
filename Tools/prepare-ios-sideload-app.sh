@@ -40,6 +40,7 @@ WIDGET_ENTITLEMENTS="$ENTITLEMENTS_DIR/widget.plist"
 
 plutil -create xml1 "$APP_ENTITLEMENTS"
 plutil -insert 'com\.apple\.developer\.healthkit' -bool YES "$APP_ENTITLEMENTS"
+plutil -insert 'com\.apple\.developer\.healthkit\.background-delivery' -bool YES "$APP_ENTITLEMENTS"
 plutil -insert 'com\.apple\.developer\.healthkit\.access' -array "$APP_ENTITLEMENTS"
 plutil -insert 'com\.apple\.security\.application-groups' -array "$APP_ENTITLEMENTS"
 plutil -insert 'com\.apple\.security\.application-groups.0' -string "$APP_GROUP" "$APP_ENTITLEMENTS"

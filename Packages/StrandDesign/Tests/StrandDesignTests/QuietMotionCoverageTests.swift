@@ -9,7 +9,7 @@ import XCTest
 /// the onboarding glows all kept looping in Low Power Mode — and `RecordingStatusLight` looped under
 /// system Reduce Motion too, which was already a bug. None of that was visible in review.
 ///
-/// It also pins that the gate keeps reading all three signals. Losing one half is invisible: the
+/// It also pins that the gate keeps reading all quiet signals. Losing one half is invisible: the
 /// screen looks right in whichever mode still works.
 ///
 /// Lives in the StrandDesign package because `swift-packages.yml` runs it by default, while the app
@@ -236,13 +236,19 @@ final class QuietMotionCoverageTests: XCTestCase {
     // MARK: - The gate itself
 
     /// Losing one signal is invisible in the app — the screen looks right in whichever mode still
-    /// works — so pin that all four are read, and that the OS flags stay live.
-    func testGateReadsAllFourSignalsAndStaysLive() throws {
+    /// works — so pin that the shared policy consumes every signal, and that OS changes stay live.
+    func testGateReadsAllFiveSignalsAndStaysLive() throws {
         let root = try repoRoot()
         let src = try String(contentsOf: root.appendingPathComponent(
             "Packages/StrandDesign/Sources/StrandDesign/NoopMotion.swift"), encoding: .utf8)
-        XCTAssertTrue(src.contains("reduceMotion || isLowPower || quietMotion || windowObscured"),
-                      "poseStill must OR all four signals")
+        XCTAssertTrue(src.contains("policy(reduceMotion: reduceMotion).poseStill"),
+                      "view and imperative reads must use the shared motion policy")
+        XCTAssertTrue(src.contains("policy(reduceMotion: false).poseStill"),
+                      "imperative reads must use the same policy without duplicating its decision")
+        XCTAssertTrue(src.contains("Self.thermalStateRequiresStillMotion(thermalState)"),
+                      "thermal pressure must be part of the shared policy")
+        XCTAssertTrue(src.contains("thermalState == .serious || thermalState == .critical"),
+                      "serious and critical thermal states must pose motion still")
         // #2393: the window-visibility term is worthless if nothing ever sets it, and the three
         // notification families answer different questions — hide/unhide is the app, occlusion is the
         // window, miniaturise is the Dock. Which of them AppKit posts for any given user action is not
@@ -279,6 +285,8 @@ final class QuietMotionCoverageTests: XCTestCase {
         XCTAssertTrue(src.contains("isLowPowerModeEnabled"), "must read Low Power Mode")
         XCTAssertTrue(src.contains("NSProcessInfoPowerStateDidChange"),
                       "Low Power Mode must stay live without a relaunch")
+        XCTAssertTrue(src.contains("thermalStateDidChangeNotification"),
+                      "thermal policy must stay live without a relaunch")
         XCTAssertTrue(src.contains("UserDefaults.didChangeNotification"),
                       "the in-app toggle must stay live — @AppStorage writes straight to UserDefaults")
         // The key string is the cross-platform contract — it travels in .noopbak by key, not by symbol
@@ -303,5 +311,13 @@ final class QuietMotionCoverageTests: XCTestCase {
         XCTAssertTrue(src.contains("stopDeviceMotionUpdates"), "and must actually stop it")
         XCTAssertTrue(src.contains("LiquidMotion.quietNow"),
                       "starting the sensor must consult the quiet-motion gate, not only the view branch")
+        XCTAssertTrue(src.contains("NoopMotionState.shared.poseStill(reduceMotion)"),
+                      "the sensor must use the same policy as animated views")
+        XCTAssertTrue(src.contains("thermalStateDidChangeNotification"),
+                      "thermal transitions must re-evaluate the running sensor")
+        XCTAssertTrue(src.contains("schedulePolicySync"),
+                      "sensor rechecks must follow published ProcessInfo/UserDefaults state")
+        XCTAssertTrue(src.contains("appIsForeground"),
+                      "a policy recovery must not restart CoreMotion in the background")
     }
 }

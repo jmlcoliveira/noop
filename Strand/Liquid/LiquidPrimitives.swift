@@ -319,6 +319,7 @@ struct LiquidVessel: View {
     /// keeps every standalone vessel byte-identical (#1995).
     var tapPassesThrough: Bool = false
 
+    @Environment(\.isScreenActive) private var isScreenActive
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var motion = NoopMotionState.shared
     @State private var sim: LiquidSim
@@ -337,7 +338,7 @@ struct LiquidVessel: View {
     }
 
     var body: some View {
-        if animated && !motion.poseStill(reduceMotion) { gauge } else { staticGauge }
+        if isScreenActive && animated && !motion.poseStill(reduceMotion) { gauge } else { staticGauge }
     }
 
     /// The live gauge: the fill eases in from empty and to each new value, then the ring holds still.
@@ -417,6 +418,7 @@ struct LiquidTube: View {
     var showsHighlight: Bool = true
     var usesCleanFill: Bool = false
 
+    @Environment(\.isScreenActive) private var isScreenActive
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var motion = NoopMotionState.shared
@@ -426,7 +428,7 @@ struct LiquidTube: View {
         // Resolve the derived fill outside TimelineView's frame closure. The environment read also makes
         // appearance changes rebuild dynamic tints before the next live draw.
         let fillGradient = resolvedFillGradient
-        if animated && !motion.poseStill(reduceMotion) {
+        if isScreenActive && animated && !motion.poseStill(reduceMotion) {
             liveTube(fillGradient: fillGradient)
         } else {
             staticTube(fillGradient: fillGradient)
@@ -477,6 +479,7 @@ struct LiquidThread: View {
     var height: CGFloat = 96
     var animated: Bool = true
 
+    @Environment(\.isScreenActive) private var isScreenActive
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var motion = NoopMotionState.shared
 
@@ -485,7 +488,7 @@ struct LiquidThread: View {
             // `GeometryReader` sits outside the timeline so values/gap runs/size produce one path per
             // data or layout update, while only the decorative phase and pulse run at 60 Hz.
             let geometry = LiquidRender.threadGeometry(size: proxy.size, values: bpm, segments: segments)
-            if animated && !motion.poseStill(reduceMotion) {
+            if isScreenActive && animated && !motion.poseStill(reduceMotion) {
                 TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { tl in   // 60fps to flow smoothly on ProMotion
                     let now = liquidSeconds(tl.date)
                     Canvas { context, _ in

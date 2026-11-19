@@ -29,7 +29,10 @@ struct RootTabView: View {
     /// that state; keeping it explicit here prevents this shell's window-level sheet from covering a gate.
     let homeScreenQuickActionsEnabled: Bool
 
-    @EnvironmentObject private var repo: Repository
+    // The shell needs repository actions, not repository publications. Keep this dependency
+    // unobserved so a history refresh does not rebuild every tab's root through the shell.
+    let repo: Repository
+    @Environment(\.scenePhase) private var scenePhase
     /// Cross-screen navigation requests (e.g. Live → "Manage devices"). Devices isn't a tab — it lives
     /// behind the More list — so a request presents it as a sheet, matching the quick-action screens.
     @EnvironmentObject private var router: NavRouter
@@ -115,6 +118,11 @@ struct RootTabView: View {
         }
     }
 
+    private var tabContentIsVisible: Bool {
+        scenePhase == .active && quickAction == nil && !showDevices && routedPillar == nil
+            && !liftSession.isPresented
+    }
+
     /// The anywhere-swipe tab-switch drag (2026-07-02). Held as a property so the attachment site can
     /// enable or disable it through a `GestureMask` instead of attaching it conditionally: a conditional
     /// attachment changes view identity, and this condition toggles on every push and pop, which would
@@ -142,9 +150,9 @@ struct RootTabView: View {
         // its dynamic interaction with scrolling content automatically; older supported releases use
         // the corresponding system material and safe-area behaviour from the same TabView.
         TabView(selection: nativeTabSelection) {
-            tab(todayTabRoot, "Today", "square.grid.2x2", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
-            tab(TrendsView(), "Trends", "chart.line.uptrend.xyaxis", path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
-            tab(SleepView(), "Sleep", "bed.double", path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
+            tab(todayTabRoot, "Today", "square.grid.2x2", index: 0, path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
+            tab(TrendsView(), "Trends", "chart.line.uptrend.xyaxis", index: 1, path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
+            tab(SleepView(), "Sleep", "bed.double", index: 2, path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
             // K3: Coach promoted to a top-level tab (was behind the More list). The sparkles icon
             // matches the More-tab row and the macOS sidebar entry.
             // Conditional on the master switch. The tags stay LITERAL rather than being renumbered when
@@ -152,7 +160,7 @@ struct RootTabView: View {
             // shapes, so a wearer's More tab keeps its identity, its navigation path and its scroll
             // position across a flip instead of inheriting Coach's.
             if coachEnabled {
-                tab(CoachView(), "Coach", "sparkles", path: $tabPaths[3], scrollSignal: scrollTop[3]).tag(3)
+                tab(CoachView(), "Coach", "sparkles", index: 3, path: $tabPaths[3], scrollSignal: scrollTop[3]).tag(3)
             }
             moreTab(path: $tabPaths[4], scrollSignal: scrollTop[4]).tag(4)
         }
@@ -189,8 +197,10 @@ struct RootTabView: View {
             // hierarchy's gestures, disable the added one" — exactly this requirement. `.none` disables
             // the subview hierarchy TOO, which on a pushed screen would take out scrolling, taps and the
             // interactive-pop itself: far worse than the bug being fixed.
+            // Today owns day swipes. Disable the ancestor recognizer during recognition, rather than
+            // merely ignoring its result after it has competed with the scroll and chart gestures.
             .simultaneousGesture(tabSwipeGesture,
-                                 including: tabPaths[selectedTab].isEmpty ? .all : .subviews)
+                                 including: selectedTab != 0 && tabPaths[selectedTab].isEmpty ? .all : .subviews)
         .task {
             await repo.refresh()
             // Backup & Sync: on-launch catch-up (see RootView). Detached + utility priority so a
@@ -448,7 +458,7 @@ struct RootTabView: View {
     }
 
     private func tab<V: View>(_ view: V, _ title: LocalizedStringKey, _ icon: String,
-                              path: Binding<NavigationPath>, scrollSignal: Int) -> some View {
+                              index: Int, path: Binding<NavigationPath>, scrollSignal: Int) -> some View {
         // Each primary tab gets its OWN NavigationStack so the in-content NavigationLinks (e.g. the Today
         // dashboard card rows) both navigate AND render opaque. An ORPHANED NavigationLink (no
         // NavigationStack ancestor) renders its whole label in a disabled/translucent state — that was
@@ -459,10 +469,15 @@ struct RootTabView: View {
         // TabRoute values, registered here ONCE per stack (a double registration double-pushes, #38).
         NavigationStack(path: path) {
             view
+                .environment(\.isScreenActive, selectedTab == index && tabContentIsVisible
+                             && path.wrappedValue.isEmpty)
                 .background(StrandPalette.surfaceBase.ignoresSafeArea())
                 .toolbar(.hidden, for: .navigationBar)
                 .tabRouteDestinations()
         }
+        // Destinations inherit the selected tab's activity. The root-only override above additionally
+        // pauses its data preparation while a pushed screen covers it, without disabling that destination.
+        .environment(\.isScreenActive, selectedTab == index && tabContentIsVisible)
         // Drive this tab's root scroll-to-top on an at-root re-tap (#198 follow-up); read by ScreenScaffold
         // / LiquidTodayView inside. Only THIS tab's token changes on its reselect, so the others don't scroll.
         .environment(\.scrollToTopSignal, scrollSignal)
@@ -506,7 +521,7 @@ struct RootTabView: View {
                     // reads the opt-in Documents/noop_sync.txt drop file).
                     MoreRow("Shortcuts Export", "square.and.arrow.up.fill", .shortcutsExport)
                     // The plain 4.0 vs 5.0/MG capability grid — what NOOP reads live off each strap.
-                    MoreRow("NOOP Limitations", "list.bullet.rectangle", .noopLimitations)
+                    MoreRow("Pulse Limitations", "list.bullet.rectangle", .noopLimitations)
                 }
                 moreSection("App") {
                     // #805/#811: the v7.3.1 #766 alarm consolidation moved Smart Alarm under a single
@@ -548,6 +563,7 @@ struct RootTabView: View {
         // Scroll the More index to the top on an at-root re-tap (#198 follow-up); read by its ScreenScaffold.
         .environment(\.scrollToTopSignal, scrollSignal)
         .tabItem { Label("More", systemImage: "ellipsis") }
+        .environment(\.isScreenActive, selectedTab == 4 && tabContentIsVisible)
     }
 
     /// One titled, collapsible category. The user's expanded state is persisted by the existing preference;

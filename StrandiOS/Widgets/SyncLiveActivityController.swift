@@ -2,6 +2,7 @@
 import ActivityKit
 import Combine
 import Foundation
+import StrandDesign
 import UIKit
 
 /// Starts, updates and ends the strap-sync Live Activity.
@@ -31,6 +32,14 @@ final class SyncLiveActivityController {
     private var startedAt = Date()
     private var lastPush: Date = .distantPast
     private var lastPushedChunks = -1
+    /// The most recent state submitted to ActivityKit, or adopted from an activity that outlived this process.
+    private var lastState: SyncActivityAttributes.ContentState?
+    /// ActivityKit can keep an ended activity in `activities` through its dismissal animation. Do not
+    /// adopt it while the asynchronous end request is still in flight.
+    private var endingIDs: Set<String> = []
+    /// A brief false edge is normal between auto-continued offload chunks. End only after the shared
+    /// sync-indicator grace period, and cancel the end if another chunk begins first.
+    private var pendingEndTask: Task<Void, Never>?
     private let authInfo = ActivityAuthorizationInfo()
     private var isStarting = false
     /// How long iOS may show the activity as fresh without a push. Generous: a long history recovery can
@@ -57,12 +66,11 @@ final class SyncLiveActivityController {
             .sink { [weak self, weak live] on in
                 guard let self, let live else { return }
                 if on {
+                    self.pendingEndTask?.cancel()
+                    self.pendingEndTask = nil
                     self.syncStarted(live)
                 } else {
-                    // One hop later, deliberately: `exitBackfilling` clears `backfilling` FIRST and stamps
-                    // `lastSyncedAt` / `lastSyncError` further down the same synchronous call, so reading
-                    // the outcome on the edge itself would see the previous sync's values.
-                    DispatchQueue.main.async { self.syncEnded(live) }
+                    self.scheduleSyncEnd(live)
                 }
             }
             .store(in: &cancellables)
@@ -79,14 +87,23 @@ final class SyncLiveActivityController {
     /// a `LiveActivityIntent`. Shows "Connecting…" until the link is up, or the running sync's state if
     /// one is already going.
     func startFromShortcut(live: LiveState) {
+        pendingEndTask?.cancel()
+        pendingEndTask = nil
         adoptExisting()
-        startedAt = Date()
+        if let activity {
+            // Keep the clock already shown by an adopted activity. A second shortcut invocation must not
+            // make an in-flight sync look as if it just started.
+            startedAt = activity.content.state.startedAt
+        } else {
+            startedAt = Date()
+        }
         request(state: live.backfilling ? state(syncing(live)) : state(SyncActivityCopy.connecting()))
     }
 
     /// The shortcut found no model, or asked and nothing started: do not leave a "Connecting…" island up
     /// for a sync that is not coming.
     func shortcutDidNotStart() {
+        adoptExisting()
         guard let activity else { return }
         end(activity, with: state(SyncActivityCopy.notStarted()))
     }
@@ -118,13 +135,35 @@ final class SyncLiveActivityController {
     }
 
     private func pushProgress(_ live: LiveState, chunks: Int) {
+        adoptExisting()
         guard let activity, chunks != lastPushedChunks,
               Date().timeIntervalSince(lastPush) >= Self.chunkMinInterval else { return }
         push(activity, state(syncing(live)))
     }
 
-    private func syncEnded(_ live: LiveState) {
-        guard let activity else { return }
+    private func scheduleSyncEnd(_ live: LiveState) {
+        pendingEndTask?.cancel()
+        pendingEndTask = nil
+        // The initial false publication can arrive while a shortcut is still waiting for the link.
+        // Connecting has its own timeout; only an activity that reached syncing follows this edge.
+        guard let activity, activity.content.state.phase != .connecting else { return }
+        let endingActivityID = activity.id
+        pendingEndTask = Task { [weak self, weak live] in
+            do {
+                try await Task.sleep(nanoseconds: StrandMotion.syncIndicatorSignalDebounceNanoseconds)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled, let self, let live, !live.backfilling else { return }
+            self.pendingEndTask = nil
+            self.syncEnded(live, expectedActivityID: endingActivityID)
+        }
+    }
+
+    private func syncEnded(_ live: LiveState, expectedActivityID: String) {
+        guard !live.backfilling else { return }
+        adoptExisting()
+        guard let activity, activity.id == expectedActivityID else { return }
         let chunks = max(lastPushedChunks, live.syncChunksThisSession, 0)
         end(activity, with: state(SyncActivityCopy.final(lastSyncError: live.lastSyncError, chunks: chunks)))
     }
@@ -143,18 +182,33 @@ final class SyncLiveActivityController {
     /// Re-adopt an activity that outlived a previous process — the shortcut's "connecting" island can
     /// easily be older than the process that finishes the sync.
     private func adoptExisting() {
-        if activity == nil { activity = Activity<SyncActivityAttributes>.activities.first }
+        if let activity, !Self.isLive(activity) {
+            self.activity = nil
+            lastState = nil
+            lastPushedChunks = -1
+        }
+        guard activity == nil,
+              let adopted = Activity<SyncActivityAttributes>.activities.first(where: {
+                  Self.isLive($0) && !endingIDs.contains($0.id)
+              }) else { return }
+        activity = adopted
+        startedAt = adopted.content.state.startedAt
+        lastState = adopted.content.state
+        lastPushedChunks = adopted.content.state.chunks
+        // The exact previous push time does not survive a process restart. Starting the local interval
+        // here is conservative and prevents an immediate second chunk update after adoption.
+        lastPush = Date()
     }
 
     private func request(state: SyncActivityAttributes.ContentState) {
         // Each refusal names its gate. These are rare-event lines (one per attempted start), so they stay
         // always-on rather than behind a Test Centre domain.
         guard authInfo.areActivitiesEnabled else {
-            live?.append(log: "Sync activity: not started — Live Activities are off for NOOP in iOS Settings")
+            live?.append(log: "Sync activity: not started — Live Activities are off for Pulse in iOS Settings")
             return
         }
         guard UnitPrefs.syncLiveActivityEnabled() else {
-            live?.append(log: "Sync activity: not started — \"Strap sync\" is off in NOOP Settings → Live notifications")
+            live?.append(log: "Sync activity: not started — \"Strap sync\" is off in Pulse Settings → Live notifications")
             return
         }
         if let activity { push(activity, state); return }
@@ -167,26 +221,48 @@ final class SyncLiveActivityController {
                 pushType: nil)
             lastPush = Date()
             lastPushedChunks = state.chunks
+            lastState = state
             live?.append(log: "Sync activity: started (\(state.phase.rawValue), app state \(UIApplication.shared.applicationState.rawValue))")
         } catch {
             activity = nil
+            lastState = nil
+            lastPushedChunks = -1
             live?.append(log: "Sync activity: request refused — \(error) (app state \(UIApplication.shared.applicationState.rawValue))")
         }
         isStarting = false
     }
 
     private func push(_ activity: Activity<SyncActivityAttributes>, _ state: SyncActivityAttributes.ContentState) {
+        guard Self.isLive(activity), !endingIDs.contains(activity.id),
+              state != lastState || activity.activityState == .stale else { return }
         lastPush = Date()
         lastPushedChunks = state.chunks
+        lastState = state
         let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(Self.staleAfter))
         Task { await activity.update(content) }
     }
 
     private func end(_ activity: Activity<SyncActivityAttributes>, with state: SyncActivityAttributes.ContentState) {
-        Task { await activity.end(ActivityContent(state: state, staleDate: nil),
-                                  dismissalPolicy: .after(Date().addingTimeInterval(Self.finalShownFor))) }
+        pendingEndTask?.cancel()
+        pendingEndTask = nil
+        endingIDs.insert(activity.id)
+        Task { [weak self] in
+            await activity.end(ActivityContent(state: state, staleDate: nil),
+                               dismissalPolicy: .after(Date().addingTimeInterval(Self.finalShownFor)))
+            self?.endingIDs.remove(activity.id)
+        }
         self.activity = nil
+        lastState = nil
         lastPushedChunks = -1
+    }
+
+    /// Active and stale activities are still live and can be refreshed. Ended or dismissed activities
+    /// must not be adopted or updated.
+    private static func isLive(_ activity: Activity<SyncActivityAttributes>) -> Bool {
+        switch activity.activityState {
+        case .active, .stale: return true
+        default: return false
+        }
     }
 }
 #endif

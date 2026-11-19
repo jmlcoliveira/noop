@@ -22,7 +22,7 @@ struct DevicesView: View {
 
     var body: some View {
         ScreenScaffold(title: "Devices",
-                       subtitle: "Pair and manage the bands NOOP reads from.",
+                       subtitle: "Pair and manage the bands Pulse reads from.",
                        // The day-of-sky liquid backdrop, matching Today / Health / Sleep / Trends: a fixed,
                        // full-bleed time-of-day sky behind the scroll content (it does not scroll).
                        topBackground: liquidScaffoldSky()) {
@@ -33,7 +33,7 @@ struct DevicesView: View {
                 // calm pending note rather than an empty screen in that brief window.
                 DataPendingNote(
                     title: "Getting your devices ready",
-                    message: "NOOP is opening your on-device data. Your paired bands will appear here in a moment.",
+                    message: "Pulse is opening your on-device data. Your paired bands will appear here in a moment.",
                     symbol: "badge.plus.radiowaves.right")
             }
         }
@@ -198,10 +198,13 @@ private struct DevicesContent: View {
                             activeIsWhoop: SourceCoordinator.isWhoop(device),
                             whoopPct: live.batteryPct, ringPct: live.ouraBatteryPct)
                         : nil,
+                    liveCharging: (device.status == .active && live.connected
+                                   && SourceCoordinator.isWhoop(device)) ? live.charging : nil,
                     liveBatteryMv: (device.status == .active && live.connected) ? live.batteryMv : nil,
+                    // `packSocPct` is assigned only from a validated WHOOP 5/MG pack event. The source
+                    // gate keeps it off Oura/generic rows without requiring a persisted model label.
                     livePackSocPct: (device.status == .active && live.connected
-                                     && DeviceFamily.isWhoop5Registry(model: device.model,
-                                                                      brand: device.brand))
+                                     && SourceCoordinator.isWhoop(device))
                         ? live.packSocPct : nil,
                     // Firmware version for the ACTIVE strap. It's a STABLE property (NOOP can't change a
                     // strap's firmware), so prefer the live handshake value but fall back to the last-known
@@ -326,7 +329,7 @@ private struct DevicesContent: View {
             Button("Cancel", role: .cancel) { removeTarget = nil }
             Button("Remove", role: .destructive) { confirmRemove(device) }
         } message: { device in
-            Text("Remove \(device.displayName)? NOOP will stop connecting to it. Its recorded data is kept and you can re-add it any time.")
+            Text("Remove \(device.displayName)? Pulse will stop connecting to it. Its recorded data is kept and you can re-add it any time.")
         }
         // Restart strap confirm (#166)
         .alert("Restart this strap?",
@@ -456,7 +459,7 @@ private struct DevicesContent: View {
             Image(systemName: "info.circle")
                 .foregroundStyle(StrandPalette.textTertiary)
                 .accessibilityHidden(true)
-            Text("WHOOP is NOOP's primary, fully-supported band. Other heart-rate straps are an early, in-development addition: they stream live heart rate and HRV, but not WHOOP's deeper sleep and recovery data.")
+            Text("WHOOP is Pulse's primary, fully-supported band. Other heart-rate straps are an early, in-development addition: they stream live heart rate and HRV, but not WHOOP's deeper sleep and recovery data.")
                 .font(StrandFont.footnote)
                 .foregroundStyle(StrandPalette.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -750,6 +753,9 @@ private struct DeviceCard: View {
     /// for WHOOP, a generic strap, or an FTMS machine. nil when not the active/connected device or
     /// the source hasn't reported a battery (e.g. a strap/machine without the 0x180F service).
     var liveBatteryPct: Int? = nil
+    /// The active WHOOP strap's charging flag. nil means no charging state was reported this session.
+    /// This is intentionally separate from the pack's own SoC.
+    var liveCharging: Bool? = nil
     /// #592: strap pack voltage (mV) for the active+connected strap; nil otherwise. Shown beside the percent.
     var liveBatteryMv: Int? = nil
     /// The attached WHOOP 5/MG battery pack's own charge. nil before its pushed pack-info event arrives,
@@ -809,12 +815,14 @@ private struct DeviceCard: View {
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(device.displayName)
+                        Text(cardTitle)
                             .font(StrandFont.headline)
                             .foregroundStyle(StrandPalette.textPrimary)
-                        Text(profile.displayModel)
-                            .font(StrandFont.subhead)
-                            .foregroundStyle(StrandPalette.textSecondary)
+                        if let subtitle = cardModelSubtitle {
+                            Text(subtitle)
+                                .font(StrandFont.subhead)
+                                .foregroundStyle(StrandPalette.textSecondary)
+                        }
                     }
                     Spacer()
                     // Locally-adopted Oura is Beta: a non-dot Beta chip sits beside the usual state pill.
@@ -857,10 +865,19 @@ private struct DeviceCard: View {
                         .accessibilityLabel(hint)
                 }
 
-                // Live battery for the active+connected device, shown as a liquid tube that fills to the
-                // charge — same surface for WHOOP / strap / FTMS. The tube reads the charge band's colour.
+                // Live battery for the active+connected device, shown as a clean, static bar with a
+                // separately labelled value. Keeping text outside the fill makes low amber readings easy
+                // to read and prevents the liquid texture from looking like stray characters.
                 if let pct = liveBatteryPct {
                     batteryTube(pct)
+                }
+                if isActive && isLiveConnected && SourceCoordinator.isWhoop(device) {
+                    chargingReadout
+                    if let soc = livePackSocPct, soc.isFinite, (0...100).contains(soc) {
+                        packBatteryReadout(soc)
+                    } else if liveCharging == true {
+                        packBatteryNotReportedReadout
+                    }
                 }
 
                 // #987: strap clock state for the active+connected strap - "clock latched" + frame
@@ -899,14 +916,6 @@ private struct DeviceCard: View {
                             .font(StrandFont.footnote)
                             .foregroundStyle(StrandPalette.textSecondary)
                             .accessibilityLabel("Battery voltage \(Double(mv) / 1000.0, specifier: "%.2f") volts")
-                    }
-                    // The pack and strap gauges are distinct facts. Show the pack once, only while the
-                    // live event says it exists; detach/disconnect clears the source value.
-                    if let soc = livePackSocPct {
-                        Text("·").font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
-                        Text("Battery pack \(soc, specifier: "%.1f")%")
-                            .font(StrandFont.footnote)
-                            .foregroundStyle(StrandPalette.textSecondary)
                     }
                     if let layout = liveHistoryLayout {
                         Text("·").font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
@@ -975,22 +984,110 @@ private struct DeviceCard: View {
         return nil
     }
 
-    /// The live battery as a liquid tube (fills to the charge, coloured by band) with a trailing percent.
-    /// Static-posed so it costs nothing per frame — one of many small liquid elements on the screen.
+    private var cardTitle: String {
+        // WHOOP model numbers already appear in the subtitle. Keep the headline to the brand unless the
+        // user chose a nickname, so a default "WHOOP 5.0" entry does not repeat itself above "WHOOP 5.0 / MG".
+        if device.nickname == nil && SourceCoordinator.isWhoop(device) { return device.brand }
+        return device.displayName
+    }
+
+    private var cardModelSubtitle: String? {
+        guard device.nickname == nil, SourceCoordinator.isWhoop(device) else { return profile.displayModel }
+        let compact = profile.displayModel
+            .replacingOccurrences(of: "WHOOP", with: "", options: .caseInsensitive)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return compact.isEmpty ? nil : compact
+    }
+
+    /// The live battery in a labelled, static determinate bar with its value kept outside the fill.
     private func batteryTube(_ pct: Int) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: batterySymbol(pct))
-                .font(StrandFont.caption)
-                .foregroundStyle(batteryTint(pct))
-                .frame(width: 18)
+        VStack(alignment: .leading, spacing: NoopMetrics.space2) {
+            HStack(spacing: NoopMetrics.space2) {
+                Image(systemName: batterySymbol(pct))
+                    .font(StrandFont.caption)
+                    .foregroundStyle(batteryTint(pct))
+                    .accessibilityHidden(true)
+                Text(SourceCoordinator.isWhoop(device)
+                     ? String(localized: "Strap battery") : String(localized: "Battery"))
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                Spacer(minLength: NoopMetrics.space2)
+                Text("\(pct)%")
+                    .font(StrandFont.captionNumber)
+                    .foregroundStyle(StrandPalette.textPrimary)
+            }
+
+            GeometryReader { geometry in
+                let fraction = min(1, max(0, Double(pct) / 100))
+                Capsule()
+                    .fill(StrandPalette.hairline)
+                    .overlay(alignment: .leading) {
+                        Capsule()
+                            .fill(batteryTint(pct))
+                            .frame(width: geometry.size.width * fraction)
+                    }
+            }
+            .frame(height: NoopMetrics.space2)
+            .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Show the WHOOP-reported charging flag as an independent readout; nil stays explicitly unknown.
+    private var chargingReadout: some View {
+        let isCharging = liveCharging
+        let label = isCharging == true
+            ? String(localized: "Charging")
+            : isCharging == false
+                ? String(localized: "Not charging")
+                : String(localized: "Charging status unknown")
+        return HStack(spacing: NoopMetrics.space2) {
+            Image(systemName: isCharging == true ? "bolt.fill" : isCharging == false ? "bolt.slash" : "questionmark.circle")
+                .font(StrandFont.footnote)
+                .foregroundStyle(isCharging == true ? StrandPalette.chargeColor : StrandPalette.textTertiary)
                 .accessibilityHidden(true)
-            LiquidTube(frac: Double(pct) / 100, tint: batteryTint(pct), height: 8, animated: false)
-            Text("\(pct)%")
-                .font(StrandFont.captionNumber)
+            Text(label)
+                .font(StrandFont.footnote)
                 .foregroundStyle(StrandPalette.textSecondary)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Battery \(pct) percent")
+        .accessibilityElement(children: .combine)
+    }
+
+    /// A pack SoC is a distinct battery gauge and appears only when validated telemetry supplied it.
+    private func packBatteryReadout(_ soc: Double) -> some View {
+        HStack(spacing: NoopMetrics.space2) {
+            Image(systemName: "battery.100")
+                .font(StrandFont.footnote)
+                .foregroundStyle(batteryTint(Int(soc.rounded())))
+                .accessibilityHidden(true)
+            Text("Battery pack")
+                .font(StrandFont.footnote)
+                .foregroundStyle(StrandPalette.textSecondary)
+            Spacer(minLength: NoopMetrics.space2)
+            Text(soc / 100, format: .percent.precision(.fractionLength(1)))
+                .font(StrandFont.captionNumber)
+                .foregroundStyle(StrandPalette.textPrimary)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// A charging WHOOP can have no pack gauge to show (for example, a 4.0). This reports missing data
+    /// without claiming that a separate battery pack is attached.
+    private var packBatteryNotReportedReadout: some View {
+        HStack(spacing: NoopMetrics.space2) {
+            Image(systemName: "battery.100")
+                .font(StrandFont.footnote)
+                .foregroundStyle(StrandPalette.textTertiary)
+                .accessibilityHidden(true)
+            Text("Battery pack")
+                .font(StrandFont.footnote)
+                .foregroundStyle(StrandPalette.textSecondary)
+            Spacer(minLength: NoopMetrics.space2)
+            Text("Not reported")
+                .font(StrandFont.footnote)
+                .foregroundStyle(StrandPalette.textTertiary)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     /// The charge-band colour for the battery tube/icon (mirrors the menu-bar battery buckets).
@@ -1144,7 +1241,7 @@ private struct DeviceCard: View {
                 .foregroundStyle(StrandPalette.statusWarning)
                 .frame(width: 14)
                 .accessibilityHidden(true)
-            Text("Paired locally. NOOP owns this ring while it holds the key. If you reset it again or set it up in the Oura app, NOOP no longer owns it and you would re-add it to take it over.")
+            Text("Paired locally. Pulse owns this ring while it holds the key. If you reset it again or set it up in the Oura app, Pulse no longer owns it and you would re-add it to take it over.")
                 .font(StrandFont.caption)
                 .foregroundStyle(StrandPalette.statusWarning)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1197,7 +1294,7 @@ struct DeviceCapabilityProfile {
                 displayModel: String(localized: "\(d.brand) (experimental)"),
                 captures: String(localized: "Heart rate (live, best-effort)"),
                 powers: String(localized: "Powers the live console + Effort. No Charge, Rest or Sleep"),
-                footnote: String(localized: "Experimental: live heart rate where the band exposes it. Some bands need a pairing we can't do yet. NOOP will say so honestly and never show a made-up number. No sleep, recovery, skin temp, SpO₂ or steps."))
+                footnote: String(localized: "Experimental: live heart rate where the band exposes it. Some bands need a pairing we can't do yet. Pulse will say so honestly and never show a made-up number. No sleep, recovery, skin temp, SpO₂ or steps."))
         }
         // EXPERIMENTAL locally-adopted Oura ring (gen 3/4/5). The gen is carried on `model` ("Oura Ring
         // 3/4/5") and recovered with OuraRingGen.from(model:). NOOP reads the ring's OWN raw signals + open
@@ -1380,7 +1477,7 @@ private struct ForgetDeviceSheet: ViewModifier {
                     target = nil
                 }
             } message: { _ in
-                Text("NOOP removes this device from your list and deletes its recorded data here. You can re-pair the strap to pull its recent history back.")
+                Text("Pulse removes this device from your list and deletes its recorded data here. You can re-pair the strap to pull its recent history back.")
             }
     }
 }
@@ -1513,7 +1610,7 @@ private struct EcgProbeSheets: ViewModifier {
                 Button("Set which wrist you wear it on…") { target = nil; wristTarget = device }
                 Button("Cancel", role: .cancel) { target = nil }
             } message: { _ in
-                Text("NOOP is not a medical device and this is not an ECG test. It asks your MG to start its ECG subsystem and logs whatever comes back — unvalidated instrumentation for protocol research, never a measurement or a diagnosis, including any heart-rhythm classification the strap happens to send. Don't use it to make a health decision; see a doctor if you have symptoms.\n\nHold the two indents on the clasp with the fingers of your other hand for the whole capture. The MG measures across your wrist AND that clasp, so until you hold it the circuit is open, the strap has nothing to record, and you would see zero packets whatever the firmware did.\n\nNobody has confirmed a strap honours these commands, so the likely outcome is that nothing happens. Everything here is reversible: “Stop” turns the streams back off. Results land in the strap log.")
+                Text("Pulse is not a medical device and this is not an ECG test. It asks your MG to start its ECG subsystem and logs whatever comes back — unvalidated instrumentation for protocol research, never a measurement or a diagnosis, including any heart-rhythm classification the strap happens to send. Don't use it to make a health decision; see a doctor if you have symptoms.\n\nHold the two indents on the clasp with the fingers of your other hand for the whole capture. The MG measures across your wrist AND that clasp, so until you hold it the circuit is open, the strap has nothing to record, and you would see zero packets whatever the firmware did.\n\nNobody has confirmed a strap honours these commands, so the likely outcome is that nothing happens. Everything here is reversible: “Stop” turns the streams back off. Results land in the strap log.")
             }
             // Wrist selection: its own step, with its own confirmation and its own warning.
             //
@@ -1596,7 +1693,7 @@ private struct EcgWristSheet: View {
                 .font(StrandFont.subhead)
                 .foregroundStyle(StrandPalette.statusWarning)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Which value means “left” and which means “right” comes from WHOOP's own app and the strap firmware, not from a strap NOOP has tested. You can send it again with the other choice at any time, and it changes nothing about your recorded data.")
+            Text("Which value means “left” and which means “right” comes from WHOOP's own app and the strap firmware, not from a strap Pulse has tested. You can send it again with the other choice at any time, and it changes nothing about your recorded data.")
                 .font(StrandFont.caption)
                 .foregroundStyle(StrandPalette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1767,16 +1864,24 @@ struct DeviceCardCatalog: View {
 
     var body: some View {
         ScreenScaffold(title: "Devices",
-                       subtitle: "What each band captures (and what NOOP uses it for).",
+                       subtitle: "What each band captures (and what Pulse uses it for).",
                        topBackground: liquidScaffoldSky()) {
             VStack(spacing: NoopMetrics.gap) {
                 DeviceCard(device: Self.dev("whoop-4d", "WHOOP", "4.0", Self.whoopCaps),
                            isActive: true, isLiveConnected: true,
+                           liveBatteryPct: 58, liveCharging: false,
                            onMakeActive: {}, onRename: {}, onRemove: nil)
-                DeviceCard(device: Self.dev("whoop-5d", "WHOOP", "5.0 MG",
+                // Unknown stored model, but live pack SoC is still valid when decoded from a WHOOP 5/MG
+                // pack event. This verifies the source-validated UI gate does not require a model guess.
+                DeviceCard(device: Self.dev("whoop-5d", "WHOOP", "WHOOP",
                                             Self.whoopCaps.union([.steps])),
                            isActive: true, isLiveConnected: true,
-                           liveBatteryPct: 64, livePackSocPct: 56.9,
+                           liveBatteryPct: 22, liveCharging: true, livePackSocPct: 80,
+                           onMakeActive: {}, onRename: {}, onRemove: {})
+                DeviceCard(device: Self.dev("whoop-5-charge-unknown", "WHOOP", "5.0 MG",
+                                            Self.whoopCaps.union([.steps])),
+                           isActive: true, isLiveConnected: true,
+                           liveBatteryPct: 68, liveCharging: nil,
                            onMakeActive: {}, onRename: {}, onRemove: {})
                 // #221: a WHOOP 5/MG that's BLE-connected but whose encrypted bond was refused (#78) — no
                 // data flows despite the link being up. Renders the "Connected · not paired" pill + the
@@ -1785,7 +1890,7 @@ struct DeviceCardCatalog: View {
                 DeviceCard(device: Self.dev("whoop-5-refused", "WHOOP", "5.0 MG",
                                             Self.whoopCaps.union([.steps])),
                            isActive: true, isLiveConnected: true, bondRefused: true,
-                           pairingHint: "NOOP can see your strap but it's refusing to pair - it's likely still bonded to the official WHOOP app, or your phone is holding an old pairing. To fix it: (1) fully close the WHOOP app, (2) on a 5.0/MG, tap the band repeatedly until the LEDs flash blue (pairing mode), (3) if your strap is listed under iPhone Settings → Bluetooth, tap it and choose Forget This Device, then reconnect in NOOP.",
+                           pairingHint: "Pulse can see your strap but it's refusing to pair - it's likely still bonded to the official WHOOP app, or your phone is holding an old pairing. To fix it: (1) fully close the WHOOP app, (2) on a 5.0/MG, tap the band repeatedly until the LEDs flash blue (pairing mode), (3) if your strap is listed under iPhone Settings → Bluetooth, tap it and choose Forget This Device, then reconnect in Pulse.",
                            onMakeActive: {}, onRename: {}, onRemove: {})
                 DeviceCard(device: Self.dev("strap-d", "Polar", "H10", [.hr, .hrv]),
                            isActive: false, isLiveConnected: false,
@@ -1801,6 +1906,31 @@ struct DeviceCardCatalog: View {
                            isActive: false, isLiveConnected: false,
                            onMakeActive: {}, onRename: {}, onRemove: {})
             }
+        }
+    }
+}
+
+/// DEBUG-only device battery fixture. Its values are synthetic; no hardware is accessed.
+struct DeviceBatteryDemoScreen: View {
+    private var variant: String {
+        let args = CommandLine.arguments
+        guard let index = args.firstIndex(of: "--demo-battery-state"), index + 1 < args.count else { return "charging" }
+        return args[index + 1]
+    }
+
+    var body: some View {
+        let charging: Bool? = variant == "unknown" ? nil : variant != "discharging"
+        let pack: Double? = variant == "charging" ? 80 : nil
+        ScreenScaffold(title: "Devices", pulseStyle: true) {
+            DeviceCard(
+                device: PairedDevice(id: "pulse-battery-preview", brand: "WHOOP", model: "WHOOP",
+                                     nickname: nil, peripheralId: nil, sourceKind: .liveBLE,
+                                     capabilities: [.hr, .hrv, .sleep, .strainLoad], status: .active,
+                                     addedAt: 0, lastSeenAt: 0),
+                isActive: true, isLiveConnected: true,
+                liveBatteryPct: 22, liveCharging: charging, liveBatteryMv: 3850,
+                livePackSocPct: pack, liveFirmware: "50.43.2.0",
+                onMakeActive: {}, onRename: {}, onRemove: nil)
         }
     }
 }
@@ -1841,7 +1971,7 @@ struct BondRefusedDemoScreen: View {
                                             capabilities: WhoopLiveCapabilities.metrics(forModel: "5.0 MG"),
                                             status: .active, addedAt: 0, lastSeenAt: 0),
                        isActive: true, isLiveConnected: true, bondRefused: true,
-                       pairingHint: "NOOP can see your strap but it's refusing to pair - it's likely still bonded to the official WHOOP app, or your phone is holding an old pairing. To fix it: (1) fully close the WHOOP app, (2) on a 5.0/MG, tap the band repeatedly until the LEDs flash blue (pairing mode), (3) if your strap is listed under iPhone Settings → Bluetooth, tap it and choose Forget This Device, then reconnect in NOOP.",
+                       pairingHint: "Pulse can see your strap but it's refusing to pair - it's likely still bonded to the official WHOOP app, or your phone is holding an old pairing. To fix it: (1) fully close the WHOOP app, (2) on a 5.0/MG, tap the band repeatedly until the LEDs flash blue (pairing mode), (3) if your strap is listed under iPhone Settings → Bluetooth, tap it and choose Forget This Device, then reconnect in Pulse.",
                        onMakeActive: {}, onRename: {}, onRemove: {})
         }
     }

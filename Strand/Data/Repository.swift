@@ -124,6 +124,20 @@ struct SleepDeletionSnapshot: Equatable {
     var sleepState: [Int]?
 }
 
+enum ActiveEnergyWorkoutRowsError: LocalizedError {
+    case invalidRange
+    case storeUnavailable
+    case truncated(source: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidRange: return "The workout interval is invalid."
+        case .storeUnavailable: return "The workout store is unavailable."
+        case .truncated(let source): return "Workout query reached its row limit for source \(source)."
+        }
+    }
+}
+
 /// Read model over the on-device WhoopStore. Opens its own handle (WAL + busy-timeout makes the
 /// two-handle BLEManager+Repository pattern safe) and publishes the dashboard caches the screens bind to.
 @MainActor
@@ -199,10 +213,17 @@ final class Repository: ObservableObject {
     /// Daily metric rows with source provenance, used by vital-sign surfaces that need honest
     /// "WHOOP import / NOOP computed / Apple Health" captions instead of a silent merged row.
     @Published private(set) var vitalRows: [SourcedDailyMetric] = []
-    /// Monotonic counter bumped on every successful `refresh()`. Intraday-updating views key their
+    /// Monotonic counter bumped when refreshed data changes. Intraday-updating views key their
     /// data load on this so they reload when fresh strap data lands , `today?.day` alone is a stable
     /// date string within a day and would freeze e.g. the Today HR trend until the date rolls over.
     @Published private(set) var refreshSeq = 0
+
+    /// Apple energy lives outside the merged daily caches, so `refresh()` alone cannot publish its
+    /// changes. Advance the shared read revision only after a different energy snapshot commits.
+    func appleActiveEnergyDidChange() {
+        exploreAllCache = nil
+        refreshSeq += 1
+    }
 
     /// #989: bumped by every hydration mutation (log / edit / delete). Today's hydration card re-reads on
     /// this instead of waiting for a full `refreshSeq` data refresh, which a hydration write never causes,
@@ -715,6 +736,7 @@ final class Repository: ObservableObject {
     /// `deviceId` (and its computed sibling `deviceId + "-noop"`); these are the FIXED ids.
     static let whoopSource = "my-whoop"
     static let appleHealthSource = "apple-health"
+    static let pulseEnergySource = "pulse-energy"
     static let healthConnectSource = "health-connect"
     static let activityFileSource = "activity-file"
 
@@ -1845,6 +1867,9 @@ final class Repository: ObservableObject {
         let now = Date()
         let from = fullHistory ? "0000-01-01" : Self.dayString(now.addingTimeInterval(-Double(days) * 86_400))
         let to = fullHistory ? "9999-12-31" : Self.dayString(now.addingTimeInterval(86_400))
+        if source == Self.pulseEnergySource, key == "active_kcal" {
+            return await pulseActiveEnergyRows(store: store, from: from, to: to)
+        }
         let pts: [MetricPoint]
         if source == canonicalDeviceId {
             pts = await unionMetricSeries(store: store, key: key, from: from, to: to)
@@ -1852,6 +1877,22 @@ final class Repository: ObservableObject {
             pts = (try? await store.metricSeries(deviceId: source, key: key, from: from, to: to)) ?? []
         }
         return pts.map { ($0.day, $0.value) }
+    }
+
+    /// Pulse's combined active-energy series: the derived daily total wins, while native AppleDaily
+    /// values fill older dates until the collector has migrated them. AppleDaily remains untouched.
+    private func pulseActiveEnergyRows(store: WhoopStore, from: String,
+                                       to: String) async -> [(day: String, value: Double)] {
+        let appleRows = (try? await store.appleDaily(deviceId: Self.appleHealthSource,
+                                                     from: from, to: to)) ?? []
+        var byDay: [String: Double] = [:]
+        for row in appleRows {
+            if let value = row.activeKcal { byDay[row.day] = value }
+        }
+        let derivedRows = (try? await store.metricSeries(deviceId: Self.pulseEnergySource,
+                                                         key: "active_kcal", from: from, to: to)) ?? []
+        for row in derivedRows { byDay[row.day] = row.value }
+        return byDay.keys.sorted().compactMap { day in byDay[day].map { (day, $0) } }
     }
 
     // MARK: - Deep Timeline (full-day full-resolution viewer , #575/#574/#582)
@@ -2343,6 +2384,13 @@ final class Repository: ObservableObject {
                 if let value = Self.dailyColumn(key: candidate.key, day: row) { byDay[row.day] = value }
             }
         }
+        if candidate.source == Self.appleHealthSource, candidate.key == "active_kcal",
+           let appleRows = try? await store.appleDaily(deviceId: Self.appleHealthSource,
+                                                       from: from, to: to) {
+            for row in appleRows where byDay[row.day] == nil {
+                if let value = row.activeKcal { byDay[row.day] = value }
+            }
+        }
         return byDay.keys.sorted().compactMap { day in byDay[day].map { (day, $0) } }
     }
 
@@ -2361,6 +2409,12 @@ final class Repository: ObservableObject {
             var seen = Set<MetricSourceCandidate>(); var out: [MetricSourceCandidate] = []
             for c in cs where !seen.contains(c) { seen.insert(c); out.append(c) }
             return out
+        }
+
+        if preferredSource == pulseEnergySource {
+            let candidates = [MetricSourceCandidate(source: pulseEnergySource, key: key)]
+            guard key == "active_kcal" else { return candidates }
+            return candidates + [MetricSourceCandidate(source: appleHealthSource, key: key)]
         }
 
         if preferredSource == whoopSource || preferredSource == actualWhoopSource {
@@ -2614,6 +2668,16 @@ final class Repository: ObservableObject {
             keysBySource[source] = keys
         }
 
+        // The pulse-energy descriptor also fills from native AppleDaily rows until a day has a derived
+        // metricSeries row. Keep the catalog's availability dot consistent with that per-day fallback.
+        if catalog.contains(where: { $0.source == Self.pulseEnergySource && $0.key == "active_kcal" }) {
+            let appleRows = (try? await store.appleDaily(deviceId: Self.appleHealthSource,
+                                                         from: "0000-01-01", to: "9999-12-31")) ?? []
+            if appleRows.contains(where: { $0.activeKcal != nil }) {
+                keysBySource[Self.pulseEnergySource, default: []].insert("active_kcal")
+            }
+        }
+
         // The merged daily column, which `exploreSeries` layers under the WHOOP series, is handled by the
         // pure half below: in-memory over the already-published `days`, with `contains` short-circuiting
         // on the first day that carries the key — nothing like the 60 full merges it replaces.
@@ -2800,6 +2864,27 @@ final class Repository: ObservableObject {
         }
         let visible = deduped.sorted { $0.startTs > $1.startTs }
         return await reconcileWorkoutHrWithTrace(visible, store: store)
+    }
+
+    /// Read workout rows that overlap an active-energy interval for the native HealthKit collector.
+    /// Unlike the UI list this throws on store/query truncation, avoids Apple Health imported workouts,
+    /// and does not reconcile HR or collapse cross-source workout twins.
+    func activeEnergyWorkoutRows(from: Int, to: Int) async throws -> [WorkoutRow] {
+        guard to > from else { throw ActiveEnergyWorkoutRowsError.invalidRange }
+        guard let store = await ensureStore() else { throw ActiveEnergyWorkoutRowsError.storeUnavailable }
+
+        var rows: [WorkoutRow] = []
+        let namespaces = Self.workoutNamespaces(rawIds: rawPhysiologyReadIds(store: store))
+            .filter { !WorkoutSource.isAppleHealth($0) }
+        for id in namespaces {
+            let found = try await store.workoutsOverlapping(deviceId: id, from: from, to: to, limit: 5_001)
+            guard found.count < 5_001 else { throw ActiveEnergyWorkoutRowsError.truncated(source: id) }
+            rows.append(contentsOf: found)
+        }
+
+        let unique = Self.dedupWorkoutsByNaturalKey(rows)
+        let dismissed = WorkoutSource.parseDismissedSpans(dismissedDetectedSpans)
+        return unique.filter { !WorkoutSource.isDismissed($0, spans: dismissed) }
     }
 
     /// DISPLAY-ONLY: reconcile each workout's shown Avg/Max HR with the strap trace that actually drives

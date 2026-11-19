@@ -99,7 +99,7 @@ enum FileExport {
     @MainActor
     static func exportPair(file src: URL, fileSuggestedName: String,
                            text: String, textSuggestedName: String) async {
-        let zipName = timestampedName("noop-export", ext: "zip")
+        let zipName = timestampedName("pulse-export", ext: "zip")
         let entries = await Task.detached(priority: .userInitiated) { () -> [BundleEntry] in
             var entries: [BundleEntry] = [BundleEntry(name: textSuggestedName, data: Data(text.utf8))]
             if FileManager.default.fileExists(atPath: src.path), let fileData = try? Data(contentsOf: src) {

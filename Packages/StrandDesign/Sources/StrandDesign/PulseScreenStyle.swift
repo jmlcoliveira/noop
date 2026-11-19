@@ -13,6 +13,8 @@ public enum PulseScreenStyle {
     public static let activityTileHeight: CGFloat = 60
     public static let activityIconSize: CGFloat = 20
     public static let activityTintOpacity: Double = 0.12
+    public static let timelineChartHeight: CGFloat = 320
+    public static let timelineLiveValueFont = StrandFont.number(36)
 }
 
 public struct PulsePageBackground: View {

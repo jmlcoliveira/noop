@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import Charts
 import StrandDesign
 import StrandAnalytics
@@ -223,6 +224,13 @@ private struct HeartRateSection: View {
     @EnvironmentObject var live: LiveState
     @EnvironmentObject var profile: ProfileStore
     @EnvironmentObject var model: AppModel
+    @Environment(\.isScreenActive) private var isScreenActive
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var sectionIsVisible = false
+
+    private var samplingIsActive: Bool {
+        sectionIsVisible && isScreenActive && scenePhase == .active
+    }
 
     /// Rolling buffer of recently-streamed live HR (newest last), so the hero graph builds a real
     /// continuous time-series instead of collapsing to a 2-point flat line when the strap streams HR
@@ -237,9 +245,8 @@ private struct HeartRateSection: View {
     /// used to append only when `displayHR` CHANGED, but AppModel deliberately republishes `bpm` only
     /// when the smoothed median actually moves, so a steady heart rate banked ZERO points and the
     /// time-axis chart drew one long phantom ramp from the last change to the next. Banking the current
-    /// median once a second draws steady HR flat. Same let-property pattern as HRVSnapshotView's
-    /// `secondTimer` (parent re-init resetting the tick phase is a non-issue here: this section is
-    /// isolated and observes via @EnvironmentObject, per the perf note above).
+    /// median once a second draws steady HR flat. Only the visible sampling leaf subscribes; hidden
+    /// routes and backgrounded scenes leave this clock disconnected from the run loop.
     private let sampleTimer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
 
     /// HR to display: the spike-filtered median (model.bpm, #39) when available — raw live.heartRate
@@ -328,15 +335,24 @@ private struct HeartRateSection: View {
                 ])
             }
         }
-        .onReceive(sampleTimer) { now in
-            // Bank the CURRENT spike-filtered HR once a second, stamped with the tick's real wall-clock
-            // time: this feeds the time x-axis (#198) and the #105 trace without the phantom ramp that
-            // on-change sampling drew through steady stretches (#941). The 30...220 physiological guard
-            // mirrors the Android chart's existing range check; nil banks nothing (disconnect clears the
-            // median on both platforms), so a stale value never flat-lines a dead trace.
-            guard let v = displayHR, (30...220).contains(v) else { return }
-            hrHistory.append(LiveHRSample(date: now, bpm: Double(v)))
-            if hrHistory.count > 180 { hrHistory.removeFirst(hrHistory.count - 180) }
+        .overlay {
+            if samplingIsActive {
+                Color.clear.frame(width: 0, height: 0)
+                    .onReceive(sampleTimer) { now in
+                        guard let v = displayHR, (30...220).contains(v) else { return }
+                        hrHistory.append(LiveHRSample(date: now, bpm: Double(v)))
+                        if hrHistory.count > 180 { hrHistory.removeFirst(hrHistory.count - 180) }
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+        .onAppear { sectionIsVisible = true }
+        .onDisappear { sectionIsVisible = false }
+        .onChangeCompat(of: samplingIsActive) { active in
+            // This is a display buffer, independent of stored HR. Do not join the old live line to
+            // a fresh sample after a long interval spent on another screen.
+            if !active { hrHistory.removeAll(keepingCapacity: true) }
         }
     }
 
@@ -1372,7 +1388,7 @@ private struct VitalsSection: View {
                         .staggeredAppear(index: idx)
                 }
             }
-            Text("Once NOOP has 14 nights of history, in-range compares each vital to your own baseline (approximate, not medical advice); until then, typical adult ranges apply.")
+            Text("Once Pulse has 14 nights of history, in-range compares each vital to your own baseline (approximate, not medical advice); until then, typical adult ranges apply.")
                 .font(StrandFont.footnote)
                 .foregroundStyle(StrandPalette.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)

@@ -70,10 +70,10 @@ final class RescoreBackgroundPolicyTests: XCTestCase {
         XCTAssertEqual(decide(background: false, attemptedSecondsAgo: 0), .run)
     }
 
-    /// A trigger while a pass runs here still reaches the engine, which queues one follow-up. Deferring it
-    /// would record a debt the running pass could not settle (#1681); the spacing leaves that path alone.
+    /// A trigger while a pass runs reaches the engine only to queue a bounded follow-up. A heavy second
+    /// pass cannot start from this background wake; the follow-up is reconsidered after the lock clears.
     func testSpacingLeavesATriggerDuringARunningPassAlone() {
-        XCTAssertEqual(decide(running: true, attemptedSecondsAgo: 0), .run)
+        XCTAssertEqual(decide(running: true, attemptedSecondsAgo: 0), .queueBehindRunningPass)
     }
 
     /// A clock set back makes the last start look like the future. That is not a recent pass, and waiting
@@ -105,11 +105,10 @@ final class RescoreBackgroundPolicyTests: XCTestCase {
         XCTAssertEqual(decide(unfinished: true, attemptedSecondsAgo: nil), .run)
     }
 
-    /// A pass running in THIS process reads as owed through its own started-mark. That is not a killed
-    /// pass, and deferring on it recorded a newer debt the running pass could then never settle (#1681),
-    /// so every later offload deferred too. The engine re-arms a follow-up pass for a mid-run trigger.
+    /// A pass running in THIS process reads as owed through its own started-mark. It is not a killed pass;
+    /// real updates are queued once behind it and are subject to spacing when the pass releases the lock.
     func testARunningPassIsNotMistakenForAKilledOne() {
-        XCTAssertEqual(decide(unfinished: true, running: true), .run)
+        XCTAssertEqual(decide(unfinished: true, running: true), .queueBehindRunningPass)
     }
 
     // MARK: - The backstop

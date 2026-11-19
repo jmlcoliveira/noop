@@ -87,6 +87,8 @@ final class LiquidMotion {
     #endif
     private var started = false
     private var refCount = 0
+    /// Later policy notifications must not restart CoreMotion after the app has backgrounded.
+    private var appIsForeground = true
 
     private init() {
         #if os(iOS) && !targetEnvironment(macCatalyst)
@@ -97,30 +99,42 @@ final class LiquidMotion {
         // That is the always-on half of this cost; posing the Canvas still never touched it.
         let nc = NotificationCenter.default
         nc.addObserver(forName: UIApplication.didEnterBackgroundNotification,
-                       object: nil, queue: .main) { [weak self] _ in self?.stop() }
+                       object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.appIsForeground = false
+            self.stop()
+        }
         nc.addObserver(forName: UIApplication.willEnterForegroundNotification,
-                       object: nil, queue: .main) { [weak self] _ in self?.startIfWanted() }
-        // Live response to all three quiet signals, so flipping Low Power Mode / Reduce Motion /
-        // the in-app toggle stops the sensor immediately rather than at the next screen change.
+                       object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.appIsForeground = true
+            self.startIfWanted()
+        }
+        // Recheck the shared policy after ProcessInfo/UserDefaults observers have published their
+        // new snapshot, so this sensor and the views respond to the same signal values.
         nc.addObserver(forName: .NSProcessInfoPowerStateDidChange,
-                       object: nil, queue: .main) { [weak self] _ in self?.syncToPolicy() }
+                       object: nil, queue: .main) { [weak self] _ in self?.schedulePolicySync() }
+        nc.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification,
+                       object: nil, queue: .main) { [weak self] _ in self?.schedulePolicySync() }
         nc.addObserver(forName: UIAccessibility.reduceMotionStatusDidChangeNotification,
-                       object: nil, queue: .main) { [weak self] _ in self?.syncToPolicy() }
+                       object: nil, queue: .main) { [weak self] _ in self?.schedulePolicySync() }
         nc.addObserver(forName: UserDefaults.didChangeNotification,
-                       object: UserDefaults.standard, queue: .main) { [weak self] _ in self?.syncToPolicy() }
+                       object: UserDefaults.standard, queue: .main) { [weak self] _ in self?.schedulePolicySync() }
         #endif
     }
 
-    /// The three signals that mean "no decorative motion", read imperatively. Views read
-    /// `NoopMotionState` instead (it publishes, so they invalidate); this is the sensor's own read,
-    /// off the same underlying facts, so the two can never disagree.
+    /// The imperative sensor read of the same policy views use. Reduce Motion comes from UIKit here;
+    /// Low Power Mode, thermal pressure, the in-app preference, and window visibility come from the
+    /// shared published state, so sensor and rendered motion cannot drift apart.
     static var quietNow: Bool {
-        if ProcessInfo.processInfo.isLowPowerModeEnabled { return true }
-        if UserDefaults.standard.bool(forKey: QuietMotionPrefs.enabledKey) { return true }
         #if canImport(UIKit) && !os(watchOS)
-        if UIAccessibility.isReduceMotionEnabled { return true }
+        let reduceMotion = UIAccessibility.isReduceMotionEnabled
+        #else
+        let reduceMotion = false
         #endif
-        return false
+        return MainActor.assumeIsolated {
+            NoopMotionState.shared.poseStill(reduceMotion)
+        }
     }
 
     /// Ref-counted start/stop so the sensor only runs while a liquid screen is visible.
@@ -134,7 +148,7 @@ final class LiquidMotion {
     }
 
     private func startIfWanted() {
-        guard !started, refCount > 0, !LiquidMotion.quietNow else { return }
+        guard !started, refCount > 0, appIsForeground, !LiquidMotion.quietNow else { return }
         started = true
         #if os(iOS) && !targetEnvironment(macCatalyst)
         guard manager.isDeviceMotionAvailable else { started = false; return }
@@ -182,9 +196,16 @@ final class LiquidMotion {
         tilt = 0
     }
 
-    /// Re-evaluate after a Low Power Mode / Reduce Motion / in-app-toggle change.
+    /// Re-evaluate after the shared quiet-motion policy changes. The reference count is retained while
+    /// stopped, so visible liquid views resume when policy permits it again.
     private func syncToPolicy() {
         if LiquidMotion.quietNow { stop() } else { startIfWanted() }
+    }
+
+    /// ProcessInfo and UserDefaults also notify NoopMotionState. Let that observer publish its new
+    /// snapshot before the sensor reads the shared policy, independent of observer registration order.
+    private func schedulePolicySync() {
+        DispatchQueue.main.async { [weak self] in self?.syncToPolicy() }
     }
 }
 

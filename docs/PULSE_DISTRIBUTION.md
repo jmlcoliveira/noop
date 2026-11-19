@@ -4,7 +4,7 @@ Pulse's AltStore source is served from this repository's `main` branch:
 
 `https://raw.githubusercontent.com/jmlcoliveira/noop/main/altstore-source.json`
 
-The source uses `dev.pulse.companion.altstore`, and starts with `apps: []`, which AltStore's [source format supports](https://faq.altstore.io/developers/make-a-source). It does not point to NOOP's upstream releases or advertise an IPA that has not been verified and uploaded to the Pulse fork.
+The source uses `dev.pulse.companion.altstore` and lists verified iPhone releases from this fork. It does not point to NOOP's upstream release assets.
 
 ## Release workflow
 
@@ -21,7 +21,7 @@ entry's version/build with the installed app; source dates alone do not trigger 
 The first Pulse IPA still needs to be installed through the chosen sideloader before it can manage
 subsequent updates. Changing this JSON does not enroll the existing Xcode-installed app by itself.
 
-The workflow does not install anything on an iPhone. No signing identity, team, or signing secret is stored in the repository. The IPA remains unsigned for AltStore or another compatible sideloader to sign on the user's behalf.
+The workflow does not install anything on an iPhone. No signing identity, team, or signing secret is stored in the repository. The IPA carries only an ad-hoc capability template; AltStore or another compatible sideloader signs it with the installer's own Apple Account.
 
 ## Local source updater
 
@@ -36,7 +36,7 @@ Tools/update-altstore-source.sh update \
   --description "Release notes"
 ```
 
-This command changes only the local JSON file. It never uploads, creates a release, pushes a commit, installs the IPA, or contacts AltStore. The old positional NOOP-release form is rejected because it could advertise an upstream asset from this Pulse source. Use the manual workflow so the release asset is checked before the source entry is prepared.
+This command changes only the local JSON file. It never uploads, creates a release, pushes a commit, installs the IPA, or contacts AltStore. The old positional NOOP-release form is rejected because it could advertise an upstream asset from this Pulse source. Use the manual workflow, or verify the uploaded release asset's size and SHA-256 against the local IPA before committing the prepared source entry.
 
 ## Identifiers
 
@@ -45,3 +45,20 @@ This command changes only the local JSON file. It never uploads, creates a relea
 - App Group: `group.dev.pulse.companion.noop.staging`
 - Source: `dev.pulse.companion.altstore`
 
+## Install with AltStore Classic
+
+Add the raw source URL above in **AltStore → Sources → +**, then install Pulse from that source.
+Keep the widget extension if asked. AltStore Classic still uses seven-day free-account signatures;
+AltServer must remain available for automatic refreshes.
+
+Keep an existing Xcode-installed Pulse app until history has been migrated. A first AltStore install
+can use a different bundle identifier and a separate data container. Export a backup from the old
+copy, import it into the new copy, and verify the history before enabling Apple Health or removing
+the old copy. Avoid running two copies that export the same workouts to Apple Health.
+
+## Public artifact contents
+
+Release IPAs contain the app and widget, public assets, and capability requests. They must not contain
+private signing keys, provisioning profiles, local signing configuration, personal databases, backups,
+or diagnostic exports. A public IPA may be downloaded, inspected, and re-signed by other users;
+repository licensing and upstream attribution continue to apply.

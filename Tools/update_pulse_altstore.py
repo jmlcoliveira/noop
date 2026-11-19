@@ -258,6 +258,10 @@ def inspect_ipa(ipa_path: Path) -> IPAMetadata:
         app_entitlements = _read_entitlements(archive, f"{app_root}/{app_executable}")
         widget_entitlements = _read_entitlements(archive, f"{widget_root}/{widget_executable}")
 
+        for capability in ("com.apple.developer.healthkit", "com.apple.developer.healthkit.background-delivery"):
+            if app_entitlements.get(capability) is not True:
+                raise UpdateError(f"app signed entitlements do not enable {capability}")
+
         for context, entitlements in (("app", app_entitlements), ("widget", widget_entitlements)):
             groups = entitlements.get("com.apple.security.application-groups")
             if not isinstance(groups, list) or APP_GROUP_ID not in groups:

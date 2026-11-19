@@ -436,6 +436,54 @@
       "identity_sha256": "6aa52285ae46cf0ae75a690feee01765f9401825b6c9845c146163fdf5b2bb3e",
       "platform": "swift",
       "rationale": "A LOCAL binding inside the private v16 ECG decoder (#2847), not a static constant. The ledger's Swift rule treats any four-space `let` in a file-scope function as a candidate `static let`, which is how it finds file-scope constants without parsing, so a local in a top-level `private func` lands in the inventory. The Kotlin twin's equivalent is a local `val` in its own decodeWhoop5HistoricalV16, which the Kotlin rule never inventories because it matches `const val` only, and a Set-valued or object-valued local cannot be `const` in Kotlin at all. There is nothing to pair and nothing to change in either decoder."
+    },
+    {
+      "type": "platform_specific",
+      "kind": "add-unpaired-function",
+      "identity": "swift\u0000Packages/WhoopStore/Sources/WhoopStore/AppleActiveEnergyStore.swift::replaceAppleActiveEnergy/4#1",
+      "identity_sha256": "6404590ee21ce863ccbe5394aab28ca6823a249a470328731932b3902a4a9438",
+      "platform": "swift",
+      "rationale": "Used only by the iPhone HealthKit bridge to atomically refresh its all-source active-energy aggregate after workout export. This fork targets iPhone only; no Android caller, schema, backup key, or score formula changes."
+    },
+    {
+      "type": "platform_specific",
+      "kind": "add-unpaired-file",
+      "identity": "swift\u0000Packages/WhoopStore/Sources/WhoopStore/AppleActiveEnergyStore.swift",
+      "identity_sha256": "dee55bb7377e7f6d7842f33dfdcde60e3549704eb26c222600a69077625556f0",
+      "platform": "swift",
+      "rationale": "Contains the field-scoped persistence used only by the iPhone HealthKit bridge after active-energy aggregation. This iPhone-only fork adds no Android implementation or shared schema change."
+    },
+    {
+      "type": "platform_specific",
+      "kind": "add-unpaired-file",
+      "identity": "swift\u0000Packages/WhoopStore/Sources/WhoopStore/MetricSeriesSnapshot.swift",
+      "identity_sha256": "3dbb40acc2e4ba15f8a6701f3ebf44e84fd8e3bacd827f2900e8cb20adda39f5",
+      "platform": "swift",
+      "rationale": "Contains atomic persistence for the iPhone-only HealthKit combined active-energy series. The user explicitly targets iPhone; this adds no Android caller, schema, backup key, or physiological formula change."
+    },
+    {
+      "type": "platform_specific",
+      "kind": "add-unpaired-function",
+      "identity": "swift\u0000Packages/WhoopStore/Sources/WhoopStore/MetricSeriesSnapshot.swift::replaceMetricSeriesSnapshot/5#1",
+      "identity_sha256": "8cd0d41c79d1e2ba16bcb3c44eedf6934a19712795601015127b273977359f73",
+      "platform": "swift",
+      "rationale": "Called only by the iPhone HealthKit bridge to replace its derived Pulse plus Health calorie snapshot without modifying raw Apple Health data. This iPhone-only fork has no Android caller or shared schema change."
+    },
+    {
+      "type": "platform_specific",
+      "kind": "add-unpaired-file",
+      "identity": "swift\u0000Packages/WhoopStore/Sources/WhoopStore/OverlappingWorkouts.swift",
+      "identity_sha256": "8667e46c8a9c5a51388188d40180e1cbcd22b08b61bcdaf4f715b040ce98337e",
+      "platform": "swift",
+      "rationale": "Contains the half-open interval read required by the iPhone HealthKit calorie collector to include sessions crossing midnight. The user targets iPhone only; no Android storage or shared schema changes."
+    },
+    {
+      "type": "platform_specific",
+      "kind": "add-unpaired-function",
+      "identity": "swift\u0000Packages/WhoopStore/Sources/WhoopStore/OverlappingWorkouts.swift::workoutsOverlapping/4#1",
+      "identity_sha256": "c4be9e6b4116712b90615ec0ae0a61d3bd12bd3575fc45f8cd1d5a413c1f6863",
+      "platform": "swift",
+      "rationale": "Used only by the iPhone HealthKit calorie collector to reconcile overlapping local workout intervals, including cross-midnight sessions. This iPhone-only fork adds no Android caller or shared schema change."
     }
   ]
 }

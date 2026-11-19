@@ -218,7 +218,7 @@ struct StrandiOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            iOSRootView()
+            iOSRootView(repo: model.repo)
                 .environmentObject(model)
                 .environmentObject(model.ble)   // #334: Today pull-to-sync reads BLEManager (no HR churn)
                 .environmentObject(model.live)
@@ -452,6 +452,8 @@ struct StrandiOSApp: App {
 /// excluded `RootView()` sidebar for `RootTabView()`. The shared `OnboardingWizard`, `TermsGateView`,
 /// `WhatsNewView`, `AppChangelog`, and `Terms` symbols all compile into the iOS target unchanged.
 private struct iOSRootView: View {
+    // Only passed through for refresh actions. Historical UI observes its own repository inputs.
+    let repo: Repository
     @AppStorage("noop.onboarded") private var onboarded = false
     @AppStorage("noop.lastSeenChangelogVersion") private var lastSeenChangelog = ""
     @AppStorage("noop.acceptedTermsVersion") private var acceptedTerms = ""
@@ -484,7 +486,7 @@ private struct iOSRootView: View {
         ZStack {
             RootTabView(homeScreenQuickActionsEnabled:
                 demoBypass || (onboarded && acceptedTerms == Terms.currentVersion
-                    && automaticLaunchSheetResolved))
+                    && automaticLaunchSheetResolved), repo: repo)
             if !onboarded && !demoBypass {
                 OnboardingWizard(onFinished: {
                     onboarded = true
@@ -598,6 +600,8 @@ enum DemoScreens {
         case "chargebreakdown": return AnyView(ChargeBreakdownDemoHost())
         case "devices":  return AnyView(DevicesView())
         case "devicescatalog": return AnyView(DeviceCardCatalog())
+        case "devicebattery": return AnyView(DeviceBatteryDemoScreen())
+        case "fulldaychart": return AnyView(FullDayChartView())
         case "fitnessage": return AnyView(FitnessAgeDemoScreen())
         case "vitality": return AnyView(VitalityDemoScreen())
         case "addwizard": return AnyView(AddWizardDemoHost())

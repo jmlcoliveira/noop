@@ -21,6 +21,7 @@ struct MetricDescriptor: Identifiable, Hashable {
     var sourceLabel: String {
         switch source {
         case "apple-health": return "Apple Health"
+        case "pulse-energy": return "Apple Health + Pulse"
         case "xiaomi-band":  return "Mi Band"
         case "nutrition-csv": return String(localized: "Nutrition")
         case "noop-mood":    return String(localized: "Mood")
@@ -117,7 +118,8 @@ struct MetricDescriptor: Identifiable, Hashable {
 enum MetricCatalog {
     static let categories = ["Heart", "Charge", "Rest", "Effort", "Health", "Nutrition", "Mind"]
 
-    static let all: [MetricDescriptor] = [
+    static let all: [MetricDescriptor] = {
+        var metrics: [MetricDescriptor] = [
         // ── Heart
         d("avg_hr", String(localized: "Average Heart Rate"), "Heart", "bpm", "my-whoop", "heart", 0, nil),
         d("max_hr", String(localized: "Max Heart Rate"), "Heart", "bpm", "my-whoop", "bolt.heart", 0, nil),
@@ -208,7 +210,20 @@ enum MetricCatalog {
         d("steps", String(localized: "Steps"), "Effort", "", "xiaomi-band", "figure.walk", 0, true),
         d("intensity_min", String(localized: "Intensity Minutes"), "Effort", "min", "xiaomi-band", "figure.run", 0, true),
         d("stress", String(localized: "Stress"), "Health", "/100", "xiaomi-band", "gauge.with.dots.needle.50percent", 0, false),
-    ]
+        ]
+        #if os(iOS)
+        // The iOS Home calorie tile and normal Active Energy trend use the derived Health + Pulse total.
+        // Keep raw Apple Health available as an explicit source view immediately after it.
+        let rawActiveEnergyIndex = metrics.firstIndex {
+            $0.key == "active_kcal" && $0.source == "apple-health"
+        } ?? metrics.count
+        metrics.insert(
+            d("active_kcal", String(localized: "Active Energy"), "Effort", "kcal", "pulse-energy", "flame.fill", 0, nil),
+            at: rawActiveEnergyIndex
+        )
+        #endif
+        return metrics
+    }()
 
     static func inCategory(_ c: String) -> [MetricDescriptor] { all.filter { $0.category == c } }
 
@@ -239,9 +254,13 @@ enum MetricCatalog {
     /// Calories card always opened the imported-only detail, so an on-device (WHOOP 5.0) user with no import
     /// saw an empty/disagreeing chart. Defaults to the on-device detail when no import is present.
     static func todayCaloriesMetric(hasImportedKcal: Bool, hasOnDeviceKcal: Bool = false) -> MetricDescriptor? {
+        #if os(iOS)
+        return metric(key: "active_kcal", source: "pulse-energy")
+        #else
         if hasImportedKcal { return metric(key: "active_kcal", source: "apple-health") }
         if hasOnDeviceKcal { return metric(key: "energy_kcal", source: "my-whoop") }
         return metric(key: "energy_kcal", source: "my-whoop")
+        #endif
     }
 
     /// Localized display name for a catalog category, mapped AT THE RENDER SITE only. The

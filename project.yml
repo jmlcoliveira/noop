@@ -151,8 +151,8 @@ targets:
           # reporter's install, which no bluetooth-central wake survives; a processing task is the long,
           # deferrable kind that can finish it.
           - processing
-        # Permit every background-task identifier. Each derives from Bundle.main at runtime so it
-        # tracks BUNDLE_ID_PREFIX, and each is registered from StrandiOSApp.init before launch finishes.
+        # Resolve task identifiers from this list at runtime, including when a sideloader rewrites
+        # CFBundleIdentifier. Register each from StrandiOSApp.init before launch finishes.
         BGTaskSchedulerPermittedIdentifiers:
           - $(PRODUCT_BUNDLE_IDENTIFIER).debugexport
           - $(PRODUCT_BUNDLE_IDENTIFIER).coachbrief
@@ -166,17 +166,17 @@ targets:
           # the re-score task, which is submitted only when a re-score is OWED, and a missing strap owes
           # none, so that task would never run in the one case the warning exists for.
           - $(PRODUCT_BUNDLE_IDENTIFIER).stalebattery
-        NSBluetoothAlwaysUsageDescription: "NOOP connects directly to your WHOOP strap over Bluetooth to read heart rate, R-R intervals, battery, and sensor data locally on your iPhone. Nothing leaves your device."
-        NSLocationWhenInUseUsageDescription: "NOOP records your route during an outdoor workout to show distance, pace, and a map, and keeps recording while the screen is off. The route stays on your device. Nothing leaves it."
-        NSHealthShareUsageDescription: "NOOP reads your own Apple Health data on-device to compute recovery, strain, and sleep. Nothing leaves your device."
-        NSHealthUpdateUsageDescription: "NOOP writes the metrics it computes from your strap back into Apple Health, on-device and only when you allow it."
-        NSMotionUsageDescription: "NOOP reads your iPhone's step count for a walking or running workout to show steps in the activity summary. It stays on your device. Nothing leaves it."
+        NSBluetoothAlwaysUsageDescription: "Pulse connects directly to your WHOOP strap over Bluetooth to read heart rate, R-R intervals, battery, and sensor data locally on your iPhone. Nothing leaves your device."
+        NSLocationWhenInUseUsageDescription: "Pulse records your route during an outdoor workout to show distance, pace, and a map, and keeps recording while the screen is off. The route stays on your device. Nothing leaves it."
+        NSHealthShareUsageDescription: "Pulse reads your own Apple Health data on-device to compute recovery, strain, and sleep. Nothing leaves your device."
+        NSHealthUpdateUsageDescription: "Pulse writes the metrics it computes from your strap back into Apple Health, on-device and only when you allow it."
+        NSMotionUsageDescription: "Pulse reads your iPhone's step count for a walking or running workout to show steps in the activity summary. It stays on your device. Nothing leaves it."
         # K4: Coach voice input. Speech is transcribed ON-DEVICE ONLY (requiresOnDeviceRecognition);
         # the mic button is disabled where the locale doesn't support that, never falls back to
         # server transcription. Only the resulting TEXT reaches the provider, via the same channel
         # a typed question already uses.
-        NSSpeechRecognitionUsageDescription: "NOOP transcribes your question on-device so you can ask the coach out loud instead of typing. Audio never leaves your iPhone."
-        NSMicrophoneUsageDescription: "NOOP uses the microphone to let you ask the coach a question by voice. The audio is transcribed on-device and never leaves your iPhone."
+        NSSpeechRecognitionUsageDescription: "Pulse transcribes your question on-device so you can ask the coach out loud instead of typing. Audio never leaves your iPhone."
+        NSMicrophoneUsageDescription: "Pulse uses the microphone to let you ask the coach a question by voice. The audio is transcribed on-device and never leaves your iPhone."
         # #187: the opt-in AI Coach's "Custom (OpenAI-compatible)" provider can point at a LOCAL LLM on
         # the LAN (Ollama / LM Studio at http://192.168.x.x:11434). ATS blocks cleartext by default;
         # NSAllowsLocalNetworking exempts loopback/.local/private-LAN hosts ONLY — public HTTPS endpoints
@@ -248,6 +248,7 @@ targets:
     info:
       path: StrandiOSWidgets/Info.plist
       properties:
+        CFBundleName: Pulse
         CFBundleDisplayName: Pulse
         # Version keys MUST live here in the generated-Info.plist properties — NOT hand-edited into the
         # file — because xcodegen regenerates StrandiOSWidgets/Info.plist on every `xcodegen generate`

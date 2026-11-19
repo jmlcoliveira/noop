@@ -28,6 +28,12 @@ import UIKit
 @MainActor
 enum RescoreBackgroundScheduler {
 
+    enum RunOutcome: Equatable {
+        case ran
+        case deferred
+        case queuedBehindRunningPass
+    }
+
     /// A re-score is OWED: either a pass marked itself started and never marked itself finished (it was
     /// killed), or a trigger deferred one to a background task. Survives process death, which is the
     /// entire point — the process being killed is the event we are trying to observe, and it is not an
@@ -56,6 +62,10 @@ enum RescoreBackgroundScheduler {
     /// as long as the app is awake: each pass outlives its own debt, the resume forces a fresh one, and the
     /// chain never reaches a quiet interval it can stop at.
     static let owedAfterCompletedPassKey = "noop.rescoreOwedAfterCompletedPass"
+    /// Some requests cannot be proven complete by the raw HR fingerprint (for example a baseline or
+    /// scoring-setting edit). Keep that requirement with the durable debt if the process exits before the
+    /// queued request can start.
+    static let owedRequiresForcedPassKey = "noop.rescoreOwedRequiresForcedPass"
 
     static var isRescoreOwed: Bool { UserDefaults.standard.bool(forKey: owedKey) }
 
@@ -63,6 +73,10 @@ enum RescoreBackgroundScheduler {
     /// `markRescoreOwed()`, so a debt recorded by a pass that then dies reverts to forcing.
     static var isOwedAfterCompletedPass: Bool {
         UserDefaults.standard.bool(forKey: owedAfterCompletedPassKey)
+    }
+
+    static var isOwedRequiresForcedPass: Bool {
+        UserDefaults.standard.bool(forKey: owedRequiresForcedPassKey)
     }
 
     static var currentOwedToken: String? { UserDefaults.standard.string(forKey: owedTokenKey) }
@@ -91,8 +105,10 @@ enum RescoreBackgroundScheduler {
     /// - Parameter passStarting: the caller is a pass about to work (not the deferral path), so the attempt
     ///   time is recorded for `RescoreBackgroundPolicy.interruptedRetryCooldownSeconds`.
     @discardableResult
-    static func markRescoreOwed(passStarting: Bool = false) -> String {
+    static func markRescoreOwed(passStarting: Bool = false,
+                                requiresForcedPass: Bool = false) -> String {
         let token = UUID().uuidString
+        let alreadyOwed = isRescoreOwed
         if passStarting {
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastAttemptStartedAtKey)
         }
@@ -102,7 +118,18 @@ enum RescoreBackgroundScheduler {
         // watermark never advances and its resume must force. Cleared here rather than at completion so
         // the flag describes the CURRENT debt, never the previous one (#2238).
         UserDefaults.standard.set(false, forKey: owedAfterCompletedPassKey)
+        if requiresForcedPass {
+            UserDefaults.standard.set(true, forKey: owedRequiresForcedPassKey)
+        } else if !alreadyOwed {
+            UserDefaults.standard.set(false, forKey: owedRequiresForcedPassKey)
+        }
         return token
+    }
+
+    /// Mark the current debt as unsafe to gate on the HR fingerprint. Used when a non-data edit joins an
+    /// already queued offload without needing to replace the token that protects the active pass.
+    static func requireForcedRescoreForCurrentDebt() {
+        UserDefaults.standard.set(true, forKey: owedRequiresForcedPassKey)
     }
 
     /// May a pass holding [capturedToken] settle the debt?
@@ -137,6 +164,7 @@ enum RescoreBackgroundScheduler {
         let settled = maySettleDebt(capturedToken: owedToken, currentToken: currentOwedToken)
         if settled {
             UserDefaults.standard.set(false, forKey: owedKey)
+            UserDefaults.standard.set(false, forKey: owedRequiresForcedPassKey)
         } else {
             // #2238: this pass finished and advanced the watermark; only a newer token outvoted it. Record
             // that, so the resume can gate on the fingerprint instead of forcing a pass whose inputs may be
@@ -147,6 +175,17 @@ enum RescoreBackgroundScheduler {
             UserDefaults.standard.set(seconds, forKey: lastPassSecondsKey)
         }
         return settled
+    }
+
+    /// A fingerprint-gated resume can prove that a completed pass already covered the outstanding debt.
+    /// Settle only that proven debt; an interrupted pass has not advanced the watermark and must remain owed.
+    @discardableResult
+    static func settleCompletedPassDebtIfUnchanged() -> Bool {
+        guard isRescoreOwed, isOwedAfterCompletedPass, !isOwedRequiresForcedPass else { return false }
+        UserDefaults.standard.set(false, forKey: owedKey)
+        UserDefaults.standard.set(false, forKey: owedAfterCompletedPassKey)
+        UserDefaults.standard.set(false, forKey: owedRequiresForcedPassKey)
+        return true
     }
 
     /// Whether the app is somewhere a long pass might not survive. Always false on macOS — see the type doc.
@@ -181,11 +220,15 @@ enum RescoreBackgroundScheduler {
     ///   untouched either way.
     /// - Parameter passInProgress: a pass is already running in this process; see
     ///   `RescoreBackgroundPolicy.decide`.
+    /// - Parameter preserveCompletedPassProofOnDefer: the engine retains the exact typed follow-up in
+    ///   memory, so a completed watermark may still gate duplicate post-offload work when it resumes.
+    @discardableResult
     static func run(isBackground: Bool? = nil,
                     owesOnDefer: Bool = true,
                     passInProgress: Bool = false,
+                    preserveCompletedPassProofOnDefer: Bool = false,
                     log: @escaping (String) -> Void,
-                    work: () async -> Void) async {
+                    work: () async -> Void) async -> RunOutcome {
         let decision = RescoreBackgroundPolicy.decide(
             isBackground: isBackground ?? isBackgrounded,
             isRealUpdate: owesOnDefer,
@@ -200,16 +243,31 @@ enum RescoreBackgroundScheduler {
                 // plainly in the log, because "deferred" would promise a background task that is not
                 // coming.
                 log("re-score: backstop tick skipped while backgrounded — \(reason)")
-                return
+                return .deferred
             }
             // Record the debt BEFORE scheduling. Without this the background task wakes, finds nothing
             // marked owed, and returns having done nothing — the deferral would silently drop the work
             // rather than move it.
-            markRescoreOwed()
+            // When the engine retained the exact request, a completed-pass proof remains useful: the
+            // resume fingerprint distinguishes changed raw input from a duplicate. General deferred callers
+            // may carry an edit the fingerprint cannot see, so they get a fresh unproven token and force.
+            // Deferrals never refresh attempt time.
+            if !preserveCompletedPassProofOnDefer || !isOwedAfterCompletedPass {
+                markRescoreOwed()
+            }
             log("re-score: deferred to a background task — \(reason)")
             schedule()
+            return .deferred
+        case .queueBehindRunningPass:
+            // `work` must only enqueue behind the engine's lock; it cannot start a heavy pass. The engine
+            // stamps the newer debt when it accepts the request, so the running pass cannot settle it.
+            await work()
+            if isRescoreOwed { schedule() }
+            log("re-score: queued behind the active pass — the newer request will run under background policy")
+            return .queuedBehindRunningPass
         case .run:
             await withAssertion(log: log, work: work)
+            return .ran
         }
     }
 
@@ -286,7 +344,7 @@ enum RescoreBackgroundScheduler {
     // MARK: - iOS background-processing plumbing
 
     #if os(iOS)
-    static let taskIdentifier = (Bundle.main.bundleIdentifier ?? "com.noopapp.noop") + ".rescore"
+    static let taskIdentifier = BackgroundTaskIdentifier.identifier("rescore")
 
     /// Register the handler. MUST be called from `StrandiOSApp.init()` before launch finishes, and the
     /// identifier MUST be listed in `BGTaskSchedulerPermittedIdentifiers`, or iOS never delivers the task.

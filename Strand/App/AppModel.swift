@@ -728,10 +728,14 @@ final class AppModel: ObservableObject {
         // awake: each pass runs longer than the drain interval, so it always finishes owing a newer debt,
         // and the resume forces the next one whether or not a single row moved.
         let fromCompletedPass = RescoreBackgroundScheduler.isOwedAfterCompletedPass
+        let requiresForcedPass = RescoreBackgroundScheduler.isOwedRequiresForcedPass
         live.append(log: "re-score: resuming a pass an earlier attempt could not finish (#1538)"
-                    + (fromCompletedPass ? " — debt is from a completed pass, gating on the fingerprint (#2238)" : ""))
-        await intelligence.analyzeRecent(skipIfUnchanged: fromCompletedPass,
-                                         triggerLabel: fromCompletedPass ? "resume-gated" : "resume-forced")
+                    + (fromCompletedPass && !requiresForcedPass
+                        ? " — debt is from a completed pass, gating on the fingerprint (#2238)"
+                        : (requiresForcedPass ? " — queued edit requires a forced pass" : "")))
+        let skipIfUnchanged = fromCompletedPass && !requiresForcedPass
+        await intelligence.analyzeRecent(skipIfUnchanged: skipIfUnchanged,
+                                         triggerLabel: skipIfUnchanged ? "resume-gated" : "resume-forced")
         #if os(iOS)
         // The deferred pass is the one that finally produces today's score, and it runs with no UI
         // attached — so publish the snapshot here too, for the same reason the post-offload path does.
@@ -1075,6 +1079,9 @@ final class AppModel: ObservableObject {
             if let store = await self.repo.storeHandle() {
                 _ = try? await store.upsertWorkouts([row], deviceId: self.deviceId)
                 await self.repo.refresh()
+                #if os(iOS)
+                await self.healthWriteBack?()
+                #endif
             }
         }
     }

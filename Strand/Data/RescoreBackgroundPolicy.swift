@@ -1,5 +1,73 @@
 import Foundation
 
+/// The exact work requested while another pass owns the engine lock. Calls collapse into one bounded
+/// request, but the merge keeps enough information to run the right pass once the lock is free.
+struct RescoreFollowUpRequest {
+    let maxDays: Int
+    let force: Bool
+    let skipIfUnchanged: Bool
+    let triggerLabels: Set<String>
+    let preserveUnscoredHistory: Bool
+    let onPersisted: [() -> Void]
+
+    init(maxDays: Int, force: Bool = true, skipIfUnchanged: Bool = false,
+         triggerLabel: String? = nil, preserveUnscoredHistory: Bool = false,
+         onPersisted: (() -> Void)? = nil) {
+        self.maxDays = maxDays
+        self.force = force
+        self.skipIfUnchanged = skipIfUnchanged
+        self.triggerLabels = Set(triggerLabel.map { [$0] } ?? [])
+        self.preserveUnscoredHistory = preserveUnscoredHistory
+        self.onPersisted = onPersisted.map { [$0] } ?? []
+    }
+
+    /// Coalescing is conservative: the widest requested scope wins, a single non-skippable request keeps
+    /// the merged work non-skippable, repair scope is retained, and callbacks run after the merged pass.
+    func merged(with newer: RescoreFollowUpRequest) -> RescoreFollowUpRequest {
+        RescoreFollowUpRequest(
+            maxDays: max(maxDays, newer.maxDays),
+            force: force || newer.force,
+            skipIfUnchanged: skipIfUnchanged && newer.skipIfUnchanged,
+            triggerLabels: triggerLabels.union(newer.triggerLabels),
+            preserveUnscoredHistory: preserveUnscoredHistory || newer.preserveUnscoredHistory,
+            onPersisted: onPersisted + newer.onPersisted)
+    }
+
+    private init(maxDays: Int, force: Bool, skipIfUnchanged: Bool, triggerLabels: Set<String>,
+                 preserveUnscoredHistory: Bool, onPersisted: [() -> Void]) {
+        self.maxDays = maxDays
+        self.force = force
+        self.skipIfUnchanged = skipIfUnchanged
+        self.triggerLabels = triggerLabels
+        self.preserveUnscoredHistory = preserveUnscoredHistory
+        self.onPersisted = onPersisted
+    }
+
+    var triggerLabel: String? { triggerLabels.isEmpty ? nil : triggerLabels.sorted().joined(separator: "+") }
+}
+
+/// One-slot queue used by IntelligenceEngine. The request remains queued when background policy defers it;
+/// a later processing task or foreground call consumes it.
+struct RescoreFollowUpQueue {
+    private(set) var pending: RescoreFollowUpRequest?
+
+    var isEmpty: Bool { pending == nil }
+
+    mutating func enqueue(_ request: RescoreFollowUpRequest) -> Bool {
+        guard let current = pending else {
+            pending = request
+            return true
+        }
+        pending = current.merged(with: request)
+        return false
+    }
+
+    mutating func take() -> RescoreFollowUpRequest? {
+        defer { pending = nil }
+        return pending
+    }
+}
+
 /// Whether a re-score triggered while the app is BACKGROUNDED should start now or be handed to a
 /// background-processing task that has time to finish it.
 ///
@@ -31,6 +99,9 @@ enum RescoreBackgroundPolicy {
     enum Decision: Equatable {
         /// Start the pass now, under an execution assertion.
         case run
+        /// A pass already owns the lock. Record the newer debt and let the work closure enqueue its request;
+        /// it must not start another heavy pass from this background wake.
+        case queueBehindRunningPass
         /// Do not start it; leave the work marked pending and let a background-processing task (or the
         /// next foreground) run it. The reason is logged verbatim to the strap log — #1538 was three
         /// nights of chasing BLE precisely because the log did not say why scoring had not happened.
@@ -82,10 +153,9 @@ enum RescoreBackgroundPolicy {
     ///     marked itself finished (it was killed; the mark survives process death, which is the point,
     ///     because the killed process gets no chance to record anything) or an earlier trigger already
     ///     deferred one. The work is spoken for by the processing task this escalated to.
-    ///   - passInProgress: a pass is running in THIS process. Its own started-mark is what reads as owed, so
-    ///     it is not evidence of a killed pass; the engine re-arms one follow-up pass for a trigger that
-    ///     lands mid-run. Deferring instead recorded a newer debt, the running pass then finished without
-    ///     settling it (#1681), and every offload after that deferred on it. Spacing does not apply either.
+    ///   - passInProgress: a pass is running in THIS process. A real background update is handed to the
+    ///     engine only to coalesce behind that pass; it must not start another expensive pass now. The
+    ///     follow-up is reconsidered by this policy after the active pass releases the lock.
     ///   - secondsSinceLastAttempt: how long ago the last pass STARTED, nil when unknown. An outstanding
     ///     debt defers only while that attempt is recent (`interruptedRetryCooldownSeconds`), and any
     ///     offload defers while it is under `backgroundSpacingSeconds`.
@@ -101,13 +171,17 @@ enum RescoreBackgroundPolicy {
                 reason: "the backstop tick does not re-score while backgrounded; offloads run their own")
         }
 
-        if rescoreAlreadyOwed, !passInProgress,
+        if passInProgress {
+            return .queueBehindRunningPass
+        }
+
+        if rescoreAlreadyOwed,
            let since = secondsSinceLastAttempt, since >= 0, since < interruptedRetryCooldownSeconds {
             return .deferToBackgroundTask(
                 reason: "a re-score is already outstanding from an earlier trigger")
         }
 
-        if !passInProgress, let since = secondsSinceLastAttempt, since >= 0, since < backgroundSpacingSeconds {
+        if let since = secondsSinceLastAttempt, since >= 0, since < backgroundSpacingSeconds {
             return .deferToBackgroundTask(
                 reason: "the last pass started \(Int(since / 60)) min ago; a backgrounded offload re-scores"
                     + " at most every \(Int(backgroundSpacingSeconds / 60)) min")

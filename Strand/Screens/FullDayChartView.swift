@@ -10,7 +10,7 @@ import WhoopStore
 // seconds when zoomed in), so this screen only ever receives ~targetPoints points regardless of zoom.
 //
 // Reuses the existing `OverviewHRChart` (its `.chartXScale(domain:)` already pins the axis); the chart's
-// zoom binding drives the visible window, and re-reads at the new resolution as the window changes. macOS
+// zoom binding drives the visible window, and re-reads at the new resolution after zoom/pan settles. macOS
 // adds scroll-to-zoom (no pinch); both platforms drag-to-pan. Serves #574 (owned-source filter / honest
 // "Other sources" disclosure) and is the detail surface behind #582.
 //
@@ -22,6 +22,14 @@ import WhoopStore
 
 struct FullDayChartView: View {
     @EnvironmentObject var repo: Repository
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.isScreenActive) private var isScreenActive
+    @State private var pageIsActive = false
+    @State private var zoomInteractionActive = false
+    @State private var hasStartedLoad = false
+
+    private static let chartHeight: CGFloat = PulseScreenStyle.timelineChartHeight
+    private static let zoomQueryDebounceNanoseconds: UInt64 = 180_000_000
 
     /// The day this timeline is showing (its real calendar midnight). Defaults to the logical day so an
     /// after-midnight open still lands on the night the user is living, not an empty new calendar day (#144).
@@ -57,6 +65,13 @@ struct FullDayChartView: View {
     @State private var metricUnsupported = false
 
     @State private var series: Repository.TimelineSeries = .empty
+    /// Context prevents a retained zoom plot from appearing under a different metric/day/device label.
+    @State private var resolvedSeriesContextKey: String? = nil
+    /// Last query window whose data landed. Readouts/stats stay neutral while a newer zoom window settles.
+    @State private var resolvedQueryKey: OverviewHRChart.QueryIdentity? = nil
+    /// Last request started, even if its store read is still pending/cancelled. Zoom changes can therefore
+    /// debounce against the in-flight context instead of launching another full-resolution read each frame.
+    @State private var lastStartedQueryKey: OverviewHRChart.QueryIdentity? = nil
     // #979 spin-off — day annotations, mirroring the classic Today's Overview HR markers: the main
     // night's band (labelled with its duration) and each workout's sport glyph. Day-scoped facts, so
     // they're loaded per shown day (NOT per zoom window — the chart clamps them into the visible
@@ -83,16 +98,45 @@ struct FullDayChartView: View {
     /// The currently-visible window (zoomed or the whole day).
     private var visibleWindow: ClosedRange<Date> { zoomDomain ?? dayBounds }
 
+    /// Changes that alter the meaning of the series. Window-only zoom/pan may retain the old plot while
+    /// loading; changing metric, day, source scope, or active device must not show those old values.
+    private var seriesContextKey: String {
+        "\(metric.rawValue)|\(Int(dayStart.timeIntervalSince1970))|\(ownedOnly)|\(repo.deviceId)"
+    }
+
+    private var seriesMatchesCurrentContext: Bool { resolvedSeriesContextKey == seriesContextKey }
+    private var canRetainSeriesForCurrentContext: Bool {
+        OverviewHRChart.shouldRetainSeries(
+            previousContext: resolvedSeriesContextKey,
+            currentContext: seriesContextKey,
+            hasPoints: !series.points.isEmpty
+        )
+    }
+
     var body: some View {
-        ScreenScaffold(title: "Deep Timeline", subtitle: "Every second of your day, zoomable.") {
+        ScreenScaffold(title: "Deep Timeline", subtitle: "Every second of your day, zoomable.", pulseStyle: true) {
             metricPills
             dayNav
+            if isScreenActive && pageIsActive && scenePhase == .active && metric == .hr && isOnLatestDay {
+                FullDayLiveBPMLeaf()
+            }
             sourcePill
             chartCard
             zoomHint
         }
-        .task(id: taskKey) { await reload() }
-        .task(id: annotationKey) { await reloadAnnotations() }
+        .onAppear { pageIsActive = true }
+        .onDisappear {
+            pageIsActive = false
+            zoomInteractionActive = false
+        }
+        .task(id: taskKey) {
+            let requestKey = taskKey
+            await reload(for: requestKey)
+        }
+        .task(id: annotationKey) {
+            let request = annotationKey
+            await reloadAnnotations(for: request)
+        }
         .task { await landOnLatestDayIfNeeded() }
         .task(id: metric) { await resolveMetricUnsupported() }   // #623
         .task(id: repo.deviceId) { sourceName = repo.activeDeviceDisplayName() }
@@ -115,17 +159,36 @@ struct FullDayChartView: View {
 
     /// Annotations re-read only when the shown day changes or fresh strap data lands — deliberately NOT
     /// on zoom (see `sleepSpan` above), so scrubbing/pinching never re-queries sleeps/workouts.
-    private var annotationKey: String {
-        "\(Int(dayStart.timeIntervalSince1970))|\(repo.refreshSeq)"
+    private var annotationKey: AnnotationRequest {
+        AnnotationRequest(dayStart: dayStart, refreshSequence: repo.refreshSeq,
+                          deviceId: repo.deviceId, repository: ObjectIdentifier(repo),
+                          isActive: isScreenActive && pageIsActive && scenePhase == .active)
+    }
+
+    private struct AnnotationRequest: Hashable {
+        let dayStart: Date
+        let refreshSequence: Int
+        let deviceId: String
+        let repository: ObjectIdentifier
+        let isActive: Bool
+
+        var bounds: ClosedRange<Date> { dayStart...dayStart.addingTimeInterval(86_400) }
     }
 
     /// Re-read whenever the metric, the day, the source scope, the settled zoom window, or fresh strap
-    /// data changes. The window is bucketed to whole seconds so micro-jitter during a drag doesn't thrash
-    /// the DB — the chart redraws smoothly from the in-hand domain while the data settles.
-    private var taskKey: String {
+    /// data changes. The window is bucketed to whole seconds and zoom reads wait for the gesture to settle,
+    /// so micro-jitter during a drag doesn't thrash the DB — the last resolved plot remains onscreen.
+    private var taskKey: OverviewHRChart.QueryIdentity {
         let lo = Int(visibleWindow.lowerBound.timeIntervalSince1970)
         let hi = Int(visibleWindow.upperBound.timeIntervalSince1970)
-        return "\(metric.rawValue)|\(Int(dayStart.timeIntervalSince1970))|\(ownedOnly)|\(lo)|\(hi)|\(repo.refreshSeq)"
+        return OverviewHRChart.QueryIdentity(
+            context: seriesContextKey,
+            from: lo,
+            to: hi,
+            refreshSequence: repo.refreshSeq,
+            interactionActive: zoomInteractionActive,
+            pageActive: isScreenActive && pageIsActive && scenePhase == .active
+        )
     }
 
     // MARK: Controls
@@ -216,19 +279,21 @@ struct FullDayChartView: View {
             title: LocalizedStringKey(metric.title),
             subtitle: resolutionSubtitle,
             trailing: latestReadout,
-            height: 280,
+            height: Self.chartHeight,
             tint: StrandPalette.metricRose
         ) {
-            if loading && series.points.isEmpty {
-                loadingState
-            } else if series.points.isEmpty {
-                emptyState
-            } else {
+            // Keep the gesture host mounted through loading and honest gaps. Replacing the chart with
+            // an empty-state view discards gesture state and prevents panning back to records.
+            ZStack {
                 chart
+                    .opacity(canRetainSeriesForCurrentContext ? 1 : 0.2)
+                if (loading || !seriesMatchesCurrentContext) && !canRetainSeriesForCurrentContext {
+                    loadingState.allowsHitTesting(false)
+                } else if series.points.isEmpty {
+                    emptyState.allowsHitTesting(false)
+                }
             }
-        } footer: {
-            if !series.points.isEmpty { statsFooter }
-        }
+        } footer: { statsFooter }
     }
 
     /// `series.points` in the DISPLAYED unit (#101) — for every metric but skin temp this is just the raw
@@ -244,8 +309,9 @@ struct FullDayChartView: View {
     }
 
     private var chart: some View {
-        OverviewHRChart(
-            points: displayPoints,
+        let points = canRetainSeriesForCurrentContext ? displayPoints : []
+        return OverviewHRChart(
+            points: points,
             // #979 spin-off — the same sleep-band + workout-glyph layers the classic Today feeds. Passed
             // on EVERY metric track (they're time annotations, so "when was I asleep / training" reads
             // against skin temp or HRV just as it does against HR); the glyph anchors at the shown
@@ -253,14 +319,15 @@ struct FullDayChartView: View {
             sleep: sleepSpan,
             workouts: workoutSpans,
             gradient: gradientFor(metric),
-            valueRange: valueRange(displayPoints),
+            valueRange: valueRange(points),
             xRange: dayBounds,
-            height: 280,
+            height: Self.chartHeight,
             // #979 spin-off — iPhone touch scrub: hold to pin the crosshair, drag to read values under
             // the finger (the Mac pointer hover's readout, made reachable on touch). Opt-in here only.
             touchScrub: true,
             zoomDomain: $zoomDomain,
             zoomBounds: panBounds,   // #986: pan/scroll clamp is the rolling 3-day window, not one day
+            onZoomInteractionChanged: { zoomInteractionActive = $0 },
             valueFormat: { format($0) },
             dateFormat: { Self.timeFmt.string(from: $0) }
         )
@@ -323,22 +390,31 @@ struct FullDayChartView: View {
     }
 
     @ViewBuilder private var zoomHint: some View {
-        HStack(spacing: NoopMetrics.space2) {
-            Image(systemName: zoomDomain == nil ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left")
-                .font(StrandFont.footnote.weight(.semibold))
-            #if os(macOS)
-            Text(zoomDomain == nil ? "Scroll to zoom · drag to pan" : "Zoomed in. Drag to pan")
-            #else
-            // #979 spin-off: name the hold-to-scrub affordance — a hidden gesture nobody tries is a
-            // feature that doesn't exist. (On the Mac the pointer hover is self-discovering.)
-            Text(zoomDomain == nil ? "Pinch to zoom · drag to pan · hold to read" : "Zoomed in. Drag to pan · hold to read")
-            #endif
-            Spacer()
-            if zoomDomain != nil {
+        VStack(alignment: .leading, spacing: NoopMetrics.space2) {
+            HStack(spacing: NoopMetrics.space2) {
+                Image(systemName: zoomDomain == nil ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left")
+                    .font(StrandFont.footnote.weight(.semibold))
+                    .accessibilityHidden(true)
+                #if os(macOS)
+                Text(zoomDomain == nil ? "Scroll to zoom · drag to pan" : "Zoomed in. Drag to pan")
+                #else
+                // #979 spin-off: name the hold-to-scrub affordance — a hidden gesture nobody tries is a
+                // feature that doesn't exist. (On the Mac the pointer hover is self-discovering.)
+                Text(zoomDomain == nil ? "Pinch to zoom · drag to pan · hold to read" : "Zoomed in. Drag to pan · hold to read")
+                #endif
+            }
+            HStack(spacing: NoopMetrics.space2) {
+                zoomButton(scale: 1.0 / 1.4, symbol: "minus.magnifyingglass", label: "Zoom out",
+                           enabled: visibleSpan < panSpan)
+                zoomButton(scale: 1.4, symbol: "plus.magnifyingglass", label: "Zoom in",
+                           enabled: visibleSpan > OverviewHRChart.minZoomSpan)
+                Spacer()
                 Button("Reset") { withAnimation(StrandMotion.interactive) { zoomDomain = nil } }
                     .font(StrandFont.footnote)
-                    .foregroundStyle(StrandPalette.accent)
+                    .foregroundStyle(zoomDomain == nil ? StrandPalette.textTertiary : StrandPalette.accent)
+                    .frame(minHeight: NoopButtonMetrics.minHitTarget)
                     .buttonStyle(.plain)
+                    .disabled(zoomDomain == nil)
             }
         }
         .font(StrandFont.footnote)
@@ -347,7 +423,39 @@ struct FullDayChartView: View {
         .padding(.top, NoopMetrics.space1 / 2)
     }
 
+    private var visibleSpan: TimeInterval { visibleWindow.upperBound.timeIntervalSince(visibleWindow.lowerBound) }
+    private var panSpan: TimeInterval { panBounds.upperBound.timeIntervalSince(panBounds.lowerBound) }
+
+    private func zoomButton(scale: Double, symbol: String, label: LocalizedStringKey, enabled: Bool) -> some View {
+        Button {
+            let next = OverviewHRChart.zoomed(visibleWindow, scale: scale, anchorFraction: 0.5, bounds: panBounds)
+            applyZoomDomain(next)
+        } label: {
+            Image(systemName: symbol)
+                .font(StrandFont.footnote.weight(.semibold))
+                .foregroundStyle(enabled ? StrandPalette.textSecondary : StrandPalette.textTertiary)
+                .frame(width: NoopButtonMetrics.minHitTarget, height: NoopButtonMetrics.minHitTarget)
+                .background(StrandPalette.surfaceInset, in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel(Text(label))
+    }
+
+    /// Keep the chart gesture's normalization rule: a domain that covers the full clamp returns to the
+    /// selected day's default view. Day stepping and the rolling pan bounds stay owned by the page.
+    private func applyZoomDomain(_ domain: ClosedRange<Date>) {
+        zoomDomain = (domain.lowerBound <= panBounds.lowerBound && domain.upperBound >= panBounds.upperBound)
+            ? nil : domain
+    }
+
     private var statsFooter: some View {
+        guard resolvedQueryKey == taskKey, !displayPoints.isEmpty else {
+            // Keep the card's height stable while a query is pending and when the selected interval is
+            // an honest gap. The chart itself still reports the empty window; these are only placeholders.
+            return ChartFooter([("Min", "—"), ("Avg", "—"), ("Max", "—")])
+        }
         let v = displayPoints.map(\.value)
         return ChartFooter([
             ("Min", format(v.min() ?? 0)),
@@ -369,18 +477,43 @@ struct FullDayChartView: View {
         }
     }
 
-    private func reload() async {
-        loading = true
-        let window = visibleWindow
+    private func reload(for requestKey: OverviewHRChart.QueryIdentity) async {
+        guard requestKey.pageActive else { return }
+        let requestContextKey = requestKey.context
+        let sameContextResolved = resolvedSeriesContextKey == requestContextKey
+        if requestKey.shouldDebounceReload(after: lastStartedQueryKey, hasStartedLoad: hasStartedLoad) {
+            do {
+                while zoomInteractionActive {
+                    try await Task.sleep(nanoseconds: 50_000_000)
+                    try Task.checkCancellation()
+                }
+                try await Task.sleep(nanoseconds: Self.zoomQueryDebounceNanoseconds)
+            } catch {
+                return
+            }
+        }
+        guard requestKey.mayApplyResult(to: taskKey, isCancelled: Task.isCancelled) else { return }
+        let requestMetric = metric
+        let from = requestKey.from
+        let to = requestKey.to
+        hasStartedLoad = true
+        lastStartedQueryKey = requestKey
+        // Keep the last resolved curve onscreen during zoom reloads. Show the initial spinner only
+        // before the first result or when the metric/day/device context changes. A new context never
+        // inherits the old plot's units or date labels.
+        loading = !sameContextResolved || series.points.isEmpty
         let result = await repo.timelineSeries(
-            metric: metric,
-            from: Int(window.lowerBound.timeIntervalSince1970),
-            to: Int(window.upperBound.timeIntervalSince1970),
+            metric: requestMetric,
+            from: from,
+            to: to,
             targetPoints: 600
         )
-        // Guard against a stale task landing after the user moved on.
-        guard !Task.isCancelled else { return }
+        // task(id:) cancels the previous request, and the identity check also rejects a completion
+        // that races the cancellation while the store read is suspended.
+        guard requestKey.mayApplyResult(to: taskKey, isCancelled: Task.isCancelled) else { return }
         series = result
+        resolvedSeriesContextKey = requestContextKey
+        resolvedQueryKey = requestKey
         loading = false
     }
 
@@ -391,25 +524,27 @@ struct FullDayChartView: View {
     /// The band + duration use the EFFECTIVE onset so a hand-corrected bedtime shows the same band here as
     /// on the Sleep tab (#318). Both repo reads are today-relative, so `days:` walks back far enough from
     /// now to cover the shown day; the +2 pad mirrors TodayView's sleep read (the night straddles midnight).
-    private func reloadAnnotations() async {
-        let daysBack = max(0, Int(Date().timeIntervalSince(dayStart) / 86_400)) + 2
+    private func reloadAnnotations(for request: AnnotationRequest) async {
+        guard request.isActive, !Task.isCancelled else { return }
+        let daysBack = max(0, Int(Date().timeIntervalSince(request.dayStart) / 86_400)) + 2
 
-        let sleepCandidates: [OverviewHRChart.SleepSpan] = await repo.allSleepSessions(days: daysBack)
-            .map { s in
-                .init(start: Date(timeIntervalSince1970: TimeInterval(s.effectiveStartTs)),
-                      end: Date(timeIntervalSince1970: TimeInterval(s.endTs)),
-                      label: Self.hoursMinutes(s.endTs - s.effectiveStartTs))
-            }
-        let workoutCandidates: [OverviewHRChart.WorkoutSpan] = await repo.workoutRows(days: daysBack)
-            .map { w in
-                .init(start: Date(timeIntervalSince1970: TimeInterval(w.startTs)),
-                      end: Date(timeIntervalSince1970: TimeInterval(w.endTs)),
-                      symbol: sportSymbol(w.sport))
-            }
-        guard !Task.isCancelled else { return }
+        let sleeps = await repo.allSleepSessions(days: daysBack)
+        guard !Task.isCancelled, request == annotationKey else { return }
+        let sleepCandidates: [OverviewHRChart.SleepSpan] = sleeps.map { s in
+            .init(start: Date(timeIntervalSince1970: TimeInterval(s.effectiveStartTs)),
+                  end: Date(timeIntervalSince1970: TimeInterval(s.endTs)),
+                  label: Self.hoursMinutes(s.endTs - s.effectiveStartTs))
+        }
+        let workouts = await repo.workoutRows(days: daysBack)
+        guard !Task.isCancelled, request == annotationKey else { return }
+        let workoutCandidates: [OverviewHRChart.WorkoutSpan] = workouts.map { w in
+            .init(start: Date(timeIntervalSince1970: TimeInterval(w.startTs)),
+                  end: Date(timeIntervalSince1970: TimeInterval(w.endTs)),
+                  symbol: sportSymbol(w.sport))
+        }
         // The pure, headless-tested selection (StrandDesignTests) — window = the shown DAY, not the zoom.
-        sleepSpan = OverviewHRChart.mainSleep(sleepCandidates, overlapping: dayBounds)
-        workoutSpans = OverviewHRChart.workouts(workoutCandidates, overlapping: dayBounds)
+        sleepSpan = OverviewHRChart.mainSleep(sleepCandidates, overlapping: request.bounds)
+        workoutSpans = OverviewHRChart.workouts(workoutCandidates, overlapping: request.bounds)
     }
 
     /// "H:MM" for a duration in seconds (e.g. a 6h06m night → "6:06") — mirrors TodayView.hoursMinutes
@@ -422,7 +557,7 @@ struct FullDayChartView: View {
     // MARK: Presentation helpers
 
     private var resolutionSubtitle: String {
-        guard !series.points.isEmpty else { return "—" }
+        guard resolvedQueryKey == taskKey, !series.points.isEmpty else { return "—" }
         if series.isRaw { return String(localized: "Raw · per second") }
         let m = series.bucketSeconds / 60
         return m >= 1 ? String(localized: "\(m)-minute average")
@@ -430,7 +565,8 @@ struct FullDayChartView: View {
     }
 
     private var latestReadout: String? {
-        displayPoints.last.map { "\(format($0.value))\(unitSuffix)" }
+        guard resolvedQueryKey == taskKey else { return nil }
+        return displayPoints.last.map { "\(format($0.value))\(unitSuffix)" }
     }
 
     private var unitSuffix: String {
@@ -503,6 +639,72 @@ struct FullDayChartView: View {
     private static let timeFmt: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "HH:mm"; f.locale = Locale(identifier: "en_US_POSIX"); return f
     }()
+}
+
+/// A tiny live-only leaf: it observes the ~1 Hz source and smoothing model without making the full-day
+/// history screen re-render on every packet. The host creates it only while this destination is visible.
+private struct FullDayLiveBPMLeaf: View {
+    @EnvironmentObject private var live: LiveState
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var router: NavRouter
+
+    private var currentBPM: Int? {
+        guard live.connected else { return nil }
+        if let bpm = model.bpm, bpm > 0 { return bpm }
+        if let bpm = live.heartRate, bpm > 0 { return bpm }
+        if let rr = live.rr.last, rr > 0 { return Int((60_000.0 / Double(rr)).rounded()) }
+        return nil
+    }
+
+    var body: some View {
+        NoopCard(padding: NoopMetrics.cardInnerPadding, tint: StrandPalette.metricRose) {
+            VStack(alignment: .leading, spacing: NoopMetrics.space2) {
+                HStack(spacing: NoopMetrics.gap) {
+                    Circle()
+                        .fill(currentBPM == nil ? StrandPalette.textTertiary : StrandPalette.metricRose)
+                        .frame(width: NoopMetrics.space2, height: NoopMetrics.space2)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: NoopMetrics.space1 / 2) {
+                        Text("Heart rate").strandOverline()
+                        Text(live.connected
+                             ? (currentBPM == nil ? "Connected, waiting for live heart rate." : "Live")
+                             : "Strap not connected")
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                    }
+                    Spacer(minLength: NoopMetrics.gap)
+                    HStack(alignment: .firstTextBaseline, spacing: NoopMetrics.space1 / 2) {
+                        Text(currentBPM.map { String($0) } ?? "—")
+                            .font(PulseScreenStyle.timelineLiveValueFont)
+                            .monospacedDigit()
+                            .foregroundStyle(StrandPalette.textPrimary)
+                        Text("bpm")
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                    }
+                }
+                if currentBPM == nil {
+                    HStack(spacing: NoopMetrics.space2) {
+                        if live.connected, let latest = live.lastReadableHeartRateAt {
+                            VStack(alignment: .leading, spacing: NoopMetrics.space1 / 2) {
+                                Text("Latest reading")
+                                Text(latest, style: .relative).monospacedDigit()
+                            }
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                        }
+                        Spacer(minLength: NoopMetrics.space2)
+                        Button("Manage devices") { router.openDevices() }
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.accent)
+                            .frame(minHeight: NoopButtonMetrics.minHitTarget)
+                            .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
 }
 
 #if os(macOS)

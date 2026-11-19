@@ -127,11 +127,9 @@ enum ScheduledDebugExport {
         return removed
     }
 
-    /// iOS BGTask identifier. Derived from the running bundle id (rather than hardcoded) so it tracks
-    /// BUNDLE_ID_PREFIX (see Config/BundleId.xcconfig) automatically and always matches the iOS target's
-    /// `BGTaskSchedulerPermittedIdentifiers` (Info.plist), which is built from `$(PRODUCT_BUNDLE_IDENTIFIER)`
-    /// the same way. Must also be registered at launch for `submit` to succeed — wired in the app entry point.
-    static let bgTaskIdentifier = (Bundle.main.bundleIdentifier ?? "com.noopapp.noop") + ".debugexport"
+    /// iOS BGTask identifier from the permitted Info.plist list, including after sideload re-signing.
+    /// Must also be registered at launch for `submit` to succeed — wired in the app entry point.
+    static let bgTaskIdentifier = BackgroundTaskIdentifier.identifier("debugexport")
 
     static var isEnabled: Bool { UserDefaults.standard.bool(forKey: K.enabled) }
 

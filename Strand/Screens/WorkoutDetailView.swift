@@ -335,7 +335,7 @@ struct WorkoutDetailView: View {
         guard route.count >= 2 else { return }
         let points = route.map { RoutePoint(lat: $0.lat, lon: $0.lon) }
         // Name the file by the workout's start (not export time) so it's stable + matches the Android twin.
-        let name = "noop-route-\(row.startTs).\(format.ext)"
+        let name = "pulse-route-\(row.startTs).\(format.ext)"
         let startTs = row.startTs, endTs = row.endTs, sport = row.sport
         let distanceM = row.distanceM, energyKcal = row.energyKcal, avgHr = row.avgHr, maxHr = row.maxHr
         Task.detached(priority: .userInitiated) {
@@ -414,18 +414,21 @@ struct WorkoutDetailView: View {
                     title: "HEART RATE",
                     subtitle: String(localized: "Beats per minute across the session"),
                     trailing: row.avgHr.map { String(localized: "avg \($0)") },
-                    tint: StrandPalette.effortColor
+                    tint: StrandPalette.metricRose
                 ) {
-                    TrendChart(
+                    OverviewHRChart(
                         points: hrPoints,
-                        gradient: StrandPalette.effortGradient,
+                        gradient: Gradient(colors: [StrandPalette.metricRose.opacity(0.55), StrandPalette.metricRose]),
                         valueRange: lo...hi,
-                        showsArea: true,
+                        xRange: Date(timeIntervalSince1970: TimeInterval(row.startTs))...Date(timeIntervalSince1970: TimeInterval(row.endTs)),
+                        height: NoopMetrics.chartHeight,
+                        // Match Deep Timeline's iPhone interaction: hold to pin the readout, then drag
+                        // across the workout to inspect each recorded heart-rate bucket.
+                        touchScrub: true,
                         valueFormat: { String(localized: "\(Int($0.rounded())) bpm") },
-                        dateFormat: { Self.tooltipTime.string(from: $0) },
-                        accessibilityLabel: String(localized: "Heart rate during \(WorkoutSource.displaySport(row.sport))"),
-                        workoutTimeAxis: Date(timeIntervalSince1970: TimeInterval(row.startTs))...Date(timeIntervalSince1970: TimeInterval(row.endTs))
+                        dateFormat: { Self.tooltipTime.string(from: $0) }
                     )
+                    .accessibilityLabel(String(localized: "Heart rate during \(WorkoutSource.displaySport(row.sport))"))
                 } footer: {
                     ChartFooter([
                         ("Avg", row.avgHr.map { String(localized: "\($0) bpm") } ?? "–"),

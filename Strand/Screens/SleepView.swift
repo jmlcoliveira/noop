@@ -27,6 +27,7 @@ import UIKit
 // minutes for light/deep/rem/awake; typical = mean of repo.days).
 
 struct SleepView: View {
+    @Environment(\.isScreenActive) private var isScreenActive
     @AppStorage(SceneBackgroundPrefs.enabledKey) private var showNightScene = true
 
     private var heroPrimary: Color { showNightScene ? StrandPalette.onDarkPrimary : StrandPalette.textPrimary }
@@ -154,7 +155,7 @@ struct SleepView: View {
         // 1Hz HR ticks pay nothing. When it differs (or on first render) we build once, here,
         // synchronously, so the very first frame already shows content (no empty-state flash).
         let key = dataKey
-        let resolved: SleepModel? = (key == modelKey) ? model : buildModel()
+        let resolved: SleepModel? = !isScreenActive || key == modelKey ? model : buildModel()
         // Title stays inside the immersive night hero. Empty state keeps the scaffold title, while the
         // shared Pulse canvas keeps the page cohesive around its existing night artwork.
         ScreenScaffold(title: resolved == nil ? "Sleep" : nil,
@@ -202,9 +203,10 @@ struct SleepView: View {
             // the cache. Writing State during body is not allowed, so commit it after layout;
             // `resolved` already drives THIS frame, so there is no flash and no extra rebuild.
             .onChangeCompat(of: key) { newKey in
+                guard isScreenActive else { return }
                 modelKey = newKey
                 navDaysCache = SleepModel.navDays(navSessions: navSessions)
-                model = buildModel()
+                model = resolved
                 // New data invalidates a navigated offset — the same offset would silently
                 // point at a different session. Snap back to last night. (#160)
                 nightOffset = 0
@@ -213,11 +215,13 @@ struct SleepView: View {
             // The navigated night is decoded once per ◀/▶ press, never per body pass —
             // `decodedNight` JSON-decodes and body re-evaluates at 1Hz while HR streams. (#160)
             .onChangeCompat(of: nightOffset) { newOffset in
+                guard isScreenActive else { return }
                 navNight = newOffset == 0 ? nil : decodedNight(at: newOffset)
                 resetResultNotice()
                 observeResultChange()
             }
             .onAppear {
+                guard isScreenActive else { return }
                 if modelKey != key {
                     modelKey = key
                     model = resolved
@@ -225,7 +229,19 @@ struct SleepView: View {
                     navNight = nil
                 }
             }
-            .onChangeCompat(of: intelligence.computing) { _ in observeResultChange() }
+            .onChangeCompat(of: isScreenActive) { active in
+                guard active else { resetResultNotice(); return }
+                if modelKey != key {
+                    modelKey = key
+                    model = resolved
+                    navDaysCache = SleepModel.navDays(navSessions: navSessions)
+                    nightOffset = 0
+                    navNight = nil
+                }
+            }
+            .onChangeCompat(of: intelligence.computing) { _ in
+                if isScreenActive { observeResultChange() }
+            }
             .onDisappear { resetResultNotice() }
             .task(id: resultNoticeRevision) {
                 guard resultNoticeVisible else { return }
@@ -238,16 +254,20 @@ struct SleepView: View {
             // whose blocks live under the computed source. Re-runs whenever a sync/import bumps
             // refreshSeq; snaps back to the newest day and rebuilds the model so offset 0 reflects
             // the freshly-loaded blocks. (#170)
-            .task(id: repo.refreshSeq) {
+            .task(id: "\(isScreenActive)-\(repo.refreshSeq)") {
+                guard isScreenActive, !Task.isCancelled else { return }
                 let refresh = repo.refreshSeq
+                guard loadedSleepRefresh != refresh else { return }
                 let sessions = await repo.allSleepSessions()
+                guard !Task.isCancelled, isScreenActive else { return }
                 // Load the learned habitual midsleep the engine used, so the main-night pick aligns to it
                 // (a shift/late sleeper) instead of only the cold-start band. nil under threshold. (#547)
                 let habitual = await repo.habitualMidsleepSec()
+                guard !Task.isCancelled, isScreenActive else { return }
                 // Per-epoch motion for every block (#407), keyed by detected start. mergeDay reads only the
                 // already-resolved group's entries — this just pre-fetches them all so the model build is sync.
                 let motions = await repo.sessionMotions(sessions: sessions)
-                guard !Task.isCancelled, refresh == repo.refreshSeq else { return }
+                guard !Task.isCancelled, isScreenActive, refresh == repo.refreshSeq else { return }
                 allSessions = sessions
                 habitualMidsleepSec = habitual
                 motionByStart = motions
@@ -304,7 +324,7 @@ struct SleepView: View {
             .sheet(item: $addNap) { seed in
                 SleepTimeEditor(bedTs: seed.bedTs, wakeTs: seed.wakeTs,
                                 title: "Add a nap",
-                                blurb: "Pick when the nap started and ended. NOOP stages it from your data as its own session, separate from the night's sleep.",
+                                blurb: "Pick when the nap started and ended. Pulse stages it from your data as its own session, separate from the night's sleep.",
                                 bedLabel: "Nap started", wakeLabel: "Nap ended") { startTs, endTs in
                     await repo.addManualNap(startTs: startTs, endTs: endTs)
                     // Re-score so the day's aggregates pick up the new session, exactly like an edit.
@@ -395,7 +415,7 @@ struct SleepView: View {
         // tombstone, so only it gets the "won't detect ... again" wording. (#65 banner honesty.)
         let message = banner.snapshot.session.userEdited
             ? String(localized: "Sleep deleted.")
-            : String(localized: "Sleep deleted. NOOP won't detect sleep between \(clockTime(banner.displayStart)) and \(clockTime(banner.windowEnd)) again.")
+            : String(localized: "Sleep deleted. Pulse won't detect sleep between \(clockTime(banner.displayStart)) and \(clockTime(banner.windowEnd)) again.")
         HStack(alignment: .center, spacing: 10) {
             Image(systemName: "moon.zzz")
                 .font(.system(size: 14, weight: .semibold))
@@ -919,10 +939,13 @@ struct SleepView: View {
         }
         // WHOOP top-chart data (ryanAtriumAi #988): 1-min sleeping-HR buckets for THIS night, reloaded
         // only when the displayed night changes (same `.task(id:)` pattern the other per-night loads use).
-        .task(id: night.session.startTs) {
-            nightHR = await repo.hrBuckets(from: night.session.startTs,
-                                           to: night.session.endTs,
-                                           bucketSeconds: 60)
+        .task(id: "\(isScreenActive)-\(night.session.startTs)-\(night.session.endTs)-\(repo.refreshSeq)") {
+            guard isScreenActive, !Task.isCancelled else { return }
+            let buckets = await repo.hrBuckets(from: night.session.startTs,
+                                              to: night.session.endTs,
+                                              bucketSeconds: 60)
+            guard isScreenActive, !Task.isCancelled else { return }
+            nightHR = buckets
         }
     }
 
@@ -2629,7 +2652,7 @@ private struct SleepFreshnessNote: View {
             SyncingHistoryNote(chunks: live.syncChunksThisSession)
         case .calculating:
             DataPendingNote(title: "Calculating last night's sleep…",
-                            message: "Your strap history is in. NOOP is detecting and staging the night now.",
+                            message: "Your strap history is in. Pulse is detecting and staging the night now.",
                             symbol: "waveform.path.ecg")
         case .syncFailed:
             DataPendingNote(title: "Last night's sleep hasn't synced",
@@ -2637,11 +2660,11 @@ private struct SleepFreshnessNote: View {
                             symbol: "exclamationmark.arrow.triangle.2.circlepath")
         case .awaitingSync:
             DataPendingNote(title: "Waiting for last night's sleep",
-                            message: "Connect the strap and sync its history. NOOP will calculate the night when the overnight data arrives.",
+                            message: "Connect the strap and sync its history. Pulse will calculate the night when the overnight data arrives.",
                             symbol: "arrow.triangle.2.circlepath")
         case .notDetected:
             DataPendingNote(title: "Last night's sleep wasn't detected",
-                            message: "Sync finished, but NOOP couldn't confidently identify a sleep window. Keep the strap connected and try Sync again; the older night below is still your latest detected sleep.",
+                            message: "Sync finished, but Pulse couldn't confidently identify a sleep window. Keep the strap connected and try Sync again; the older night below is still your latest detected sleep.",
                             symbol: "moon.zzz")
         case nil:
             EmptyView()
@@ -2905,7 +2928,7 @@ private struct SleepTimeEditor: View {
             // A detected night is tombstoned so it won't re-detect; a userEdited/nap row writes no
             // tombstone, so its copy drops that (false) promise. Mirrors the undo banner. (#65)
             Text(suppressesReDetection
-                 ? "Removes this recorded sleep and recomputes the day without it. NOOP won't re-detect sleep in this window. You can undo for a few seconds after."
+                 ? "Removes this recorded sleep and recomputes the day without it. Pulse won't re-detect sleep in this window. You can undo for a few seconds after."
                  : "Removes this sleep and recomputes the day without it. You can undo for a few seconds after.")
         }
     }

@@ -68,9 +68,13 @@ def make_ipa(
     app_entitlements = {
         "com.apple.security.application-groups": [pulse.APP_GROUP_ID],
         "com.apple.developer.healthkit": True,
+        "com.apple.developer.healthkit.background-delivery": True,
     }
     widget_entitlements = {"com.apple.security.application-groups": [pulse.APP_GROUP_ID]}
     app_entitlements.update(app_entitlement_overrides or {})
+    for key, value in (app_entitlement_overrides or {}).items():
+        if value is None:
+            app_entitlements.pop(key, None)
     widget_entitlements.update(widget_entitlement_overrides or {})
 
     output = tmp_path / path_name
@@ -125,6 +129,7 @@ def test_inspect_ipa_reads_metadata_privacy_and_entitlements_without_extraction(
     assert metadata.size == ipa.stat().st_size
     assert metadata.entitlements == (
         "com.apple.developer.healthkit",
+        "com.apple.developer.healthkit.background-delivery",
         "com.apple.security.application-groups",
     )
     assert metadata.privacy == {
@@ -173,6 +178,14 @@ def test_inspect_rejects_app_group_missing_from_signed_entitlements(tmp_path):
     )
 
     with pytest.raises(pulse.UpdateError, match="widget signed entitlements do not include"):
+        pulse.inspect_ipa(ipa)
+
+
+@pytest.mark.parametrize("capability", ["com.apple.developer.healthkit", "com.apple.developer.healthkit.background-delivery"])
+@pytest.mark.parametrize("value", [False, None])
+def test_inspect_rejects_missing_health_capabilities(tmp_path, capability, value):
+    ipa = make_ipa(tmp_path, app_entitlement_overrides={capability: value})
+    with pytest.raises(pulse.UpdateError, match="signed entitlements do not enable"):
         pulse.inspect_ipa(ipa)
 
 

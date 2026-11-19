@@ -11,7 +11,8 @@ import Foundation
 /// most ticks, so most of those pushes re-drew exactly what was already on screen.
 ///
 /// So the banner is pushed when what it shows has changed (still no more often than `minimumSpacing`), and an
-/// unchanged banner is re-pushed only often enough to keep its stale date ahead of it. What the banner shows,
+/// unchanged number is re-pushed only often enough to keep its stale date ahead of it. An unchanged dash
+/// needs no refresh: it already represents a missing reading, even after the stale date. What the banner shows,
 /// and how soon a new number reaches it, is unchanged. This is the rule Android's connection notification has
 /// followed since #216: re-post only when a rendered field changes.
 ///
@@ -36,6 +37,6 @@ enum LiveHRBannerPushPolicy {
                                         sinceLastPush: TimeInterval, staleAfter: TimeInterval) -> Bool {
         if let shown, (shown[keyPath: reading] == nil) != (next[keyPath: reading] == nil) { return true }
         guard sinceLastPush > minimumSpacing else { return false }
-        return shown != next || sinceLastPush >= staleAfter / 2
+        return shown != next || (next[keyPath: reading] != nil && sinceLastPush >= staleAfter / 2)
     }
 }

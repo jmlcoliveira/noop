@@ -39,16 +39,14 @@ final class IntelligenceEngine: ObservableObject {
     @Published var computing = false
     @Published var note: String?
 
-    /// #899-A re-arm: a `force: true` recompute (a post-backfill rescore AppModel kicks off after a sync)
-    /// that arrives while an idle-tick pass already holds the `computing` lock would otherwise be SILENTLY
-    /// dropped, so a freshly-synced night intermittently never gets re-scored until the next cycle and Today
-    /// falls back to the last scored day. Instead the dropped force sets this flag; the in-flight pass's
-    /// `defer` re-invokes `analyzeRecent(force: true)` ONCE when it clears. A single re-arm (the flag is
-    /// cleared BEFORE the re-invoke) bounds it to one extra pass , no recompute storm.
-    private var pendingForcedRescore = false
+    /// Requests received while a pass owns the lock coalesce into one typed follow-up. The request remains
+    /// queued when background policy defers it, while the scheduler's durable debt survives process death.
+    private var pendingRescore = RescoreFollowUpQueue()
     /// Uptime the pass holding `computing` started at, and how many days it covers; nil when none is running.
     private var runningPassStart: UInt64?
     private var runningPassDays = 0
+    /// Token owned by this pass, used to stamp a newer durable debt only once when follow-up work is queued.
+    private var runningPassOwedToken: String?
     /// #899 heal bound: true while the last heal already re-armed a rescore, so a heal firing again on
     /// the very next pass cannot re-arm a second time (the Android twin is hard-bounded to exactly one
     /// re-pass; this mirrors it). Reset by any pass whose heal finds nothing, restoring the budget.
@@ -366,7 +364,7 @@ final class IntelligenceEngine: ObservableObject {
         let meanLog: String = inBedBpms.isEmpty ? "nil"
             : String(Int((Double(inBedBpms.reduce(0, +)) / Double(inBedBpms.count)).rounded()))
         return "rhr day=\(day) floor=\(floor) nightMean=\(meanLog) inBedSamples=\(inBedBpms.count) "
-            + "(floor = WHOOP-style lowest-sustained = NOOP RHR; mean = sleeping-HR-app number)"
+            + "(floor = WHOOP-style lowest-sustained = Pulse RHR; mean = sleeping-HR-app number)"
     }
 
     /// #1244: one line for a day that CLEARED the ≥200-HR gate yet detected NO in-bed session, so the
@@ -761,22 +759,67 @@ final class IntelligenceEngine: ObservableObject {
     func analyzeRecent(maxDays: Int = 21, force: Bool = true, skipIfUnchanged: Bool = false,
                        triggerLabel: String? = nil, preserveUnscoredHistory: Bool = false,
                        onPersisted: (() -> Void)? = nil) async {
-        // #899-A: a concurrent pass already holds the lock. A NON-forced idle tick is safe to drop (the
-        // in-flight pass already covers the same window). But a FORCED call is a real update path (a
-        // post-backfill rescore after a sync) , dropping it would leave a freshly-synced night unscored
-        // until the next cycle. Re-arm instead: flag it so the running pass's `defer` re-invokes once.
+        let label = triggerLabel ?? (!force ? "idle" : (skipIfUnchanged ? "post-offload" : "forced"))
+        let request = RescoreFollowUpRequest(maxDays: maxDays, force: force,
+                                             skipIfUnchanged: skipIfUnchanged, triggerLabel: label,
+                                             preserveUnscoredHistory: preserveUnscoredHistory,
+                                             onPersisted: onPersisted)
         guard !computing else {
-            if force {
-                // Said once per running pass, not per trigger: a pass that holds the lock for hours otherwise
-                // turns every post-offload re-score into a silent no-op, and the log shows syncs but no scores.
-                if !pendingForcedRescore, let started = runningPassStart {
-                    let heldFor = Int(Double(DispatchTime.now().uptimeNanoseconds &- started) / 1_000_000_000)
-                    diagnosticSink?("re-score: queued behind a \(runningPassDays)-day pass running for \(heldFor) s", nil)
-                }
-                pendingForcedRescore = true
-            }
+            if force { enqueueFollowUp(request) }
             return
         }
+        let queued = pendingRescore.take()
+        let effective = queued.map { force ? $0.merged(with: request) : $0 } ?? request
+        await performAnalyzeRecent(maxDays: effective.maxDays, force: effective.force,
+                                   skipIfUnchanged: effective.skipIfUnchanged,
+                                   triggerLabel: effective.triggerLabel,
+                                   preserveUnscoredHistory: effective.preserveUnscoredHistory,
+                                   onPersisted: effective.onPersisted)
+    }
+
+    private func enqueueFollowUp(_ request: RescoreFollowUpRequest) {
+        let wasEmpty = pendingRescore.enqueue(request)
+        if wasEmpty && (runningPassOwedToken == nil
+            || RescoreBackgroundScheduler.currentOwedToken == runningPassOwedToken) {
+            // A pass may clear only its own token. Give queued input a distinct debt so completion cannot
+            // accidentally certify data that arrived after this pass read its inputs.
+            _ = RescoreBackgroundScheduler.markRescoreOwed(
+                requiresForcedPass: !request.skipIfUnchanged)
+        } else if !request.skipIfUnchanged {
+            RescoreBackgroundScheduler.requireForcedRescoreForCurrentDebt()
+        }
+        guard wasEmpty else { return }
+        let heldFor = runningPassStart.map {
+            Int(Double(DispatchTime.now().uptimeNanoseconds &- $0) / 1_000_000_000)
+        } ?? 0
+        let reasons = request.triggerLabel ?? "forced"
+        diagnosticSink?("re-score: queued trigger=\(reasons) scope=\(request.maxDays)d behind a "
+                        + "\(runningPassDays)-day pass running for \(heldFor) s", nil)
+    }
+
+    /// Drain through policy, not by directly recursively invoking the scorer. A deferred request stays in
+    /// `pendingRescore` for the processing task or the next foreground entry to consume.
+    private func drainPendingRescore() async {
+        guard !computing, !pendingRescore.isEmpty else { return }
+        await RescoreBackgroundScheduler.run(
+            preserveCompletedPassProofOnDefer: true,
+            log: { [weak self] line in self?.diagnosticSink?(line, nil) }) {
+                await self.consumePendingRescore()
+            }
+    }
+
+    private func consumePendingRescore() async {
+        guard !computing, let request = pendingRescore.take() else { return }
+        await performAnalyzeRecent(maxDays: request.maxDays, force: request.force,
+                                   skipIfUnchanged: request.skipIfUnchanged,
+                                   triggerLabel: request.triggerLabel,
+                                   preserveUnscoredHistory: request.preserveUnscoredHistory,
+                                   onPersisted: request.onPersisted)
+    }
+
+    private func performAnalyzeRecent(maxDays: Int, force: Bool, skipIfUnchanged: Bool,
+                                      triggerLabel: String?, preserveUnscoredHistory: Bool,
+                                      onPersisted: [() -> Void]) async {
         // #2607: claim the pass before either store await can admit another MainActor caller.
         // Even a pass that exits through a gate must release the claim and honor a forced
         // trigger queued while that gate was suspended.
@@ -786,14 +829,9 @@ final class IntelligenceEngine: ObservableObject {
         defer {
             computing = false
             runningPassStart = nil
-            if pendingForcedRescore {
-                pendingForcedRescore = false
-                // A forced update queued during the upgrade repair owes a normal recent pass,
-                // not another full-history repair (#2606). Its completion belongs to this pass.
-                let followUpDays = preserveUnscoredHistory ? 21 : maxDays
-                Task {
-                    await self.analyzeRecent(maxDays: followUpDays, force: true)
-                }
+            runningPassOwedToken = nil
+            if !pendingRescore.isEmpty {
+                Task { await self.drainPendingRescore() }
             }
         }
         guard let store = await repo.storeHandle() else { note = String(localized: "No on-device store yet."); return }
@@ -840,6 +878,9 @@ final class IntelligenceEngine: ObservableObject {
             // else's name is the same wrong-caller trail #1538 lost three nights to.
             let skipped = triggerLabel ?? "post-offload"
             diagnosticSink?("re-score: trigger=\(skipped) newData=no — skipped (nothing changed since last run)", nil)
+            if RescoreBackgroundScheduler.settleCompletedPassDebtIfUnchanged() {
+                diagnosticSink?("re-score: completed-pass debt settled — fingerprint is unchanged", nil)
+            }
             return
         }
         // Attribute the re-score that is ABOUT TO RUN. `trigger=post-offload` was previously logged only on
@@ -894,6 +935,10 @@ final class IntelligenceEngine: ObservableObject {
         // Kotlin post-offload gate makes the same point in its own words: "captured before the run,
         // written only on success".
         let owedToken = RescoreBackgroundScheduler.markRescoreOwed(passStarting: true)
+        runningPassOwedToken = owedToken
+        // A request may have arrived while the pass was awaiting its store/fingerprint gates, before it had
+        // an owner token to compare against. Keep that request newer than this pass's start token.
+        if !pendingRescore.isEmpty { _ = RescoreBackgroundScheduler.markRescoreOwed() }
         let up = UserProfile(weightKg: profile.weightKg, heightCm: profile.heightCm,
                              age: Double(profile.age), sex: profile.sex,
                              stepTicksPerStep: profile.stepTicksPerStep)
@@ -2985,7 +3030,10 @@ final class IntelligenceEngine: ObservableObject {
             // matching the Android one-re-pass bound; the budget restores once a pass heals nothing.
             if !healRearmedThisCycle {
                 healRearmedThisCycle = true
-                pendingForcedRescore = true
+                // Preserve the existing bounded one-repass heal rule, but keep its real scope and reason.
+                let followUpDays = preserveUnscoredHistory ? 21 : maxDays
+                enqueueFollowUp(RescoreFollowUpRequest(maxDays: followUpDays,
+                                                       triggerLabel: "sleep-session-heal-rearm"))
             }
         } else {
             healRearmedThisCycle = false
@@ -3016,7 +3064,7 @@ final class IntelligenceEngine: ObservableObject {
 
         results = out
         note = out.isEmpty
-            ? "No scored nights yet. Wear the strap with NOOP connected overnight and the engine will score your charge, effort and rest itself, no WHOOP cloud required."
+            ? "No scored nights yet. Wear the strap with Pulse connected overnight and the engine will score your charge, effort and rest itself, no WHOOP cloud required."
             : nil
 
         // Reload the dashboard caches so the freshly computed scores show up immediately. A heal-only
@@ -3052,7 +3100,7 @@ final class IntelligenceEngine: ObservableObject {
         }
         // New-data debt does not invalidate the repair writes that just succeeded (#2606).
         // Cancellation and persistence failures still leave the repair flags unset.
-        if !Task.isCancelled { onPersisted?() }
+        if !Task.isCancelled { onPersisted.forEach { $0() } }
     }
 
     /// UserDefaults key for the #836 idle-tick gate: the complete raw-analysis fingerprint the last completed

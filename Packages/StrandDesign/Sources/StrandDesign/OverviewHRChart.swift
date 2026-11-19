@@ -50,6 +50,46 @@ public struct OverviewHRChart: View {
         }
     }
 
+    /// Identity for a full-day series read. Context prevents records from one metric/day/device being
+    /// shown under another label; the integer window matches the repository's second-based bounds, and
+    /// interaction/page phase makes gesture-end and activation transitions cancel/reissue the final read.
+    public struct QueryIdentity: Hashable, Sendable {
+        public let context: String
+        public let from: Int
+        public let to: Int
+        public let refreshSequence: Int
+        public let interactionActive: Bool
+        public let pageActive: Bool
+
+        public init(context: String, from: Int, to: Int, refreshSequence: Int,
+                    interactionActive: Bool, pageActive: Bool) {
+            self.context = context
+            self.from = from
+            self.to = to
+            self.refreshSequence = refreshSequence
+            self.interactionActive = interactionActive
+            self.pageActive = pageActive
+        }
+
+        /// Only the latest uncancelled request may replace the currently displayed series.
+        public func mayApplyResult(to current: Self, isCancelled: Bool) -> Bool {
+            !isCancelled && self == current
+        }
+
+        /// Debounce same-context window changes after the first request. A metric/day/device change
+        /// must load immediately and must not retain an old series under the new context.
+        public func shouldDebounceReload(after previousRequest: Self?, hasStartedLoad: Bool) -> Bool {
+            hasStartedLoad && pageActive && previousRequest?.context == context
+        }
+    }
+
+    /// Keep the last plot during a window-only reload, but never present it under a changed metric/day/device
+    /// or when the previous query itself resolved to no records.
+    public static func shouldRetainSeries(previousContext: String?, currentContext: String,
+                                          hasPoints: Bool) -> Bool {
+        hasPoints && previousContext == currentContext
+    }
+
     public var points: [TrendPoint]
     public var sleep: SleepSpan?
     public var workouts: [WorkoutSpan]
@@ -68,6 +108,9 @@ public struct OverviewHRChart: View {
     public var touchScrub: Bool
     public var valueFormat: (Double) -> String
     public var dateFormat: (Date) -> String
+    /// Optional gesture lifecycle callback for a zooming host that defers expensive reads until the
+    /// user finishes pinching or panning. Static charts leave this nil.
+    public var onZoomInteractionChanged: ((Bool) -> Void)?
 
     /// Deep-Timeline zoom/pan window. When bound (Deep Timeline only), it OVERRIDES `xRange`/data extent
     /// as the visible x-domain, and pinch-magnify (iOS) / scroll-to-zoom (macOS) + drag-pan mutate it.
@@ -96,6 +139,7 @@ public struct OverviewHRChart: View {
         workoutTint: Color = StrandPalette.strain033,
         zoomDomain: Binding<ClosedRange<Date>?> = .constant(nil),
         zoomBounds: ClosedRange<Date>? = nil,
+        onZoomInteractionChanged: ((Bool) -> Void)? = nil,
         valueFormat: @escaping (Double) -> String = { String(Int($0.rounded())) },
         dateFormat: @escaping (Date) -> String = { TrendChart.defaultDateString($0) }
     ) {
@@ -114,6 +158,7 @@ public struct OverviewHRChart: View {
         self.workoutTint = workoutTint
         self._zoomDomain = zoomDomain
         self.zoomBounds = zoomBounds
+        self.onZoomInteractionChanged = onZoomInteractionChanged
         self.valueFormat = valueFormat
         self.dateFormat = dateFormat
         self.averageValue = sorted.isEmpty
@@ -137,6 +182,7 @@ public struct OverviewHRChart: View {
     /// True while a touch scrub is engaged (the hold completed). Only used to fire the engage haptic
     /// exactly once per scrub — the sequenced gesture can report `.second(true, nil)` more than once.
     @State private var scrubEngaged = false
+    @GestureState private var touchLocation: CGPoint? = nil
     #endif
 
     /// PERF: the 24h HR line can carry hundreds of samples — more than the ~360pt plot has pixels, so most
@@ -216,7 +262,14 @@ public struct OverviewHRChart: View {
     /// axis silently collapsing to the data extent. Otherwise it's pinned to the HR data so markers
     /// (sleep onset the night before, etc.) can't stretch the timeline. Safe even for sparse input.
     private var xDomain: ClosedRange<Date> {
-        // Deep Timeline: the bound zoom window wins over everything (it's what gestures drive).
+        Self.visibleDomain(points: points, xRange: xRange, zoomDomain: zoomDomain)
+    }
+
+    /// Resolve the plotted x-domain independently of the currently loaded points. A zoom request can
+    /// be loading or can return an honest empty gap; neither case is allowed to collapse the user's
+    /// selected axis to the old/new data extent.
+    public static func visibleDomain(points: [TrendPoint], xRange: ClosedRange<Date>?,
+                                     zoomDomain: ClosedRange<Date>?) -> ClosedRange<Date> {
         if let zoomDomain, zoomDomain.upperBound > zoomDomain.lowerBound { return zoomDomain }
         if let xRange, xRange.upperBound > xRange.lowerBound { return xRange }
         let lo = points.first?.date ?? Date(timeIntervalSince1970: 0)
@@ -382,9 +435,9 @@ public struct OverviewHRChart: View {
     #if os(iOS)
     /// Touch-and-hold-then-drag scrub (#979 spin-off). The stationary hold (0.25 s within 8 pt) is the
     /// gate that separates scrubbing from the pan drag (min 6 pt) and pinch that own immediate movement.
-    /// LongPressGesture reports no location, so the crosshair appears from the drag phase's coordinates —
-    /// in practice the first micro-movement of a held finger, which is immediate; the engage haptic marks
-    /// the mode switch the instant the hold lands. Drives the SAME `hoverX` the Mac pointer hover drives,
+    /// A simultaneous location tracker supplies the initial touch position because LongPressGesture
+    /// reports no location. A stationary hold therefore shows a reading before the first drag. Drives
+    /// the SAME `hoverX` the Mac pointer hover drives,
     /// so the readout (crosshair + dot + tooltip) is byte-identical across input methods.
     private var touchScrubGesture: some Gesture {
         LongPressGesture(minimumDuration: 0.25, maximumDistance: 8)
@@ -395,11 +448,11 @@ public struct OverviewHRChart: View {
                     scrubEngaged = true
                     StrandHaptic.selection.play()
                 }
-                if let drag {
+                if let location = drag?.location ?? touchLocation {
                     // Non-animating transaction, same reason as hover (TrendChart #104 flicker).
                     var tx = Transaction()
                     tx.disablesAnimations = true
-                    withTransaction(tx) { hoverX = drag.location.x }
+                    withTransaction(tx) { hoverX = location.x }
                 }
             }
             .onEnded { _ in
@@ -454,6 +507,9 @@ public struct OverviewHRChart: View {
                     markerLabels(proxy: proxy, plot: plot)
                     hoverLayer(proxy: proxy, plot: plot, container: geo.size)
                 }
+                // A workout chart has no annotations before the first touch. Keep its empty overlay
+                // full-sized so the hold gesture can acquire a location and create the readout.
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
                 .animation(StrandMotion.fade, value: hoverX)
                 .contentShape(Rectangle())
                 .onContinuousHover(coordinateSpace: .local) { phase in
@@ -478,6 +534,10 @@ public struct OverviewHRChart: View {
                 // still pans (ZoomPanModifier), pinch still zooms, double-tap still resets. `.subviews`
                 // masks the gesture entirely on the call sites that don't opt in.
                 .gesture(touchScrubGesture, including: (touchScrub && showsHover) ? .all : .subviews)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                        .updating($touchLocation) { drag, location, _ in location = drag.location },
+                    including: (touchScrub && showsHover) ? .all : .subviews)
                 #endif
             }
         }
@@ -508,6 +568,7 @@ public struct OverviewHRChart: View {
                 zoomDomain = (newDomain.lowerBound <= zoomClampBounds.lowerBound
                               && newDomain.upperBound >= zoomClampBounds.upperBound) ? nil : newDomain
             },
+            onInteractionChanged: onZoomInteractionChanged,
             reset: { zoomDomain = nil },
             zoom: { base, scale, frac, bounds in Self.zoomed(base, scale: scale, anchorFraction: frac, bounds: bounds) },
             pan: { base, dx, plotWidth, bounds in
@@ -689,20 +750,40 @@ private struct ZoomPanModifier: ViewModifier {
     let bounds: ClosedRange<Date>
     @Binding var anchor: ClosedRange<Date>?
     let apply: (ClosedRange<Date>) -> Void
+    let onInteractionChanged: ((Bool) -> Void)?
     /// Drop the zoom window back to the full extent (sets the bound `zoomDomain` to nil).
     let reset: () -> Void
     let zoom: (ClosedRange<Date>, Double, Double, ClosedRange<Date>) -> ClosedRange<Date>
     let pan: (ClosedRange<Date>, CGFloat, CGFloat, ClosedRange<Date>) -> ClosedRange<Date>
 
     @State private var plotWidth: CGFloat = 1
+    @State private var magnifyActive = false
+    @State private var panActive = false
+    /// Once a pinch overlaps a drag, discard that drag's accumulated translation through its end.
+    /// MagnificationGesture and DragGesture are simultaneous, so the drag may report one last stale delta
+    /// after the pinch ends unless it is explicitly invalidated.
+    @State private var panInvalidatedByMagnify = false
+    @State private var reportedInteractionActive = false
     // Reduce Motion: the reset snaps instantly when on, otherwise it eases out (the gesture frames
     // themselves are never animated, per the per-frame apply below, so only the reset honours this).
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var reportsInteraction: Bool {
+        if case .some = onInteractionChanged { return true }
+        return false
+    }
 
     /// Reset the window, snapping when Reduce Motion is on and easing otherwise.
     private func resetZoom() {
         guard isZoomed() else { return }
         withAnimation(NoopMotion.gated(StrandMotion.interactive, reduced: reduceMotion)) { reset() }
+    }
+
+    private func publishInteractionState() {
+        let active = magnifyActive || panActive
+        guard active != reportedInteractionActive else { return }
+        reportedInteractionActive = active
+        onInteractionChanged?(active)
     }
 
     func body(content: Content) -> some View {
@@ -711,20 +792,53 @@ private struct ZoomPanModifier: ViewModifier {
         // the 6–8 pt overlap band is what let a held-then-dragged finger begin panning during a scrub.
         let drag = DragGesture(minimumDistance: 10)
             .onChanged { value in
+                if !panActive {
+                    panActive = true
+                    panInvalidatedByMagnify = reportsInteraction && magnifyActive
+                    publishInteractionState()
+                }
+                // A two-finger pinch can also move the first finger. Once the gestures overlap, ignore
+                // every drag delta until DragGesture ends; its translation is cumulative and would
+                // otherwise apply the pinch's finger travel as a late pan after magnification ends.
+                if reportsInteraction && magnifyActive { panInvalidatedByMagnify = true }
+                guard !reportsInteraction || (!magnifyActive && !panInvalidatedByMagnify) else { return }
                 let base = anchor ?? current()
                 if anchor == nil { anchor = base }
                 apply(pan(base, value.translation.width, plotWidth, bounds))
             }
-            .onEnded { _ in anchor = nil }
+            .onEnded { _ in
+                panActive = false
+                panInvalidatedByMagnify = false
+                publishInteractionState()
+                if !reportsInteraction || !magnifyActive { anchor = nil }
+            }
 
         let magnify = MagnificationGesture()
             .onChanged { scale in
+                if !magnifyActive {
+                    magnifyActive = true
+                    if reportsInteraction && panActive {
+                        // A pan may already have changed the domain before the second finger landed.
+                        // Preserve that visible window as the new pinch base, then discard the pan's
+                        // remaining cumulative translation.
+                        panInvalidatedByMagnify = true
+                        anchor = nil
+                    }
+                    publishInteractionState()
+                }
                 let base = anchor ?? current()
                 if anchor == nil { anchor = base }
                 // Pinch zooms about the window centre (we don't get a focal point from MagnificationGesture).
                 apply(zoom(base, Double(scale), 0.5, bounds))
             }
-            .onEnded { _ in anchor = nil }
+            .onEnded { _ in
+                magnifyActive = false
+                publishInteractionState()
+                if !reportsInteraction || !panActive {
+                    anchor = nil
+                    panInvalidatedByMagnify = false
+                }
+            }
 
         // Double-tap anywhere on the plot resets to the full window: the discoverable "back out" affordance
         // both platforms share (alongside the explicit Reset button the host shows). It does NOT add an
@@ -738,6 +852,13 @@ private struct ZoomPanModifier: ViewModifier {
                     .onChangeCompat(of: geo.size.width) { plotWidth = $0 }
             }
         )
+        .onDisappear {
+            magnifyActive = false
+            panActive = false
+            panInvalidatedByMagnify = false
+            anchor = nil
+            publishInteractionState()
+        }
 
         #if os(macOS)
         // macOS has no pinch in this context; drag pans. Scroll-to-zoom is handled by the Deep Timeline

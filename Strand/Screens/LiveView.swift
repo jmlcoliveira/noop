@@ -363,7 +363,7 @@ struct LiveView: View {
                 .font(StrandFont.headline)
                 .foregroundStyle(StrandPalette.textPrimary)
             Text(activeConnection
-                 ? "Start a workout when the stream matters. NOOP records the interval, HR, peak, average and effort from the same live feed."
+                 ? "Start a workout when the stream matters. Pulse records the interval, HR, peak, average and effort from the same live feed."
                  : "Connect the strap first, then mark a workout from the live stream.")
                 .font(StrandFont.subhead)
                 .foregroundStyle(StrandPalette.textSecondary)
@@ -1375,7 +1375,7 @@ private struct LiveLogCard: View {
             // which button someone pressed changed what a triager received.
             let extra = await DebugDataDiagnostics.dynamicLines(repo: model.repo)
             FileExport.exportText(live.exportableLogText(extraHeaderLines: extra),
-                                  suggestedName: FileExport.timestampedName("noop-strap-log", ext: "txt"))
+                                  suggestedName: FileExport.timestampedName("pulse-strap-log", ext: "txt"))
         }
     }
 }

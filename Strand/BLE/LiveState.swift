@@ -54,6 +54,12 @@ public final class LiveState: ObservableObject {
     /// radio-off / connect-fail / disconnect). Twin of the Android LiveState.streamingLiveHR.
     @Published public var streamingLiveHR: Bool = false
     @Published public var heartRate: Int? = nil
+    /// Wall-clock arrival time of the most recent readable heart-rate sample.
+    ///
+    /// This is intentionally not `@Published`: it is a freshness input for individual readouts, not
+    /// a reason to re-render the whole view tree at the sample cadence. Silence decisions use the
+    /// monotonic clock stored by `HeartRateFreshness`, so system clock corrections do not affect it.
+    public var lastReadableHeartRateAt: Date? { heartRateFreshness.lastReadableAt }
     /// Whether the heavy R10/R11 realtime burst is currently armed (the "live feed"). Tracks the
     /// realtime INTENT (startRealtime/stopRealtime), NOT `heartRate` — the lightweight 0x2A37 profile
     /// keeps setting heartRate while bonded, so a heartRate-driven toggle could never read "off". The
@@ -727,16 +733,22 @@ public final class LiveState: ObservableObject {
     /// Instance copy of `heartRateSilenceSeconds`, so a test can shorten the wait.
     var heartRateSilence: TimeInterval = LiveState.heartRateSilenceSeconds
     private var heartRateSilenceTimer: DispatchSourceTimer?
-    private var heartRateSilenceArmedAt: DispatchTime?
+    private var heartRateFreshness = HeartRateFreshness()
 
     /// A readable heart-rate sample arrived (`BLEManager`'s standard profile, `FrameRouter`'s realtime frames): move the
-    /// silence deadline on. One timer, rescheduled at most every tenth of the wait (once a second in use), so it costs
-    /// nothing while samples flow and fires once when they stop.
+    /// silence deadline on. Every arrival updates the non-publishing freshness timestamp; the single silence timer is
+    /// rescheduled at most every tenth of the wait (once a second in use), so it costs nothing while samples flow.
     public func noteReadableHeartRate() {
-        let now = DispatchTime.now()
-        let rearmNanos = UInt64(heartRateSilence / 10 * 1_000_000_000)
-        if let armed = heartRateSilenceArmedAt, now.uptimeNanoseconds &- armed.uptimeNanoseconds < rearmNanos { return }
-        heartRateSilenceArmedAt = now
+        let delay = heartRateFreshness.recordReadableSample(
+            at: Date(),
+            monotonicTime: ProcessInfo.processInfo.systemUptime,
+            silenceInterval: heartRateSilence
+        )
+        guard let delay else { return }
+        scheduleHeartRateSilenceCheck(after: delay)
+    }
+
+    private func scheduleHeartRateSilenceCheck(after delay: TimeInterval) {
         let timer = heartRateSilenceTimer ?? {
             let t = DispatchSource.makeTimerSource(queue: .main)
             t.setEventHandler { [weak self] in MainActor.assumeIsolated { self?.heartRateWentSilent() } }
@@ -744,12 +756,23 @@ public final class LiveState: ObservableObject {
             heartRateSilenceTimer = t
             return t
         }()
-        timer.schedule(deadline: now + heartRateSilence, leeway: .nanoseconds(Int(rearmNanos)))
+        let leeway = UInt64(max(0, min(delay, heartRateSilence / 10)) * 1_000_000_000)
+        timer.schedule(deadline: .now() + delay, leeway: .nanoseconds(Int(leeway)))
     }
 
     private func heartRateWentSilent() {
-        heartRateSilenceArmedAt = nil
-        guard heartRate != nil else { return }
+        switch heartRateFreshness.timerFired(
+            monotonicTime: ProcessInfo.processInfo.systemUptime,
+            silenceInterval: heartRateSilence
+        ) {
+        case .noReadableSample:
+            return
+        case .reschedule(let remaining):
+            scheduleHeartRateSilenceCheck(after: remaining)
+            return
+        case .clearHeartRate:
+            guard heartRate != nil else { return }
+        }
         append(log: AppModel.stamped("HR: no readable heart-rate sample for \(Int(heartRateSilence)) s; "
                                      + "live heart rate cleared"))
         clearLiveHeartRate()
@@ -759,6 +782,9 @@ public final class LiveState: ObservableObject {
     /// R-R strip can't outlive the link. Called on CoreBluetooth disconnect (BLEManager), the twin of
     /// the `charging = nil` / `encryptedBond = false` clears on the same path.
     public func clearBiometrics() {
+        heartRateFreshness.reset()
+        heartRateSilenceTimer?.cancel()
+        heartRateSilenceTimer = nil
         heartRate = nil
         rr.removeAll()
         rrRecent.removeAll()
@@ -940,7 +966,7 @@ public final class LiveState: ObservableObject {
         #else
         let osName = "macOS"
         #endif
-        var header = "NOOP strap log (scheduled export) — \(osName)\nApp: \(Self.appIdentityLine)\n\(osName): "
+        var header = "Pulse strap log (scheduled export) — \(osName)\nApp: \(Self.appIdentityLine)\n\(osName): "
             + ProcessInfo.processInfo.operatingSystemVersionString + "\n"
         // #453: the BODY is scrubbed as it is appended, but these header lines come from the diagnostics
         // block and never pass through that path - and they carry device ids, which embed a BLE address
@@ -1184,7 +1210,7 @@ public final class LiveState: ObservableObject {
         #else
         let osName = "macOS"
         #endif
-        var header = "NOOP strap log - \(osName)\nApp: \(Self.appIdentityLine)\n\(osName): "
+        var header = "Pulse strap log - \(osName)\nApp: \(Self.appIdentityLine)\n\(osName): "
             + ProcessInfo.processInfo.operatingSystemVersionString + "\n"
         #if os(iOS)
         let diagLines = IOSDiagnostics.capture().summaryLines()

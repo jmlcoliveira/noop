@@ -18,8 +18,8 @@ import AppKit
 //   • `.staggeredAppear(index:)` — list/grid items fade + rise in, once, in sequence
 //   • `.softCardTransition()` — card insert/remove (opacity + a hair of scale)
 //
-// Count-up values and staggered entrances use the shared quiet-motion gate so
-// Low Power Mode and the in-app preference also suppress their one-shot work.
+// Count-up values and staggered entrances use the shared quiet-motion gate so each active quiet
+// signal suppresses their one-shot work as well as never-settling loops.
 //
 // This complements `StrandMotion` (the physiological breathe/pulse set) rather than
 // replacing it: where StrandMotion leans organic, NoopMotion leans crisp and mechanical,
@@ -71,12 +71,15 @@ public enum NoopMotion {
 // that same shape on Apple, moved down into StrandDesign so the design system's own surfaces can
 // reach it too (`LiquidPowerMonitor` in the app target could not).
 //
-// Three signals, OR-ed:
+// Five signals, OR-ed:
 //   1. `@Environment(\.accessibilityReduceMotion)` — the system-wide setting. Supplied by the call
 //      site, because only a View can read the environment.
 //   2. Low Power Mode — the OS-level "stop discretionary work" signal.
-//   3. "Reduce motion in NOOP" — an in-app preference, default OFF, for people who want the app
+//   3. Thermal pressure — at serious or critical pressure, decorative frame loops stop until the
+//      system cools back to fair or nominal.
+//   4. "Reduce motion in NOOP" — an in-app preference, default OFF, for people who want the app
 //      quiet without putting the whole phone in battery saver.
+//   5. On macOS, all app windows are obscured.
 
 /// "Reduce motion in NOOP" (opt-in, default OFF): pose every looping animation still and stop the
 /// decorative motion sensor, without requiring system Low Power Mode or system Reduce Motion.
@@ -92,8 +95,9 @@ public enum QuietMotionPrefs {
     public static let enabledKey = "noop.quietMotion"
 }
 
-/// Publishes the two motion signals that have no SwiftUI environment key — Low Power Mode and the
-/// in-app "Reduce motion in NOOP" preference — so any view can pose its looping animation still.
+/// Publishes the motion signals that have no SwiftUI environment key — Low Power Mode, thermal
+/// pressure, the in-app "Reduce motion in NOOP" preference and (on macOS) window visibility — so any
+/// view can pose its looping animation still.
 ///
 /// A singleton with ONE `NotificationCenter` observer rather than a per-view `DisposableEffect`,
 /// for the reason #911 gives on the Android side: the liquid primitives alone have dozens of call
@@ -110,6 +114,11 @@ public final class NoopMotionState: ObservableObject {
     /// System Low Power Mode / battery saver. Live: `.NSProcessInfoPowerStateDidChange` means
     /// toggling the setting takes effect without a relaunch.
     @Published public private(set) var isLowPower: Bool
+
+    /// Current system thermal pressure. Decorative motion stops at serious or critical pressure and
+    /// resumes when the system returns to fair or nominal. Live: ProcessInfo publishes a notification
+    /// whenever this value changes.
+    @Published public private(set) var thermalState: ProcessInfo.ThermalState
 
     /// #2393, macOS only: every window of this app is hidden, minimised or fully covered, so nothing
     /// a frame loop draws can be seen.
@@ -132,12 +141,20 @@ public final class NoopMotionState: ObservableObject {
 
     private init() {
         isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        thermalState = ProcessInfo.processInfo.thermalState
         quietMotion = UserDefaults.standard.bool(forKey: QuietMotionPrefs.enabledKey)
         NotificationCenter.default.addObserver(
             forName: .NSProcessInfoPowerStateDidChange, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+            }
+        }
+        NotificationCenter.default.addObserver(
+            forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.thermalState = ProcessInfo.processInfo.thermalState
             }
         }
         // `@AppStorage` writes straight to UserDefaults without telling us, so mirror the store.
@@ -241,13 +258,45 @@ public final class NoopMotionState: ObservableObject {
     /// ```
     @inline(__always)
     public func poseStill(_ reduceMotion: Bool) -> Bool {
-        reduceMotion || isLowPower || quietMotion || windowObscured
+        policy(reduceMotion: reduceMotion).poseStill
     }
 
     /// The non-environment signals on their own, for an imperative (non-View) reader that supplies its
     /// own Reduce Motion read — e.g. the decorative motion sensor deciding whether to start at all.
     /// Views must use `poseStill(_:)` instead so they invalidate correctly.
-    public var poseStillIgnoringReduceMotion: Bool { isLowPower || quietMotion || windowObscured }
+    public var poseStillIgnoringReduceMotion: Bool { policy(reduceMotion: false).poseStill }
+
+    /// The shared pure policy snapshot used by both SwiftUI views and imperative decorative systems.
+    /// The latter supplies its own Reduce Motion read, then uses this same decision for every other
+    /// signal so sensors and their rendered motion cannot drift apart.
+    private func policy(reduceMotion: Bool) -> NoopMotionPolicy {
+        NoopMotionPolicy(
+            reduceMotion: reduceMotion,
+            isLowPower: isLowPower,
+            thermalState: thermalState,
+            quietMotion: quietMotion,
+            windowObscured: windowObscured
+        )
+    }
+}
+
+/// Pure motion gate so thermal and existing signal behavior can be pinned without changing real
+/// device preferences or ProcessInfo state in tests.
+struct NoopMotionPolicy {
+    let reduceMotion: Bool
+    let isLowPower: Bool
+    let thermalState: ProcessInfo.ThermalState
+    let quietMotion: Bool
+    let windowObscured: Bool
+
+    var poseStill: Bool {
+        let existingMotionSignalsStill = reduceMotion || isLowPower || quietMotion || windowObscured
+        return existingMotionSignalsStill || Self.thermalStateRequiresStillMotion(thermalState)
+    }
+
+    static func thermalStateRequiresStillMotion(_ thermalState: ProcessInfo.ThermalState) -> Bool {
+        thermalState == .serious || thermalState == .critical
+    }
 }
 
 // MARK: - CountUpText

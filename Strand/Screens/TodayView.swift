@@ -324,6 +324,7 @@ struct TodayView: View {
     }
     @State private var workoutDetail: WorkoutDetailTarget?
     @State private var appleDays: [AppleDaily] = []
+    @State private var activeEnergyByDay: [String: Double] = [:]
     // Design Reset / #582, the pinned "Your cards" values (Stress / Fitness age / Vitality), surfaced
     // on Today so the buried Explore features sit on the home screen. Loaded in loadAll; nil hides the row.
     @State private var stressToday: Double?
@@ -939,6 +940,7 @@ struct TodayView: View {
         }
         if rawSource.hasSuffix("-noop") { return String(localized: "On-device") }
         if rawSource == deviceId || rawSource == Repository.whoopSource { return Self.whoopBrandName }
+        if rawSource == Repository.pulseEnergySource { return "Apple Health + Pulse" }
         if rawSource == Repository.appleHealthSource { return "Apple Health" }
         // Localize the non-brand source names here rather than exposing the analytics layer's
         // intentionally locale-free wire/display vocabulary on Home.
@@ -2628,8 +2630,19 @@ struct TodayView: View {
             pinnedCardRow(icon: card.icon, tint: tint, title: card.title, subtitle: card.subtitle,
                           value: dashboardValue(card), route: .stress)
         case .fitnessAge, .vo2max, .vitality, .steps, .calories:
+            #if os(iOS)
+            if card == .calories {
+                pinnedCardRow(icon: card.icon, tint: tint, title: card.title, subtitle: card.subtitle,
+                              value: dashboardValue(card),
+                              route: .metricSourced(key: "active_kcal", source: Repository.pulseEnergySource))
+            } else {
+                pinnedCardRow(icon: card.icon, tint: tint, title: card.title, subtitle: card.subtitle,
+                              value: dashboardValue(card), route: .health)
+            }
+            #else
             pinnedCardRow(icon: card.icon, tint: tint, title: card.title, subtitle: card.subtitle,
                           value: dashboardValue(card), route: .health)
+            #endif
         case .hrv, .restingHr, .respiratory, .bloodOxygen, .skinTemp:
             // The overnight vitals share the Health detail screen (the vital-signs surface).
             pinnedCardRow(icon: card.icon, tint: tint, title: card.title, subtitle: card.subtitle,
@@ -2761,7 +2774,7 @@ struct TodayView: View {
             let est = stepsEstByDay[selectedDayKey].map { intString(Double($0)) }
             return real ?? est ?? "—"
         case .calories:
-            return withUnit(caloriesValue(appleDays.last))
+            return withUnit(caloriesValue(selectedDayKey))
         case .stress:
             #if DEBUG
             // DEBUG promo harness: pin the Stress card (0–3) to the active frame's value. No-op otherwise.
@@ -4137,7 +4150,7 @@ struct TodayView: View {
         case .calories:
             StatTile(
                 label: "Calories",
-                value: caloriesValue(aLatest),
+                value: caloriesValue(selectedDayKey),
                 caption: String(localized: "active"),
                 accent: StrandPalette.metricAmber,
                 sparkline: sparks["active_kcal"],
@@ -4314,7 +4327,7 @@ struct TodayView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Data sources")
-        .accessibilityHint("Show what NOOP is synced from")
+        .accessibilityHint("Show what Pulse is synced from")
     }
 
     /// PURE: the "Synced from: …" summary string for the collapsed footer (S5). Names the sources with
@@ -4687,7 +4700,11 @@ struct TodayView: View {
         async let respRateSpark      = sparkValuesExplore("resp_rate", source: "my-whoop", window: 14)
         async let stepsAppleSpark    = sparkValues("steps", source: "apple-health", window: 14)
         async let weightSpark        = sparkValues("weight", source: "apple-health", window: 90)
-        async let activeKcalSpark    = sparkValues("active_kcal", source: "apple-health", window: 14)
+        #if os(iOS)
+        async let activeEnergySeriesA = repo.series(key: "active_kcal", source: Repository.pulseEnergySource)
+        #else
+        async let activeKcalSpark = sparkValues("active_kcal", source: "apple-health", window: 14)
+        #endif
 
         sparks["recovery"]        = await recoverySpark
         sparks["strain"]          = await strainSpark
@@ -4706,7 +4723,14 @@ struct TodayView: View {
         let strapSteps = repo.days.suffix(14).compactMap { $0.steps.map(Double.init) }
         if !strapSteps.isEmpty { sparks["steps"] = strapSteps }
         sparks["weight"]      = await weightSpark
+        #if os(iOS)
+        let activeEnergySeries = await activeEnergySeriesA
+        activeEnergyByDay = Dictionary(activeEnergySeries.map { ($0.day, $0.value) },
+                                       uniquingKeysWith: { _, last in last })
+        sparks["active_kcal"] = trailingWindow(activeEnergySeries, days: 14).map { $0.value }
+        #else
         sparks["active_kcal"] = await activeKcalSpark
+        #endif
 
         // Steps ESTIMATE per day (WHOOP 4.0 motion → calibrated steps), the Mi-Band series, workout +
         // Apple-daily rows, and the three "your cards" series, all history-wide (none depends on the
@@ -4775,6 +4799,7 @@ struct TodayView: View {
         historyWideSparks["sleep_performance"] = nil
         repo.todayHistoryWideCache = TodayHistoryWideCache(
             sparks: historyWideSparks,
+            activeEnergyByDay: activeEnergyByDay,
             stepsEstByDay: stepsEstByDay,
             workouts: workouts,
             appleDays: appleDays,
@@ -4794,6 +4819,7 @@ struct TodayView: View {
     /// entry. Every other history-wide spark key is restored.
     private func restoreHistoryWide(_ c: TodayHistoryWideCache) {
         sparks.merge(c.sparks) { _, cached in cached }
+        activeEnergyByDay = c.activeEnergyByDay
         stepsEstByDay = c.stepsEstByDay
         workouts = c.workouts
         appleDays = c.appleDays
@@ -5372,10 +5398,15 @@ struct TodayView: View {
         }
     }
 
-    /// Active calories (Apple) for the latest day, falling back to the sparkline tail.
-    private func caloriesValue(_ a: AppleDaily?) -> String {
-        if let kcal = a?.activeKcal { return intString(kcal) }
-        return latestString("active_kcal", decimals: 0)
+    /// Active calories for the selected day, never the latest unrelated AppleDaily row.
+    private func caloriesValue(_ day: String) -> String {
+        #if os(iOS)
+        guard let kcal = activeEnergyByDay[day] else { return "—" }
+        return intString(kcal)
+        #else
+        guard let kcal = appleDays.last(where: { $0.day == day })?.activeKcal else { return "—" }
+        return intString(kcal)
+        #endif
     }
 
     private func workoutDuration(_ w: WorkoutRow) -> String {
@@ -5448,6 +5479,7 @@ private struct TodayLoadKey: Equatable {
 /// after an import. Built only after a real `loadHistoryWide()`; consumed when the seq still matches.
 struct TodayHistoryWideCache {
     let sparks: [String: [Double]]
+    let activeEnergyByDay: [String: Double]
     let stepsEstByDay: [String: Int]
     let workouts: [WorkoutRow]
     let appleDays: [AppleDaily]

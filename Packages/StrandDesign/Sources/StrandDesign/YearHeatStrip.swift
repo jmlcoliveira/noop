@@ -2,6 +2,7 @@
 // YearHeatStrip uses .onContinuousHover + .help() tooltips (unavailable on watchOS); the watch
 // never shows the year heat strip, so the whole view is excluded there. iOS/macOS unchanged.
 import SwiftUI
+import Foundation
 
 // MARK: - Year Heat Strip (§9.4 Trends)
 //
@@ -12,7 +13,8 @@ import SwiftUI
 
 /// A day's recovery datum for the heat strip.
 public struct RecoveryDay: Identifiable, Sendable {
-    public let id = UUID()
+    /// A calendar day has one stable identity even when its score changes after a refresh.
+    public var id: Date { date }
     public var date: Date
     /// Recovery 0...100, or nil if no data for that day.
     public var score: Double?
@@ -35,11 +37,81 @@ public struct YearHeatStrip: View {
     /// Formats a day's score for the tooltip's bold line.
     public var valueFormat: (Double) -> String
 
-    /// The week-column layout, built ONCE here in `init` from the sorted days rather than on every
-    /// `body` eval. `buildWeeks()` reads `.component` for up to 365 days, and `body` re-ran on every
-    /// hover (which mutates `@State hoverCell`) — so the layout was being recomputed on each pointer
-    /// move. Since the struct is only re-created when `days` actually changes, computing it here
-    /// memoizes the layout on `days` identity for free, with no behaviour change.
+    /// The sorted day rows and week-column layout. Callers that are rebuilt by unrelated model
+    /// publications can retain this value and avoid sorting/grouping the same history again.
+    public struct PreparedLayout: Sendable {
+        public let days: [RecoveryDay]
+        fileprivate let weeks: [Week]
+        public let scoredDayCount: Int
+
+        public init(days: [RecoveryDay], locale: Locale = .current, timeZone: TimeZone = .current) {
+            let sorted = days.sorted { $0.date < $1.date }
+            self.days = sorted
+            self.scoredDayCount = sorted.reduce(into: 0) { count, day in
+                if day.score != nil { count += 1 }
+            }
+            self.weeks = YearHeatStrip.buildWeeks(from: sorted, locale: locale, timeZone: timeZone)
+        }
+
+        /// Stable week columns, useful for verifying cached layout parity.
+        var weekCellDates: [[Date?]] { weeks.map { $0.cells.map { $0?.date } } }
+        var weekIDs: [Date] { weeks.map(\.id) }
+        var weekMonthLabels: [String?] { weeks.map(\.monthLabel) }
+    }
+
+    /// A single-entry cache for screens whose root remains mounted while hidden. The key is supplied
+    /// by the caller so repository generation, range, locale, calendar and timezone all participate.
+    @MainActor public final class PreparedLayoutCache {
+        public struct Key: Equatable {
+            public let source: ObjectIdentifier
+            public let generation: Int
+            public let selection: Int
+            public let localeIdentifier: String
+            public let calendarIdentifier: String
+            public let firstWeekday: Int
+            public let minimumDaysInFirstWeek: Int
+            public let timeZoneIdentifier: String
+
+            public init(source: ObjectIdentifier, generation: Int, selection: Int,
+                        localeIdentifier: String, calendarIdentifier: String, firstWeekday: Int,
+                        minimumDaysInFirstWeek: Int, timeZoneIdentifier: String) {
+                self.source = source
+                self.generation = generation
+                self.selection = selection
+                self.localeIdentifier = localeIdentifier
+                self.calendarIdentifier = calendarIdentifier
+                self.firstWeekday = firstWeekday
+                self.minimumDaysInFirstWeek = minimumDaysInFirstWeek
+                self.timeZoneIdentifier = timeZoneIdentifier
+            }
+        }
+
+        private var key: Key?
+        private var value: PreparedLayout?
+
+        public init() {}
+
+        /// Returns the current prepared value without rebuilding it.
+        public func value(for key: Key) -> PreparedLayout? {
+            guard self.key == key else { return nil }
+            return value
+        }
+
+        /// Last value is useful while inactive: the caller can preserve the existing layout and
+        /// refresh it on activation without unmounting its scroll container.
+        public var lastValue: PreparedLayout? { value }
+
+        public func get(for key: Key, build: () -> PreparedLayout) -> PreparedLayout {
+            if self.key == key, let value { return value }
+            let next = build()
+            self.key = key
+            value = next
+            return next
+        }
+    }
+
+    /// Week-column layout is built once when a PreparedLayout is made, rather than on each `body`
+    /// evaluation or hover update.
     private let weeks: [Week]
 
     public init(
@@ -50,14 +122,26 @@ public struct YearHeatStrip: View {
         showsHover: Bool = true,
         valueFormat: @escaping (Double) -> String = { "Recovery \(Int($0.rounded()))" }
     ) {
-        let sorted = days.sorted { $0.date < $1.date }
-        self.days = sorted
+        self.init(prepared: PreparedLayout(days: days), cellSize: cellSize, spacing: spacing,
+                  showsMonthLabels: showsMonthLabels, showsHover: showsHover,
+                  valueFormat: valueFormat)
+    }
+
+    public init(
+        prepared: PreparedLayout,
+        cellSize: CGFloat = 12,
+        spacing: CGFloat = 3,
+        showsMonthLabels: Bool = true,
+        showsHover: Bool = true,
+        valueFormat: @escaping (Double) -> String = { "Recovery \(Int($0.rounded()))" }
+    ) {
+        self.days = prepared.days
         self.cellSize = cellSize
         self.spacing = spacing
         self.showsMonthLabels = showsMonthLabels
         self.showsHover = showsHover
         self.valueFormat = valueFormat
-        self.weeks = YearHeatStrip.buildWeeks(from: sorted)
+        self.weeks = prepared.weeks
     }
 
     // The grid layout constants used both for drawing and hover hit-testing.
@@ -67,47 +151,45 @@ public struct YearHeatStrip: View {
     /// Hovered cell as (weekIndex, row), or nil.
     @State private var hoverCell: (week: Int, row: Int)? = nil
 
-    // A fixed Monday-first Gregorian calendar, stored once as a constant rather than a computed
-    // property. `buildWeeks()` runs on every render (including each hover, which mutates @State)
-    // and reads `.component` for up to 365 days, so the old computed form allocated a fresh
-    // Calendar on every one of those ~730 accesses per render.
-    private static let calendar: Calendar = {
-        var c = Calendar(identifier: .gregorian)
-        c.firstWeekday = 2 // Monday-first columns read nicely
-        return c
-    }()
-
     // Group days into week columns. weekday 0 = Monday ... 6 = Sunday.
-    private struct Week: Identifiable {
-        let id = UUID()
+    fileprivate struct Week: Identifiable, Sendable {
+        let id: Date
         var cells: [RecoveryDay?] // length 7, indexed by weekday row
         var monthLabel: String?
     }
 
-    /// Pure: group the (already-sorted) days into Monday-first week columns. Static so it can run once
-    /// from `init` (no instance state is read — only the static calendar + formatter cache).
-    private static func buildWeeks(from days: [RecoveryDay]) -> [Week] {
+    /// Group the sorted days into Monday-first columns using the supplied local timezone and locale.
+    /// The prepared layout retains the result, so the grouping only runs when its cache key changes.
+    private static func buildWeeks(from days: [RecoveryDay], locale: Locale, timeZone: TimeZone) -> [Week] {
         guard let first = days.first?.date else { return [] }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.firstWeekday = 2
+        calendar.timeZone = timeZone
+        let monthFormatter = DateFormatter()
+        monthFormatter.locale = locale
+        monthFormatter.timeZone = timeZone
+        monthFormatter.dateFormat = "MMM"
+
         var weeks: [Week] = []
-        var current = Week(cells: Array(repeating: nil, count: 7), monthLabel: nil)
+        var current = Week(id: days[0].date, cells: Array(repeating: nil, count: 7), monthLabel: nil)
         var lastMonth = -1
         // Pad the first week so the first day lands on its weekday row.
-        let firstRow = weekdayRow(first)
+        let firstRow = weekdayRow(first, calendar: calendar)
         var filledThisWeek = 0
         for _ in 0..<firstRow { filledThisWeek += 1 }
 
         for day in days {
-            let row = weekdayRow(day.date)
+            let row = weekdayRow(day.date, calendar: calendar)
             if row == 0 && filledThisWeek > 0 {
                 weeks.append(current)
-                current = Week(cells: Array(repeating: nil, count: 7), monthLabel: nil)
+                current = Week(id: day.date, cells: Array(repeating: nil, count: 7), monthLabel: nil)
                 filledThisWeek = 0
             }
             current.cells[row] = day
             // tag month label at the first cell of a new month
             let month = calendar.component(.month, from: day.date)
             if month != lastMonth {
-                current.monthLabel = monthShort(day.date)
+                current.monthLabel = monthFormatter.string(from: day.date)
                 lastMonth = month
             }
             filledThisWeek += 1
@@ -116,15 +198,10 @@ public struct YearHeatStrip: View {
         return weeks
     }
 
-    private static func weekdayRow(_ date: Date) -> Int {
+    private static func weekdayRow(_ date: Date, calendar: Calendar) -> Int {
         // Map Calendar weekday (1=Sun...7=Sat) to Monday-first 0...6.
         let wd = calendar.component(.weekday, from: date)
         return (wd + 5) % 7
-    }
-
-    private static func monthShort(_ date: Date) -> String {
-        let f = DateFormatterCache.month
-        return f.string(from: date)
     }
 
     private let rowLabels = ["Mon", "", "Wed", "", "Fri", "", "Sun"]
@@ -300,11 +377,8 @@ public struct YearHeatStrip: View {
     }
 }
 
-// Small cached formatters (creating DateFormatter is expensive).
+// The tooltip date formatter is only used on hover / help and is separate from prepared month labels.
 private enum DateFormatterCache {
-    static let month: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "MMM"; return f
-    }()
     static let day: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "EEE d MMM"; return f
     }()

@@ -13,6 +13,7 @@ import Foundation
 struct TrendsView: View {
     @EnvironmentObject var repo: Repository
     @Environment(\.locale) private var locale
+    @Environment(\.isScreenActive) private var isScreenActive
     // NOTE: deliberately does NOT observe LiveState — Trends shows historical data only, and
     // observing it forced a full re-render of this subtree on every ~1 Hz live-HR tick.
 
@@ -59,6 +60,7 @@ struct TrendsView: View {
     @State private var sleepPerfRevision = 0
     @State private var resolvedCache = ResolvedCache()
     @State private var weeklyDigestCache = WeeklyDigestCache()
+    @State private var yearStripCache = YearHeatStrip.PreparedLayoutCache()
 
     // #710 — browse previous weeks in the Week-in-review digest. 0 = the week containing today; each step
     // back is one Mon–Sun week earlier. Clamped so it never runs past the earliest day we hold (see
@@ -134,6 +136,8 @@ struct TrendsView: View {
         private var key: Key?
         private var value: ResolvedMetrics?
 
+        var lastValue: ResolvedMetrics? { value }
+
         func get(repo: Repository, range: Range, restRevision: Int, day: String, locale: String,
                  build: () -> ResolvedMetrics) -> ResolvedMetrics {
             let next = Key(repo: ObjectIdentifier(repo), refreshSeq: repo.refreshSeq,
@@ -161,6 +165,8 @@ struct TrendsView: View {
         private var key: Key?
         private var value: WeeklyDigest?
 
+        var lastValue: WeeklyDigest? { value }
+
         func get(repo: Repository, anchorDay: String, effortDisplayFactor: Double, locale: String,
                  build: () -> WeeklyDigest) -> WeeklyDigest {
             let next = Key(repo: ObjectIdentifier(repo), refreshSeq: repo.refreshSeq,
@@ -175,14 +181,25 @@ struct TrendsView: View {
     }
 
     private var resolvedMetrics: ResolvedMetrics {
-        resolvedCache.get(repo: repo, range: range, restRevision: sleepPerfRevision,
-                          day: Repository.localDayKey(Date()), locale: locale.identifier) {
-            ResolvedMetrics(recovery: resolve { $0.recovery },
-                            hrv: resolve { $0.avgHrv },
-                            rhr: resolve { $0.restingHr.map(Double.init) },
-                            strain: resolve { $0.strain },
-                            rest: resolve { sleepPerfByDay[$0.day] })
+        if isScreenActive {
+            return resolvedCache.get(repo: repo, range: range, restRevision: sleepPerfRevision,
+                                     day: Repository.localDayKey(Date()), locale: locale.identifier) {
+                ResolvedMetrics(recovery: resolve { $0.recovery },
+                                hrv: resolve { $0.avgHrv },
+                                rhr: resolve { $0.restingHr.map(Double.init) },
+                                strain: resolve { $0.strain },
+                                rest: resolve { sleepPerfByDay[$0.day] })
+            }
         }
+        return resolvedCache.lastValue ?? emptyResolvedMetrics
+    }
+
+    /// A cheap first-frame fallback for a Trends root that has never been opened. The real windows are
+    /// resolved on activation; this keeps the hidden root mounted without scanning history at launch.
+    private var emptyResolvedMetrics: ResolvedMetrics {
+        let empty = ResolvedMetric(points: [], effective: range, widened: false,
+                                   caption: caption(count: 0, eff: range))
+        return ResolvedMetrics(recovery: empty, hrv: empty, rhr: empty, strain: empty, rest: empty)
     }
 
     private func resolve(_ value: (DailyMetric) -> Double?) -> ResolvedMetric {
@@ -363,11 +380,12 @@ struct TrendsView: View {
             TrendsReportSheet(days: repo.days)
         }
         // #732 — load the resolved sleep_performance series so Rest plots the SAME composite the Today
-        // Rest score uses (not raw efficiency). Mirrors TodayView's restScore read. Keyed on the day
-        // count so a newly-banked/-scored night refreshes Rest reactively, like the other metrics that
-        // read `repo.days` directly (and like the Android LaunchedEffect(days) twin).
-        .task(id: repo.days.count) {
+        // Rest score uses (not raw efficiency). The data generation also covers corrections to an
+        // existing night, where the day count stays unchanged. Hidden tabs defer this read.
+        .task(id: "\(repo.refreshSeq)|\(repo.days.count)|\(isScreenActive)") {
+            guard isScreenActive else { return }
             let s = await repo.exploreSeries(key: "sleep_performance", source: "my-whoop")
+            guard !Task.isCancelled, isScreenActive else { return }
             sleepPerfByDay = Dictionary(s.map { ($0.day, $0.value) }, uniquingKeysWith: { _, last in last })
             sleepPerfRevision += 1
         }
@@ -417,14 +435,7 @@ struct TrendsView: View {
     /// self-hides only when there's no data in ANY week (an all-empty history), matching the old card.
     @ViewBuilder
     private var weeklyDigestNav: some View {
-        let anchorDay = weekAnchorDay
-        let effortDisplayFactor = UnitPrefs.currentEffortDisplayFactor()
-        let digest = weeklyDigestCache.get(repo: repo, anchorDay: anchorDay,
-                                           effortDisplayFactor: effortDisplayFactor,
-                                           locale: locale.identifier) {
-            WeeklyDigestSource.digest(from: repo.days, anchorDay: anchorDay,
-                                      effortDisplayFactor: effortDisplayFactor)
-        }
+        let digest = resolvedWeeklyDigest
         // Only hide the navigation entirely when the WHOLE history is empty — an empty PAST week still
         // shows the header + chevrons so the user can step to a week that does hold data.
         if repo.days.isEmpty {
@@ -449,11 +460,29 @@ struct TrendsView: View {
                             .padding(24)
                             .background(StrandPalette.surfaceBase)
                             .environment(\.colorScheme, colorScheme)
-                        TrendsReportRenderer.exportPNG(page: page, suggestedName: "noop-recap-\(weekAnchorDay).png")
+                        TrendsReportRenderer.exportPNG(page: page, suggestedName: "pulse-recap-\(weekAnchorDay).png")
                     }
                 }
             }
         }
+    }
+
+    private var resolvedWeeklyDigest: WeeklyDigest {
+        let anchorDay = weekAnchorDay
+        guard isScreenActive else {
+            return weeklyDigestCache.lastValue ?? emptyWeeklyDigest(anchorDay: anchorDay)
+        }
+        let factor = UnitPrefs.currentEffortDisplayFactor()
+        return weeklyDigestCache.get(repo: repo, anchorDay: anchorDay,
+                                     effortDisplayFactor: factor, locale: locale.identifier) {
+            WeeklyDigestSource.digest(from: repo.days, anchorDay: anchorDay,
+                                      effortDisplayFactor: factor)
+        }
+    }
+
+    private func emptyWeeklyDigest(anchorDay: String) -> WeeklyDigest {
+        WeeklyDigest(weekStart: anchorDay, weekEnd: anchorDay, metrics: [], daysWithData: 0,
+                     sleepConsistencySD: nil, balance: .insufficient, focalPoints: [])
     }
 
     /// Prev/next week stepper. Back is clamped at the earliest week we hold; forward is clamped at this
@@ -754,27 +783,64 @@ struct TrendsView: View {
 
     // MARK: Year heat-strip
 
-    private var yearStrip: some View {
-        // Always show at least a full year for context; expand to all history on ALL.
-        let stripDays = max(range.days ?? repo.days.count, 365)
-        let recent = repo.days.suffix(stripDays)
-        let recoveryDays: [RecoveryDay] = recent.compactMap { d in
-            guard let dt = date(d.day) else { return nil }
-            return RecoveryDay(date: dt, score: d.recovery)
+    @ViewBuilder private var yearStrip: some View {
+        if isScreenActive {
+            yearStripCard(prepared: yearStripCache.get(for: yearStripCacheKey) {
+                // Always show at least a full year for context; expand to all history on ALL.
+                let stripDays = max(range.days ?? repo.days.count, 365)
+                let recoveryDays: [RecoveryDay] = repo.days.suffix(stripDays).compactMap { day in
+                    guard let parsed = date(day.day) else { return nil }
+                    return RecoveryDay(date: parsed, score: day.recovery)
+                }
+                return YearHeatStrip.PreparedLayout(days: recoveryDays, locale: locale,
+                                                   timeZone: Calendar.current.timeZone)
+            })
+        } else if let cached = yearStripCache.lastValue {
+            // Keep the last layout in place while hidden. On activation the cache key is checked and
+            // current scores/range are prepared before the tab is shown, without removing the ScrollView.
+            yearStripCard(prepared: cached)
+        } else {
+            // The tab has never been opened. Keep a same-height placeholder so the retained scroll tree
+            // can be created without parsing history or laying out a heat strip at launch.
+            inactiveYearStripPlaceholder
         }
+    }
+
+    private var yearStripCacheKey: YearHeatStrip.PreparedLayoutCache.Key {
+        let calendar = Calendar.current
+        return YearHeatStrip.PreparedLayoutCache.Key(
+            source: ObjectIdentifier(repo), generation: repo.refreshSeq, selection: range.rawValue,
+            localeIdentifier: locale.identifier,
+            calendarIdentifier: String(describing: calendar.identifier),
+            firstWeekday: calendar.firstWeekday,
+            minimumDaysInFirstWeek: calendar.minimumDaysInFirstWeek,
+            timeZoneIdentifier: calendar.timeZone.identifier
+        )
+    }
+
+    private func yearStripCard(prepared: YearHeatStrip.PreparedLayout) -> some View {
         let title = (range == .all && repo.days.count > 365) ? String(localized: "Charge (all history)") : String(localized: "Charge (past year)")
         return NoopCard {
             VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
-                SectionHeader("\(title)", overline: "Calendar", trailing: String(localized: "\(recoveryDays.filter { $0.score != nil }.count) days"))
-                if recoveryDays.isEmpty {
+                SectionHeader("\(title)", overline: "Calendar", trailing: String(localized: "\(prepared.scoredDayCount) days"))
+                if prepared.days.isEmpty {
                     sparsePlaceholder.frame(height: 120)
                 } else {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        YearHeatStrip(days: recoveryDays).padding(.vertical, NoopMetrics.space1 / 2)
+                        YearHeatStrip(prepared: prepared).padding(.vertical, NoopMetrics.space1 / 2)
                     }
                     Divider().overlay(StrandPalette.hairline)
                     legend
                 }
+            }
+        }
+    }
+
+    private var inactiveYearStripPlaceholder: some View {
+        NoopCard {
+            VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
+                SectionHeader("Charge (past year)", overline: "Calendar", trailing: "")
+                Color.clear.frame(height: 120)
             }
         }
     }
