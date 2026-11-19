@@ -212,31 +212,44 @@ struct PulseCloudAuth: Sendable {
 
     func addPassword(_ password: String, to existing: PulseCloudCredential) async throws -> PulseCloudCredential {
         guard existing.emailVerified else { throw PulseCloudAuthError.verifyBeforeLinking }
-        // With email enumeration protection, Firebase links email/password through signUp
-        // when the request also provides the existing user's ID token.
-        let response: SignInResponse = try await identity("signUp", body: [
-            "idToken": existing.idToken, "email": existing.account.email, "password": password, "returnSecureToken": true
+        // Set the password on the existing account without submitting an email address.
+        let response: SignInResponse = try await identity("update", body: [
+            "idToken": existing.idToken, "password": password, "returnSecureToken": true
         ])
-        let linked = PulseCloudCredential(
+        var linked = PulseCloudCredential(
             account: PulseCloudAccount(id: response.localId, email: response.email, refreshToken: response.refreshToken,
-                                       signInMethods: existing.signInMethods.union([.password])),
+                                       signInMethods: existing.signInMethods),
             idToken: response.idToken, expiresAt: try expiry(response.expiresIn))
         try requireSameAccount(linked, as: existing.account)
+        if !linked.emailVerified {
+            linked = try await refresh(linked.account)
+            try requireSameAccount(linked, as: existing.account)
+        }
+        guard linked.emailVerified else { throw PulseCloudAuthError.invalidResponse }
+        let user = try await lookupAccount(linked)
+        let methods = user.listedMethods
+        guard methods.isSuperset(of: [.google, .password]) else { throw PulseCloudAuthError.invalidResponse }
+        linked.account.signInMethods = methods
         return linked
     }
 
     func resolveAccountMethods(_ credential: PulseCloudCredential) async throws -> PulseCloudCredential {
+        let user = try await lookupAccount(credential)
+        var resolved = credential
+        var methods = user.listedMethods
+        if (user.passwordUpdatedAt ?? 0) > 0 { methods.insert(.password) }
+        resolved.account.signInMethods = methods
+        return resolved
+    }
+
+    private func lookupAccount(_ credential: PulseCloudCredential) async throws -> LookupResponse.User {
         let response: LookupResponse = try await identity("lookup", body: ["idToken": credential.idToken])
         guard response.users.count == 1, let user = response.users.first,
               user.localId == credential.account.id,
               PulseCloudBackupPolicy.sameEmail(user.email, credential.account.email) else {
             throw PulseCloudAuthError.invalidResponse
         }
-        var resolved = credential
-        var methods = Set((user.providerUserInfo ?? []).compactMap { PulseCloudSignInMethod(rawValue: $0.providerId) })
-        if (user.passwordUpdatedAt ?? 0) > 0 { methods.insert(.password) }
-        resolved.account.signInMethods = methods
-        return resolved
+        return user
     }
 
     func requireSameAccount(_ credential: PulseCloudCredential, as account: PulseCloudAccount) throws {
@@ -398,6 +411,10 @@ struct PulseCloudAuth: Sendable {
             let email: String
             let providerUserInfo: [Provider]?
             let passwordUpdatedAt: Double?
+
+            var listedMethods: Set<PulseCloudSignInMethod> {
+                Set((providerUserInfo ?? []).compactMap { PulseCloudSignInMethod(rawValue: $0.providerId) })
+            }
         }
         let users: [User]
     }

@@ -6,7 +6,7 @@ enum AppChangelog {
 
     /// Bump this when you add a release below. The "What's New" sheet shows automatically when the
     /// stored last-seen version is behind this. (Decoupled from the bundle version on purpose.)
-    static let currentVersion = "12.2.1"
+    static let currentVersion = "12.2.2"
 
     struct Release: Identifiable {
         let version: String
@@ -18,6 +18,15 @@ enum AppChangelog {
 
     /// Newest first.
     static let releases: [Release] = [
+        Release(
+            version: "12.2.2",
+            title: "Workout notifications and simpler account setup",
+            date: "November 2026",
+            items: [
+                "**Heart rate while you work out.** The heart-rate Live Activity runs only during workouts you start in Pulse and ends when the workout ends or is cancelled. Existing all-day banners are cleared, and the notification switch still lets you turn the workout banner off.",
+                "**Google confirms your email.** Adding password sign-in to your verified Google account updates the existing account without another email-verification step, and checks that both sign-in methods remain linked to the same account.",
+            ]
+        ),
         Release(
             version: "12.2.1",
             title: "Choose how to protect your cloud backups",

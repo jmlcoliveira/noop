@@ -220,7 +220,7 @@ final class PulseCloudBackupCoordinator: ObservableObject {
             }
             let linked = try await self.auth.addPassword(password, to: current)
             try self.use(linked, installationID: self.ensureInstallationID())
-            self.message = String(localized: "Password sign-in added to your Pulse account.")
+            self.message = String(localized: "Password sign-in added. Your email is already verified with Google.")
         }
     }
 

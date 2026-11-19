@@ -56,7 +56,9 @@ struct PulseCloudBackupView: View {
         .task {
             await cloud.screenOpened()
             #if DEBUG
-            if CommandLine.arguments.contains("--demo-cloud-protection") {
+            if CommandLine.arguments.contains("--demo-cloud-password") {
+                sheet = .addPassword
+            } else if CommandLine.arguments.contains("--demo-cloud-protection") {
                 let review = PulseCloudState(activeDeviceId: nil, generation: 0, backups: [],
                                             maxBackupBytes: 512 * 1_024 * 1_024,
                                             supportedBackupProtections: ["recoveryKey", "account"])
@@ -596,7 +598,7 @@ private struct PulseCloudAddPasswordSheet: View {
 
     var body: some View {
         PulseCloudSheet(title: "Add password sign-in", busy: cloud.activity != nil) {
-            Text("Confirm your Google account to add a password for the same Pulse account and backups.")
+            Text("Confirm your Google account to add a password for the same Pulse account and backups. No verification email is needed.")
             SecureField("New password", text: $password)
                 .textContentType(.newPassword)
                 .pulseCloudField()

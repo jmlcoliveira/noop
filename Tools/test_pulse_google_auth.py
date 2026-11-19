@@ -91,8 +91,6 @@ final class FirebaseStub: URLProtocol {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let (operation, expected, response) = Self.responses.removeFirst()
-        precondition(request.url?.host == "identitytoolkit.googleapis.com")
-        precondition(request.url?.path == "/v1/accounts:\(operation)")
         precondition(request.httpMethod == "POST")
         let stream = request.httpBodyStream!
         stream.open()
@@ -104,8 +102,17 @@ final class FirebaseStub: URLProtocol {
             precondition(count >= 0)
             data.append(contentsOf: buffer.prefix(count))
         }
-        let body = try! JSONSerialization.jsonObject(with: data) as! NSDictionary
-        precondition(body == expected as NSDictionary)
+        if operation == "refresh" {
+            precondition(request.url?.host == "securetoken.googleapis.com" && request.url?.path == "/v1/token")
+            precondition(request.value(forHTTPHeaderField: "Content-Type") == "application/x-www-form-urlencoded")
+            let refresh = expected["refresh_token"] as! String
+            precondition(data == Data("grant_type=refresh_token&refresh_token=\(refresh)".utf8))
+        } else {
+            precondition(request.url?.host == "identitytoolkit.googleapis.com")
+            precondition(request.url?.path == "/v1/accounts:\(operation)")
+            let body = try! JSONSerialization.jsonObject(with: data) as! NSDictionary
+            precondition(body == expected as NSDictionary)
+        }
         let result = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
         client?.urlProtocol(self, didReceive: result, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: response))
@@ -152,9 +159,7 @@ FirebaseStub.responses = [
     ("signInWithIdp", [
         "requestUri": requestURI.absoluteString, "sessionId": "firebase-session",
         "returnSecureToken": true, "returnIdpCredential": true, "autoCreate": false
-    ], googleResponse),
-    ("signUp", ["email": email, "idToken": googleToken, "password": "new-password", "returnSecureToken": true],
-     credentialResponse)
+    ], googleResponse)
 ]
 
 let authorization = try await auth.googleAuthorization()
@@ -180,9 +185,98 @@ precondition(linked.signInMethods == [.google, .password])
 let reconfirmed = try await auth.authenticateGoogle(
     requestURI: requestURI, sessionID: authorization.sessionID, existingOnly: true)
 guard case .signedIn(let google) = reconfirmed else { fatalError("Expected existing account to reauthenticate") }
+precondition(google.emailVerified && google.signInMethods == [.google])
+precondition(FirebaseStub.responses.isEmpty)
+
+let updateBody: [String: Any] = [
+    "idToken": googleToken, "password": "new-password", "returnSecureToken": true
+]
+func lookup(_ providers: [String], id: String = "existing", address: String = email) -> [String: Any] {
+    ["users": [[
+        "localId": id, "email": address,
+        "providerUserInfo": providers.map { ["providerId": $0] }, "passwordUpdatedAt": 123456
+    ]]]
+}
+let bothProviders = lookup(["password", "google.com"])
+FirebaseStub.responses = [
+    ("update", updateBody, credentialResponse),
+    ("lookup", ["idToken": verified], bothProviders)
+]
 let added = try await auth.addPassword("new-password", to: google)
-precondition(added.account.id == google.account.id)
-precondition(added.signInMethods == [.google, .password])
+precondition(added.account.id == google.account.id && added.account.email == google.account.email)
+precondition(added.emailVerified && added.account.signInMethods == [.google, .password])
+precondition(FirebaseStub.responses.isEmpty)
+
+let unverifiedToken = token(verified: false)
+var staleClaims = credentialResponse
+staleClaims["idToken"] = unverifiedToken
+func refreshReply(_ idToken: String) -> [String: Any] {
+    ["user_id": "existing", "id_token": idToken, "expires_in": "3600", "refresh_token": "updated-refresh"]
+}
+let updatedRefresh = ["refresh_token": "password-refresh"]
+FirebaseStub.responses = [
+    ("update", updateBody, staleClaims),
+    ("refresh", updatedRefresh, refreshReply(verified)),
+    ("lookup", ["idToken": verified], bothProviders)
+]
+let refreshed = try await auth.addPassword("new-password", to: google)
+precondition(refreshed.emailVerified && refreshed.account.refreshToken == "updated-refresh")
+precondition(refreshed.account.signInMethods == [.google, .password])
+precondition(FirebaseStub.responses.isEmpty)
+
+var wrongRefreshIdentity = refreshReply(verified)
+wrongRefreshIdentity["user_id"] = "different-user"
+FirebaseStub.responses = [
+    ("update", updateBody, staleClaims),
+    ("refresh", updatedRefresh, wrongRefreshIdentity)
+]
+do {
+    _ = try await auth.addPassword("new-password", to: google)
+    fatalError("Refreshing after an update must keep the original Firebase UID")
+} catch PulseCloudAuthError.invalidResponse {}
+precondition(FirebaseStub.responses.isEmpty)
+
+FirebaseStub.responses = [
+    ("update", updateBody, staleClaims),
+    ("refresh", updatedRefresh, refreshReply(unverifiedToken))
+]
+do {
+    _ = try await auth.addPassword("new-password", to: google)
+    fatalError("Firebase must confirm verification even after refresh")
+} catch PulseCloudAuthError.invalidResponse {}
+precondition(FirebaseStub.responses.isEmpty)
+
+for (field, wrongValue) in [("localId", "different-user"), ("email", "different@example.test")] {
+    var mismatched = credentialResponse
+    mismatched[field] = wrongValue
+    FirebaseStub.responses = [("update", updateBody, mismatched)]
+    do {
+        _ = try await auth.addPassword("new-password", to: google)
+        fatalError("The update must preserve the Firebase identity")
+    } catch PulseCloudAuthError.differentAccount {}
+    precondition(FirebaseStub.responses.isEmpty)
+}
+
+for wrongLookup in [
+    lookup(["password"]), lookup(["google.com"]),
+    lookup(["password", "google.com"], id: "different-user"),
+    lookup(["password", "google.com"], address: "different@example.test")
+] {
+    FirebaseStub.responses = [
+        ("update", updateBody, credentialResponse),
+        ("lookup", ["idToken": verified], wrongLookup)
+    ]
+    do {
+        _ = try await auth.addPassword("new-password", to: google)
+        fatalError("The same user must have both providers after the update")
+    } catch PulseCloudAuthError.invalidResponse {}
+    precondition(FirebaseStub.responses.isEmpty)
+}
+
+do {
+    _ = try await auth.addPassword("new-password", to: unverified)
+    fatalError("An unverified account must not add a password")
+} catch PulseCloudAuthError.verifyBeforeLinking {}
 precondition(FirebaseStub.responses.isEmpty)
 """
 

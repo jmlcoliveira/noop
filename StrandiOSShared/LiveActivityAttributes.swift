@@ -25,8 +25,13 @@ public struct NOOPActivityAttributes: ActivityAttributes {
     /// Static title shown for the session.
     public var title: String
 
-    public init(title: String = "Live HR") {
+    /// Manual workout identity in the same seconds used by its persisted snapshot.
+    /// Legacy activities decode with nil and are removed when the app reconciles.
+    public var workoutStartSec: Int?
+
+    public init(title: String = "Live HR", workoutStartSec: Int? = nil) {
         self.title = title
+        self.workoutStartSec = workoutStartSec
     }
 }
 #endif

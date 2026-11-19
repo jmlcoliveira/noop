@@ -5,15 +5,19 @@ import Combine
 import UIKit
 
 /// Starts, updates, and ends the live-HR Live Activity on the Lock Screen and in the Dynamic Island: the heart rate
-/// while the strap measures it, the dash while it does not. It follows the strap from process start (`follow`).
+/// during a manually started workout. It follows the workout and strap from process start (`follow`).
 @MainActor
 final class LiveActivityController {
     private var activity: Activity<NOOPActivityAttributes>?
     /// What the banner reads — the live heart rate, the link, the day's recovery and effort — set once by `follow`.
     private weak var model: AppModel?
+    private var workoutStartSec: Int? {
+        model?.activeWorkout.map { Int($0.start.timeIntervalSince1970) }
+    }
     /// Whether the Lift Log banner is on screen, which the heart rate banner makes room for.
     private var standsAside: () -> Bool = { false }
     private var cancellables: Set<AnyCancellable> = []
+    private var activityObservation: Task<Void, Never>?
     private var lastPush: Date = .distantPast
     /// What the banner was last pushed with, so an unchanged banner is not pushed again
     /// (`LiveHRBannerPushPolicy`). Nil until this controller pushes, and again once it ends the activity.
@@ -31,8 +35,6 @@ final class LiveActivityController {
     /// the defaults with the banner's id, because a banner outlives the run that started it. Nil when unknown.
     private var startedAt: Date?
     private static let startedKey = "liveActivity.hr.startedAt"
-    /// An end is in flight, so the ticks that arrive meanwhile neither end it again nor log it twice.
-    private var isEnding = false
     /// iOS refused a start, and it was logged: once, not on every tick while NOOP is on screen.
     private var refusalLogged = false
     /// Banners NOOP has asked iOS to remove (`removeLeftovers`), so a tick that arrives before iOS has dropped one from
@@ -45,23 +47,28 @@ final class LiveActivityController {
     /// (`LiveHRBannerPushPolicy`), so a banner fed by a worn strap never goes stale.
     static let staleAfter: TimeInterval = 30
 
-    /// Follow the strap from process start, not from a screen. iOS starts NOOP in the background — the strap
-    /// reconnecting, a sync, the Sync Strap shortcut — and a process started that way need not build any screen (the
-    /// shortcut's never does), while a banner the previous run left on the Lock Screen is there to be picked up and
-    /// fed from the first reading. Called once, from the app's `init`, like the Lift Log's own resume.
+    deinit {
+        activityObservation?.cancel()
+    }
+
+    /// Reconcile from process start, including background launches that never build a screen. The model
+    /// already restores its persisted manual workout before this is called.
     func follow(_ model: AppModel, standsAside: @escaping () -> Bool) {
         self.model = model
         self.standsAside = standsAside
         // Refreshed once a change has landed, never from inside it (`LiveHRBannerInputs`). AppModel's median (`bpm`)
         // is an input in its own right: it moves on the R-R alone, and a clear that reached it that way refreshed
         // nothing, so the banner kept the last number until iOS's stale date drew the dash.
-        LiveHRBannerInputs.settled([model.live.$heartRate.map { _ in () }.eraseToAnyPublisher(),
-                                    model.live.$connected.map { _ in () }.eraseToAnyPublisher(),
-                                    model.$bpm.map { _ in () }.eraseToAnyPublisher()])
+        let workoutChanges = model.$activeWorkout.map { $0?.start }.removeDuplicates()
+        let readings = Publishers.Merge3(model.live.$heartRate.map { _ in () },
+                                         model.live.$connected.map { _ in () },
+                                         model.$bpm.map { _ in () })
+            .filter { [weak model] _ in model?.activeWorkout != nil }
+        LiveHRBannerInputs.settled([workoutChanges.map { _ in () }.eraseToAnyPublisher(),
+                                   readings.eraseToAnyPublisher()])
             .sink { [weak self] in self?.refreshBanner() }
             .store(in: &cancellables)
-        // The switch is the one way to be rid of the banner, so it acts at once — not at the next heart-rate tick,
-        // which a strap off the wrist may not send for hours.
+        // Apply preference changes even when there are no heart-rate samples.
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
             .receive(on: DispatchQueue.main)
             .map { _ in UnitPrefs.liveActivityEnabled() }
@@ -70,6 +77,18 @@ final class LiveActivityController {
             .dropFirst()
             .sink { [weak self] _ in self?.refreshBanner() }
             .store(in: &cancellables)
+
+        // ActivityKit can surface a retained banner after the first launch-time refresh.
+        activityObservation = Task { [weak self] in
+            for await candidate in Activity<NOOPActivityAttributes>.activityUpdates {
+                guard let self else { return }
+                if !belongsToWorkout(candidate, startSec: workoutStartSec)
+                    || !UnitPrefs.liveActivityEnabled() || !authInfo.areActivitiesEnabled || self.standsAside() {
+                    remove(candidate)
+                }
+                refreshBanner()
+            }
+        }
     }
 
     /// NOOP came on screen, the only time iOS lets it start the banner: offered now rather than at the next heart-rate
@@ -79,49 +98,31 @@ final class LiveActivityController {
         refreshBanner(appActive: true)
     }
 
-    /// #911: recovery and effort come from the SAME shared `Repository.widgetAnchor` the widget and the watch use, so
-    /// the banner cannot name a different day at the rollover; memoized, because this runs on every heart-rate tick
-    /// (re-deriving it once scanned the whole history, #1051).
     private func refreshBanner(appActive: Bool? = nil) {
         guard let model else { return }
+        let workoutStartSec = self.workoutStartSec
         let connected = model.live.connected
-        let day = model.repo.cachedWidgetAnchor()
-        update(bpm: connected ? (model.bpm ?? model.live.heartRate) : nil,
-               recovery: day?.recovery.map { Int($0.rounded()) }, connected: connected, standsAside: standsAside(),
-               appActive: appActive ?? (UIApplication.shared.applicationState == .active),
-               effort: day?.strain.map { Int($0.rounded()) })
-    }
+        let switchOn = UnitPrefs.liveActivityEnabled() && authInfo.areActivitiesEnabled
+        let appActive = appActive ?? (UIApplication.shared.applicationState == .active)
 
-    /// Drive the activity from the latest live values (`LiveHRBannerLifecycle` decides start / push / end). Starts
-    /// only in the foreground (`appActive`), with the strap CONNECTED (the live link, not the sticky "paired" flag),
-    /// before a heart rate arrives if need be; a running banner shows the dash through a dropped link or a strap
-    /// that is not measuring, and ends only when its switch is off or the Lift Log banner takes the screen
-    /// (`standsAside`). Pushed when what it shows changes, and often enough to stay fresh (`LiveHRBannerPushPolicy`,
-    /// `staleAfter`).
-    private func update(bpm: Int?, recovery: Int?, connected: Bool, standsAside: Bool, appActive: Bool,
-                        effort: Int?) {
-        guard authInfo.areActivitiesEnabled else { return }
-
-        // A banner iOS ended (after about eight hours) or the user swiped away is gone: forget it, so the next time
-        // NOOP is on screen it starts one again rather than pushing to nothing. (One NOOP is ending is not gone yet.)
-        if !isEnding, let activity, !Self.isShowing(activity) {
-            self.activity = nil
-            shownState = nil
-            startedAt = nil
-            log((Self.listed(activity) == .ended ? "ended by iOS" : "gone from the Lock Screen (dismissed)")
-                + "; started again when Pulse is next on screen")
+        // First dispose of stale or legacy activities. A banner is reusable only for the same
+        // manual workout, including when that workout has been restored after a relaunch.
+        if let activity,
+           !Self.isShowing(activity) || removing.contains(activity.id)
+            || !belongsToWorkout(activity, startSec: workoutStartSec) {
+            if workoutStartSec == nil { log("ending: manual workout finished") }
+            remove(activity)
+            clearCurrentActivity()
         }
-        // Re-adopt an activity that outlived a previous app session. ActivityKit keeps Live Activities
-        // alive across launches/relaunches, but a fresh controller starts with `activity == nil`, so
-        // without recovering the handle here we can neither update nor END an already-showing activity
-        // — which made the #336 opt-out a no-op (#341: toggle off, heart stays) and risked spawning a
-        // duplicate on the start path below. Done on the HR tick rather than in `init` because
-        // `Activity.activities` isn't reliably hydrated at the instant of process launch. A banner iOS ended is
-        // removed here too, whichever run fed it: it can only show its last number.
         if activity == nil {
             let listed = Activity<NOOPActivityAttributes>.activities
+            for candidate in listed where !belongsToWorkout(candidate, startSec: workoutStartSec) {
+                remove(candidate)
+            }
             removeLeftovers(listed, beside: nil)
-            if let adopted = listed.first(where: Self.isShowing) {
+            if let adopted = listed.first(where: {
+                belongsToWorkout($0, startSec: workoutStartSec) && Self.isShowing($0) && !removing.contains($0.id)
+            }) {
                 activity = adopted
                 startedAt = (UserDefaults.standard.dictionary(forKey: Self.startedKey)?[adopted.id] as? Double)
                     .map(Date.init(timeIntervalSince1970:))
@@ -129,34 +130,34 @@ final class LiveActivityController {
             }
         }
 
-        // The switch (#336) and the gym banner on screen end it; nothing that passes does (`LiveHRBannerLifecycle`).
         let now = Date()
-        let switchOn = UnitPrefs.liveActivityEnabled()
         let age = startedAt.map { now.timeIntervalSince($0) }
         let step = LiveHRBannerLifecycle.step(
-            switchOn: switchOn, standsAside: standsAside, linkUp: connected,
-            showing: activity != nil, age: age, appActive: appActive)
+            workoutInProgress: workoutStartSec != nil, switchOn: switchOn, standsAside: standsAside(),
+            linkUp: connected, showing: activity != nil, age: age, appActive: appActive)
         switch step {
         case .nothing: return
         case .end:
-            guard !isEnding else { return }
-            isEnding = true
-            log(switchOn ? "ended: the Lift Log banner takes its place" : "ended: its switch is off")
-            Task { await end() }
+            if let activity { remove(activity) }
+            for candidate in Activity<NOOPActivityAttributes>.activities { remove(candidate) }
+            clearCurrentActivity()
+            log("ended: workout Live Activity is no longer eligible")
             return
         case .start, .push, .renew: break
         }
 
-        // Link down: the dash, never the last number (`bonded` stays true across a disconnect, and keying off it once
-        // left a fabricated "live" HR standing). No timed end: a timer in a suspended app fires at its next wake,
-        // which is typically the strap coming back — exactly when the banner should stay.
-        let state = NOOPActivityAttributes.ContentState(bpm: connected ? bpm : nil, recovery: recovery,
-                                                        bonded: connected, effort: effort)
+        guard let workoutStartSec else { return }
+        // #911: use the same memoized daily recovery and effort as the widget and watch.
+        let day = model.repo.cachedWidgetAnchor()
+        let state = NOOPActivityAttributes.ContentState(
+            bpm: connected ? (model.bpm ?? model.live.heartRate) : nil,
+            recovery: day?.recovery.map { Int($0.rounded()) }, bonded: connected,
+            effort: day?.strain.map { Int($0.rounded()) })
 
         if step == .renew, activity != nil {
             // The fresh banner first, then the old one goes, so the Lock Screen is never without one; if iOS refuses
             // the fresh one, the old one stays.
-            if start(state, at: now) {
+            if start(state, workoutStartSec: workoutStartSec, at: now) {
                 log("renewed after \(age.map { "\(Int($0 / 60)) min" } ?? "an unknown time"), "
                     + "so iOS's eight-hour limit starts again")
                 removeLeftovers(Activity<NOOPActivityAttributes>.activities, beside: activity)
@@ -172,7 +173,7 @@ final class LiveActivityController {
             shownState = state
             let staleDate = now.addingTimeInterval(Self.staleAfter)
             Task { await activity.update(ActivityContent(state: state, staleDate: staleDate)) }
-        } else if start(state, at: now) {
+        } else if start(state, workoutStartSec: workoutStartSec, at: now) {
             log(state.bpm == nil ? "started, showing – until a heart rate arrives" : "started")
             removeLeftovers(Activity<NOOPActivityAttributes>.activities, beside: activity)
         }
@@ -186,16 +187,14 @@ final class LiveActivityController {
                                  beside fresh: Activity<NOOPActivityAttributes>?) {
         for act in listed where act.id != fresh?.id {
             let state = Self.listed(act)
-            guard LiveHRBannerLifecycle.removes(state, besideFresh: fresh != nil),
-                  removing.insert(act.id).inserted else { continue }
-            if state == .ended { log("removed one iOS had ended, which could only show its last number") }
-            Task { await act.end(nil, dismissalPolicy: .immediate) }
+            guard LiveHRBannerLifecycle.removes(state, besideFresh: fresh != nil) else { continue }
+            remove(act)
         }
     }
 
     /// Ask iOS for a new banner, which it grants only while NOOP is on screen. Returns whether it did.
     @discardableResult
-    private func start(_ state: NOOPActivityAttributes.ContentState, at now: Date) -> Bool {
+    private func start(_ state: NOOPActivityAttributes.ContentState, workoutStartSec: Int, at now: Date) -> Bool {
         // Set the start gate SYNCHRONOUSLY before any await so a second `update` arriving on the
         // main actor while `Activity.request` is still in flight bails here instead of issuing a
         // second request. The 2-second throttle above only guards the update path.
@@ -204,7 +203,7 @@ final class LiveActivityController {
         defer { isStarting = false }
         do {
             let started = try Activity.request(
-                attributes: NOOPActivityAttributes(title: String(localized: "Live HR")),
+                attributes: NOOPActivityAttributes(title: String(localized: "Live HR"), workoutStartSec: workoutStartSec),
                 content: ActivityContent(state: state, staleDate: now.addingTimeInterval(Self.staleAfter)),
                 pushType: nil
             )
@@ -255,17 +254,20 @@ final class LiveActivityController {
         }
     }
 
-    private func end() async {
-        // End every NOOP Live Activity, not just our cached handle — covers a straggler from a prior
-        // session we never re-adopted (#341) and any rare duplicate. Iterating the live list is the
-        // only way to reach activities this controller instance never started.
-        for act in Activity<NOOPActivityAttributes>.activities {
-            await act.end(nil, dismissalPolicy: .immediate)
-        }
-        self.activity = nil
+    private func belongsToWorkout(_ activity: Activity<NOOPActivityAttributes>, startSec: Int?) -> Bool {
+        guard let startSec else { return false }
+        return activity.attributes.workoutStartSec == startSec
+    }
+
+    private func remove(_ activity: Activity<NOOPActivityAttributes>) {
+        guard Self.listed(activity) != .gone, removing.insert(activity.id).inserted else { return }
+        Task { await activity.end(nil, dismissalPolicy: .immediate) }
+    }
+
+    private func clearCurrentActivity() {
+        activity = nil
         shownState = nil
         startedAt = nil
-        isEnding = false
     }
 }
 #endif

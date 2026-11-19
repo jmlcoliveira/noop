@@ -1,25 +1,30 @@
 import XCTest
 @testable import Strand
 
-/// The live heart rate banner is kept, and shows what is true, until its switch turns it off. iOS lets an app start one
-/// only while it is on screen, so every end NOOP made on its own left the Lock Screen without it until NOOP was opened.
+/// The workout gates starting, pushing, and renewing the heart rate banner.
 final class LiveHRBannerLifecycleTests: XCTestCase {
 
-    private func step(switchOn: Bool = true, standsAside: Bool = false, linkUp: Bool = true,
-                      showing: Bool = true, age: TimeInterval? = 60,
-                      appActive: Bool = false) -> LiveHRBannerLifecycle.Step {
-        LiveHRBannerLifecycle.step(switchOn: switchOn, standsAside: standsAside, linkUp: linkUp,
-                                   showing: showing, age: age, appActive: appActive)
+    private func step(workoutInProgress: Bool = true, switchOn: Bool = true, standsAside: Bool = false,
+                      linkUp: Bool = true, showing: Bool = true, age: TimeInterval? = 60, appActive: Bool = false) -> LiveHRBannerLifecycle.Step {
+        LiveHRBannerLifecycle.step(workoutInProgress: workoutInProgress, switchOn: switchOn, standsAside: standsAside,
+                                   linkUp: linkUp, showing: showing, age: age, appActive: appActive)
     }
 
     /// A dropped link of any length and a strap that is not measuring show the dash, on screen or not; the number comes
     /// back by itself. What the banner shows is not a reason to end it: the lifecycle does not read the heart rate.
-    func testNothingButItsSwitchAndTheGymBannerEndsIt() {
+    func testDisconnectKeepsTheWorkoutBanner() {
         for linkUp in [true, false] {
             for appActive in [true, false] {
                 XCTAssertEqual(step(linkUp: linkUp, appActive: appActive), .push,
                                "link up \(linkUp), on screen \(appActive)")
             }
+        }
+    }
+
+    func testWithoutAManualWorkoutTheBannerEndsAndCannotStart() {
+        for appActive in [true, false] {
+            XCTAssertEqual(step(workoutInProgress: false, appActive: appActive), .end)
+            XCTAssertEqual(step(workoutInProgress: false, showing: false, appActive: appActive), .nothing)
         }
     }
 
