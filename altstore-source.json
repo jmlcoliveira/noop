@@ -7,5 +7,52 @@
   "iconURL": "https://raw.githubusercontent.com/jmlcoliveira/noop/main/StrandiOS/Resources/Assets.xcassets/AppIcon.appiconset/icon_1024.png",
   "website": "https://github.com/jmlcoliveira/noop",
   "tintColor": "#D8AF50",
-  "apps": []
+  "apps": [
+    {
+      "name": "Pulse",
+      "bundleIdentifier": "dev.pulse.companion.noop",
+      "developerName": "Pulse",
+      "subtitle": "An offline-first companion for your WHOOP strap.",
+      "localizedDescription": "Pulse is an independent iPhone companion for a WHOOP strap you own. Strap metrics are computed and stored on-device, without a Pulse account or Pulse-operated cloud service. Optional integrations may contact services you configure. Pulse is not affiliated with WHOOP. Source: https://github.com/jmlcoliveira/noop",
+      "iconURL": "https://raw.githubusercontent.com/jmlcoliveira/noop/main/StrandiOS/Resources/Assets.xcassets/AppIcon.appiconset/icon_1024.png",
+      "tintColor": "#D8AF50",
+      "category": "lifestyle",
+      "screenshots": [],
+      "versions": [
+        {
+          "version": "12.1.0",
+          "buildVersion": "439",
+          "date": "2026-11-19",
+          "localizedDescription": "Pulse branding, heart-rate stability and performance improvements, safer Apple Health workout and calorie sync, and AltStore background-task compatibility. Keep any existing Xcode-installed copy until its history has been migrated and verified.",
+          "downloadURL": "https://github.com/jmlcoliveira/noop/releases/download/pulse-v12.1.0/Pulse-ios-unsigned-v12.1.0.ipa",
+          "size": 21736913,
+          "minOSVersion": "17.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [
+          "com.apple.developer.healthkit",
+          "com.apple.developer.healthkit.access",
+          "com.apple.developer.healthkit.background-delivery",
+          "com.apple.security.application-groups"
+        ],
+        "privacy": {
+          "NSBluetoothAlwaysUsageDescription": "Pulse connects directly to your WHOOP strap over Bluetooth to read heart rate, R-R intervals, battery, and sensor data locally on your iPhone. Nothing leaves your device.",
+          "NSHealthShareUsageDescription": "Pulse reads your own Apple Health data on-device to compute recovery, strain, and sleep. Nothing leaves your device.",
+          "NSHealthUpdateUsageDescription": "Pulse writes the metrics it computes from your strap back into Apple Health, on-device and only when you allow it.",
+          "NSLocationWhenInUseUsageDescription": "Pulse records your route during an outdoor workout to show distance, pace, and a map, and keeps recording while the screen is off. The route stays on your device. Nothing leaves it.",
+          "NSMicrophoneUsageDescription": "Pulse uses the microphone to let you ask the coach a question by voice. The audio is transcribed on-device and never leaves your iPhone.",
+          "NSMotionUsageDescription": "Pulse reads your iPhone's step count for a walking or running workout to show steps in the activity summary. It stays on your device. Nothing leaves it.",
+          "NSSpeechRecognitionUsageDescription": "Pulse transcribes your question on-device so you can ask the coach out loud instead of typing. Audio never leaves your iPhone."
+        }
+      },
+      "version": "12.1.0",
+      "buildVersion": "439",
+      "versionDate": "2026-11-19",
+      "versionDescription": "Pulse branding, heart-rate stability and performance improvements, safer Apple Health workout and calorie sync, and AltStore background-task compatibility. Keep any existing Xcode-installed copy until its history has been migrated and verified.",
+      "downloadURL": "https://github.com/jmlcoliveira/noop/releases/download/pulse-v12.1.0/Pulse-ios-unsigned-v12.1.0.ipa",
+      "size": 21736913,
+      "minOSVersion": "17.0"
+    }
+  ]
 }
