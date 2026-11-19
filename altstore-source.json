@@ -3,7 +3,7 @@
   "identifier": "dev.pulse.companion.altstore",
   "sourceURL": "https://raw.githubusercontent.com/jmlcoliveira/noop/main/altstore-source.json",
   "subtitle": "An offline-first companion for your WHOOP strap.",
-  "description": "Pulse is an independent iPhone companion for a WHOOP strap you own. Strap metrics are computed and stored on-device, without a Pulse account or Pulse-operated cloud service. Optional integrations may contact services you configure. Pulse is not affiliated with WHOOP.",
+  "description": "Pulse is an independent iPhone companion for a WHOOP strap you own. Strap metrics are computed and stored on-device. An optional Pulse account enables cloud backup and recovery; recording and scoring work without an account. Choose account protection without a separate key, or recovery-key encryption. Optional integrations may contact services you configure. Pulse is not affiliated with WHOOP. Source: https://github.com/jmlcoliveira/noop",
   "iconURL": "https://raw.githubusercontent.com/jmlcoliveira/noop/main/StrandiOS/Resources/Assets.xcassets/AppIcon.appiconset/icon_1024.png",
   "website": "https://github.com/jmlcoliveira/noop",
   "tintColor": "#D8AF50",
@@ -19,6 +19,15 @@
       "category": "lifestyle",
       "screenshots": [],
       "versions": [
+        {
+          "version": "12.2.2",
+          "buildVersion": "443",
+          "date": "2026-11-19",
+          "localizedDescription": "Heart-rate Live Activities now run only during workouts started in Pulse and end when the workout finishes or is discarded. Adding password sign-in after Google confirmation preserves verified email status without an extra verification email. Updated settings and account setup messages.",
+          "downloadURL": "https://github.com/jmlcoliveira/noop/releases/download/pulse-v12.2.2/Pulse-ios-unsigned-v12.2.2.ipa",
+          "size": 22244787,
+          "minOSVersion": "17.0"
+        },
         {
           "version": "12.2.1",
           "buildVersion": "442",
@@ -64,12 +73,12 @@
           "NSSpeechRecognitionUsageDescription": "Pulse transcribes your question on-device so you can ask the coach out loud instead of typing. Audio never leaves your iPhone."
         }
       },
-      "version": "12.2.1",
-      "buildVersion": "442",
+      "version": "12.2.2",
+      "buildVersion": "443",
       "versionDate": "2026-11-19",
-      "versionDescription": "Fixes Google sign-in after reinstalling. New cloud backups preserve the exact birth date, portable app settings and selected background photo. Choose account protection without a separate recovery code (the backup service can read these backups), or retain recovery-code encryption. Existing encrypted backups still require their original code. Full stored history remains losslessly compressed.",
-      "downloadURL": "https://github.com/jmlcoliveira/noop/releases/download/pulse-v12.2.1/Pulse-ios-unsigned-v12.2.1.ipa",
-      "size": 22233779,
+      "versionDescription": "Heart-rate Live Activities now run only during workouts started in Pulse and end when the workout finishes or is discarded. Adding password sign-in after Google confirmation preserves verified email status without an extra verification email. Updated settings and account setup messages.",
+      "downloadURL": "https://github.com/jmlcoliveira/noop/releases/download/pulse-v12.2.2/Pulse-ios-unsigned-v12.2.2.ipa",
+      "size": 22244787,
       "minOSVersion": "17.0"
     }
   ]
