@@ -1,5 +1,10 @@
 # Contributing to NOOP
 
+> This repository is the iPhone-focused Pulse fork. Its owner has authorized optional encrypted
+> account-based backup and restore, as documented in [Pulse cloud backup](PULSE_CLOUD_BACKUP.md).
+> That fork-specific exception supersedes the upstream cloud/account restrictions below for backup
+> only. Keep recording and analytics independent of network availability.
+
 NOOP is a standalone, fully **offline** companion app for WHOOP straps (4.0 and 5.0). It pairs
 directly with the strap over Bluetooth Low Energy, stores everything on-device in SQLite, imports
 WHOOP CSV exports and Apple Health exports, and computes recovery / strain / HRV / sleep locally —

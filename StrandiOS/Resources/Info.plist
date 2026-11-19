@@ -11,6 +11,7 @@
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).healthwriteback</string>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).rescore</string>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).stalebattery</string>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER).pulsecloudbackup</string>
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
@@ -49,6 +50,12 @@
 				<string>noop</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>pulseauth</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
@@ -62,17 +69,17 @@
 		<true/>
 	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Pulse connects directly to your WHOOP strap over Bluetooth to read heart rate, R-R intervals, battery, and sensor data locally on your iPhone. Nothing leaves your device.</string>
+	<string>Pulse reads your strap over Bluetooth and stores readings on this iPhone. If you enable encrypted cloud backup, those readings are included in your private backup.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Pulse reads your own Apple Health data on-device to compute recovery, strain, and sleep. Nothing leaves your device.</string>
+	<string>Pulse reads Apple Health to compute metrics on this iPhone. If you enable encrypted cloud backup, imported records are included in your private backup.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Pulse writes the metrics it computes from your strap back into Apple Health, on-device and only when you allow it.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Pulse records your route during an outdoor workout to show distance, pace, and a map, and keeps recording while the screen is off. The route stays on your device. Nothing leaves it.</string>
+	<string>Pulse records your route during an outdoor workout to show distance, pace, and a map, and keeps recording while the screen is off. Routes are included in encrypted cloud backups only when you enable them.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Pulse uses the microphone to let you ask the coach a question by voice. The audio is transcribed on-device and never leaves your iPhone.</string>
 	<key>NSMotionUsageDescription</key>
-	<string>Pulse reads your iPhone's step count for a walking or running workout to show steps in the activity summary. It stays on your device. Nothing leaves it.</string>
+	<string>Pulse reads your iPhone's step count for walking and running workouts to show steps in the activity summary. Recorded steps are included in encrypted cloud backups only when you enable them.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Pulse transcribes your question on-device so you can ask the coach out loud instead of typing. Audio never leaves your iPhone.</string>
 	<key>NSSupportsLiveActivities</key>
@@ -83,6 +90,8 @@
 	<string>$(OURA_CLIENT_SECRET)</string>
 	<key>OURA_REDIRECT_URI</key>
 	<string>$(OURA_REDIRECT_URI)</string>
+	<key>PulseFirebaseAPIKey</key>
+	<string>$(PULSE_FIREBASE_API_KEY)</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>

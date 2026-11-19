@@ -1,5 +1,19 @@
 # AGENTS.md — working on NOOP
 
+## Pulse fork scope
+
+This fork targets iPhone. At the owner's explicit request, Pulse adds optional account-based,
+encrypted automatic backup and restore for one active installation. Firebase Authentication supplies
+account identity; the API is `https://pulse.joliveira.xyz`; private Cloudflare R2 stores ciphertext.
+This is a deliberate fork-specific exception to the upstream no-account/no-hosted-service rules
+below. It does not authorize telemetry, cloud-dependent collection or analytics, social features,
+or uploading before explicit backup consent. Keep upstream attribution and licensing intact.
+
+Cloud credentials, recovery keys, real backups and personal diagnostics must never enter Git.
+Restore must preserve rollback and prevent replaying historical Apple Health workouts/calories.
+Validate in the simulator and obtain explicit owner approval before installing on the iPhone.
+See `docs/PULSE_CLOUD_BACKUP.md` for the backup protocol and privacy boundary.
+
 Guidance for anyone (human or AI agent) submitting a pull request. This is the high-signal map;
 [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) is the full guide (BLE safety contract, design-system
 rules, add-a-metric/screen/command recipes), [`docs/BUILD.md`](docs/BUILD.md) covers signing/pairing,

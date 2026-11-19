@@ -28,6 +28,7 @@ enum StorePaths {
             let p = dbURL.path + suffix
             if fm.fileExists(atPath: p) { try? fm.setAttributes(protection, ofItemAtPath: p) }
         }
+        try CloudBackupSnapshot.applyPendingRestoreBeforeOpeningStore(at: dbURL)
         #endif
 
         #if os(macOS)

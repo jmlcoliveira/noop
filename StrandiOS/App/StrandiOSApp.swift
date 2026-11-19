@@ -52,6 +52,7 @@ struct StrandiOSApp: App {
     @AppStorage(UnitPrefs.systemKey) private var unitSystemRaw = UnitSystem.metric.rawValue
 
     init() {
+        CloudBackupSnapshot.applyPendingRestoreAtLaunch()
         // #1008: pin the pre-change Overnight-only default for existing installs before
         // anything reads it. Idempotent; a no-op on fresh installs and after the first launch.
         PuffinExperiment.migrateContinuousHrvOvernightDefault()
@@ -149,6 +150,12 @@ struct StrandiOSApp: App {
             await model?.checkStrapNotSeen()
         })
         StaleBatteryBackgroundScheduler.schedule()
+        PulseCloudBackupCoordinator.localWorkInProgress = { [weak model, weak liftSession] in
+            guard let model else { return false }
+            return model.activeWorkout != nil || liftSession?.isActive == true
+                || model.live.backfilling || model.intelligence.computing
+        }
+        PulseCloudBackupScheduler.register()
         let bridge = HealthKitBridge(
             repo: model.repo,
             appleDeviceId: model.appleDeviceId,
@@ -347,6 +354,7 @@ struct StrandiOSApp: App {
         // safe no-op until the user opts in.
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active {
+                PulseCloudBackupCoordinator.shared.appBecameActive()
                 CoachBriefScheduler.activateIfEnabled { await model.coach.generateBrief() }
                 model.drainPendingIntents(router: router)
                 // iOS starts a Lift Log banner only for an app on screen, so a banner lost while NOOP was in
@@ -392,6 +400,7 @@ struct StrandiOSApp: App {
                     await watch.pushLatest(from: model)
                 }
             } else if phase == .background {
+                PulseCloudBackupCoordinator.shared.updateBackgroundSchedule()
                 // Re-submit on every transition because iOS may discard an old best-effort request.
                 HealthWritebackBackgroundScheduler.updateSchedule(
                     isAuthorized: health.auth == .authorized)
@@ -537,7 +546,10 @@ private struct iOSRootView: View {
                 UpdateWatch.runIfDue(currentVersion: UpdateWatch.installedVersion, sideloadHint: true)
             }
         }
-        .onChange(of: acceptedTerms) { _, _ in showWhatsNewIfDue() }
+        .onChange(of: acceptedTerms) { _, version in
+            showWhatsNewIfDue()
+            if version == Terms.currentVersion { PulseCloudBackupCoordinator.shared.appBecameActive() }
+        }
     }
 
     /// DEBUG: launched with --demo-seed, skip the first-run gates (onboarding / terms / What's New) so the

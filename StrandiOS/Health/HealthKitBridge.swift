@@ -466,8 +466,16 @@ final class HealthKitBridge: ObservableObject {
 
     /// UserDefaults key for a type's persisted HealthKit anchor. Namespaced so it can't collide with
     /// other app defaults, and keyed by the stable HK identifier so it survives across launches.
+    private nonisolated static let anchorDefaultsPrefix = "hkAnchor.v1."
+
     private static func anchorDefaultsKey(for type: HKSampleType) -> String {
-        "hkAnchor.v1.\(type.identifier)"
+        anchorDefaultsPrefix + type.identifier
+    }
+
+    nonisolated static func resetReadAnchorsAfterCloudRestore(defaults: UserDefaults = .standard) {
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(anchorDefaultsPrefix) {
+            defaults.removeObject(forKey: key)
+        }
     }
 
     // MARK: - Read → store
@@ -1015,7 +1023,8 @@ final class HealthKitBridge: ObservableObject {
             }
         }
         // Workouts.
-        if !swept.contains(Self.workoutSweepTypeId),
+        if CloudBackupRestoreHealthPolicy.floor() == nil,
+           !swept.contains(Self.workoutSweepTypeId),
            store.authorizationStatus(for: .workoutType()) == .sharingAuthorized {
             if (try? await store.deleteObjects(of: .workoutType(), predicate: pred)) != nil {
                 succeededThisRun.insert(Self.workoutSweepTypeId)
@@ -1422,8 +1431,12 @@ final class HealthKitBridge: ObservableObject {
 
     /// Export one canonical row per stable workout key. Unchanged exports are adopted, and changed
     /// exports use versioned sync identifiers for both workouts and their quantity samples.
-    private func writeWorkouts(whoopStore: WhoopStore, fromTs: Int, toTs: Int) async throws {
+    private func writeWorkouts(whoopStore: WhoopStore, fromTs windowStart: Int, toTs: Int) async throws {
         guard store.authorizationStatus(for: .workoutType()) == .sharingAuthorized else { return }
+        // Apple's store may still hold exports from the previous phone. Scope both
+        // workout saves (including calories) and orphan deletions to the new period.
+        let fromTs = max(windowStart, CloudBackupRestoreHealthPolicy.floor() ?? windowStart)
+        guard fromTs <= toTs else { return }
         // Read result kept OPTIONAL rather than collapsed with `?? []`, because the reconciliation below
         // has to tell "the store holds no workouts here" apart from "the read failed". Collapsed, a
         // transient read error would look like an empty window and delete every workout we had written

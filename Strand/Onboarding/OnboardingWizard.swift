@@ -324,7 +324,7 @@ private struct WhatItDoesStep: View {
         .init(icon: "lock.shield",
               tint: StrandPalette.statusPositive,
               title: String(localized: "Own your data, offline"),
-              body: String(localized: "Everything lives on \(Platform.deviceNounPhrase). No account, no sync, no cloud. Your thread is yours alone.")),
+              body: String(localized: "Your history lives on \(Platform.deviceNounPhrase). You can optionally enable encrypted cloud backup to recover it after reinstalling or changing your iPhone.")),
     ]
 
     var body: some View {
@@ -477,8 +477,8 @@ private struct BluetoothStep: View {
                 InfoCard(
                     icon: "lock.fill",
                     tint: StrandPalette.statusPositive,
-                    title: String(localized: "Nothing leaves your \(Platform.deviceNoun)"),
-                    message: String(localized: "Pulse talks to your strap directly over Bluetooth Low Energy. There's no server in the middle. The connection is local, and so is every reading it pulls in.")
+                    title: String(localized: "A direct Bluetooth connection"),
+                    message: String(localized: "Pulse reads your strap directly over Bluetooth and stores readings locally. Your readings stay on this device unless you enable encrypted cloud backup or choose to export them.")
                 )
 
                 Text("When the system prompt appears, choose Allow so Pulse can find your strap.")
@@ -1002,7 +1002,7 @@ private struct NotificationsStep: View {
 
                 VStack(spacing: 12) {
                     Checkline(text: String(localized: "Strain nudges and your smart alarm tap your wrist the moment they fire."))
-                    Checkline(text: String(localized: "It all stays on your strap and \(Platform.deviceNounPhrase): no account, no cloud."))
+                    Checkline(text: String(localized: "Strap collection and local alerts work without a Pulse account or an internet connection."))
                 }
                 .frame(maxWidth: 460)
                 #else

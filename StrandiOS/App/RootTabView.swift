@@ -58,7 +58,7 @@ struct RootTabView: View {
             case "trends": return 1
             case "sleep": return 2
             case "coach": return 3
-            case "more": return 4
+            case "more", "cloud-backup": return 4
             default: break
             }
         }
@@ -70,7 +70,19 @@ struct RootTabView: View {
     /// root view alive, so an at-root re-tap keeps scroll position and never re-runs `.task`
     /// (#198; the #197 resetID/`.id()` rebuild reset both). Requires the tab roots' first-hop
     /// links to push `TabRoute`/`MoreDestination` VALUES — closure-destination links bypass the path.
-    @State private var tabPaths: [NavigationPath] = Array(repeating: NavigationPath(), count: 5)
+    @State private var tabPaths: [NavigationPath] = Self.initialPaths
+
+    private static var initialPaths: [NavigationPath] {
+        var paths = Array(repeating: NavigationPath(), count: 5)
+        #if DEBUG
+        let args = CommandLine.arguments
+        if args.contains("--demo-seed"), let index = args.firstIndex(of: "--demo-tab"),
+           index + 1 < args.count, args[index + 1] == "cloud-backup" {
+            paths[4].append(MoreDestination.pulseCloudBackup)
+        }
+        #endif
+        return paths
+    }
     /// One scroll-to-top token per tab. Bumped when the user re-taps the active tab while it's ALREADY
     /// at its root — the other half of the iOS convention #197/#198 left unserved (an at-root re-tap was
     /// a no-op). Threaded into each tab's root via `\.scrollToTopSignal`; ScreenScaffold / LiquidTodayView
@@ -517,6 +529,7 @@ struct RootTabView: View {
                     MoreRow("Mi Band", "figure.walk.motion", .miBand)
                     MoreRow("Data Sources", "externaldrive.fill", .dataSources)
                     MoreRow("Backup & Sync", "externaldrive.fill.badge.icloud", .backupSync)
+                    MoreRow("Pulse Account & Backup", "lock.icloud", .pulseCloudBackup)
                     // #155: HealthKit-free Apple Health path for sideloaded installs (Siri Shortcut
                     // reads the opt-in Documents/noop_sync.txt drop file).
                     MoreRow("Shortcuts Export", "square.and.arrow.up.fill", .shortcutsExport)
@@ -621,10 +634,10 @@ struct RootTabView: View {
 private enum MoreDestination: Hashable {
     case insightsHub, intelligence, coach, insights, explore, compare
     case live, workouts, liftLog, health, labBook, stress, breathe, intervals, rhythm
-    case fusedRecord, appleHealth, miBand, dataSources, backupSync, shortcutsExport, noopLimitations
+    case fusedRecord, appleHealth, miBand, dataSources, backupSync, pulseCloudBackup, shortcutsExport, noopLimitations
     case alarms, automations, testCentre, siriShortcuts, powerSaving, settings
 
-    @ViewBuilder var destination: some View {
+    @MainActor @ViewBuilder var destination: some View {
         switch self {
         case .insightsHub:     InsightsHubView()
         case .intelligence:    IntelligenceView()
@@ -647,6 +660,7 @@ private enum MoreDestination: Hashable {
         case .dataSources:     DataSourcesView()
         case .noopLimitations: NoopLimitationsView()
         case .backupSync:      BackupSyncView()
+        case .pulseCloudBackup: PulseCloudBackupView()
         case .shortcutsExport: ShortcutExportSettingsView()
         case .alarms:          SmartAlarmView()
         case .automations:     AutomationsView()

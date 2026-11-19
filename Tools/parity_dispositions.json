@@ -484,6 +484,30 @@
       "identity_sha256": "c4be9e6b4116712b90615ec0ae0a61d3bd12bd3575fc45f8cd1d5a413c1f6863",
       "platform": "swift",
       "rationale": "Used only by the iPhone HealthKit calorie collector to reconcile overlapping local workout intervals, including cross-midnight sessions. This iPhone-only fork adds no Android caller or shared schema change."
+    },
+    {
+      "type": "platform_specific",
+      "kind": "add-unpaired-file",
+      "identity": "swift\u0000Packages/WhoopStore/Sources/WhoopStore/CloudBackupDatabase.swift",
+      "identity_sha256": "40971e3dd7dea50913957bb23f83d89be5aaeef7061a02f0ac9e8273620581d9",
+      "platform": "swift",
+      "rationale": "Provides GRDB/SQLite snapshot and portable-copy preparation for the owner-authorized, iPhone-only Pulse encrypted backup feature. Android uses a separate Room store and has no caller; no shared stored schema, physiological formula, or backup settings key is changed."
+    },
+    {
+      "type": "platform_specific",
+      "kind": "add-unpaired-function",
+      "identity": "swift\u0000Packages/WhoopStore/Sources/WhoopStore/CloudBackupDatabase.swift::snapshot/2#1",
+      "identity_sha256": "93f3204288e6f69fc1338ac87d2f8349a1347fbd7e3ff0084c6ecf985cec70ae",
+      "platform": "swift",
+      "rationale": "Provides GRDB/SQLite snapshot and portable-copy preparation for the owner-authorized, iPhone-only Pulse encrypted backup feature. Android uses a separate Room store and has no caller; no shared stored schema, physiological formula, or backup settings key is changed."
+    },
+    {
+      "type": "platform_specific",
+      "kind": "add-unpaired-function",
+      "identity": "swift\u0000Packages/WhoopStore/Sources/WhoopStore/CloudBackupDatabase.swift::preparePortableCopy/1#1",
+      "identity_sha256": "98217b2620990def1c4bb9bfe9d981e875f06ddef2ba070da3134a2b30c1e1b3",
+      "platform": "swift",
+      "rationale": "Provides GRDB/SQLite snapshot and portable-copy preparation for the owner-authorized, iPhone-only Pulse encrypted backup feature. Android uses a separate Room store and has no caller; no shared stored schema, physiological formula, or backup settings key is changed."
     }
   ]
 }

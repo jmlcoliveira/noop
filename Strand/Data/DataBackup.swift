@@ -222,11 +222,15 @@ enum DataBackup {
         verifyWrittenBackup(at: url) == .intact
     }
 
-    private static func writeVerifiedBackupZip(dbURL: URL, to dest: URL, settingsJSON: Data?) throws {
+    private static func writeVerifiedBackupZip(dbURL: URL, to dest: URL, settingsJSON: Data?,
+                                              stagingDirectory: URL? = nil,
+                                              compressionMethod: CompressionMethod = .deflate) throws {
         if let complaint = DatabaseIntegrity.quickCheckFailure(atPath: dbURL.path) {
             throw ExportIntegrityFailure(complaint: complaint)
         }
-        try writeBackupZip(dbURL: dbURL, to: dest, settingsJSON: settingsJSON, manifestJSON: currentManifestJSON())
+        try writeBackupZip(dbURL: dbURL, to: dest, settingsJSON: settingsJSON,
+                           manifestJSON: currentManifestJSON(), stagingDirectory: stagingDirectory,
+                           compressionMethod: compressionMethod)
         switch verifyWrittenBackup(at: dest) {
         case .intact:
             break
@@ -259,31 +263,34 @@ enum DataBackup {
         return Data(json.utf8)
     }
 
-    private static func writeBackupZip(dbURL: URL, to dest: URL, settingsJSON: Data?, manifestJSON: Data) throws {
+    private static func writeBackupZip(dbURL: URL, to dest: URL, settingsJSON: Data?, manifestJSON: Data,
+                                       stagingDirectory: URL? = nil,
+                                       compressionMethod: CompressionMethod = .deflate) throws {
         let archive = try Archive(url: dest, accessMode: .create)
-        try archive.addEntry(with: backupEntryName, fileURL: dbURL, compressionMethod: .deflate)
+        try archive.addEntry(with: backupEntryName, fileURL: dbURL, compressionMethod: compressionMethod)
         let fm = FileManager.default
         // Stage each JSON through a temp file so it uses the exact same file-URL addEntry idiom as the DB
         // entry (one container code path, no provider-API variant to drift).
+        let scratch = stagingDirectory ?? NoopScratch.directory()
         if let settingsJSON {
-            let tmpJSON = NoopScratch.file("settings-\(UUID().uuidString).json")
+            let tmpJSON = scratch.appendingPathComponent("settings-\(UUID().uuidString).json")
             try settingsJSON.write(to: tmpJSON)
             defer { try? fm.removeItem(at: tmpJSON) }
-            try archive.addEntry(with: BackupSettings.entryName, fileURL: tmpJSON, compressionMethod: .deflate)
+            try archive.addEntry(with: BackupSettings.entryName, fileURL: tmpJSON, compressionMethod: compressionMethod)
         }
         // #1410: manifest LAST (after the DB + optional settings) and ALWAYS written — even a legacy
         // nil-settings backup states which build produced it.
-        let tmpManifest = NoopScratch.file("manifest-\(UUID().uuidString).json")
+        let tmpManifest = scratch.appendingPathComponent("manifest-\(UUID().uuidString).json")
         try manifestJSON.write(to: tmpManifest)
         defer { try? fm.removeItem(at: tmpManifest) }
-        try archive.addEntry(with: BackupManifest.entryName, fileURL: tmpManifest, compressionMethod: .deflate)
+        try archive.addEntry(with: BackupManifest.entryName, fileURL: tmpManifest, compressionMethod: compressionMethod)
     }
 
     /// This device's whitelisted profile/display settings (see `BackupSettings.whitelist`) as the
     /// `settings.json` payload, or nil when nothing whitelisted was ever set (a fresh install then
     /// exports a legacy DB-only ZIP, which is the right degrade). UserDefaults is thread-safe, so
     /// the detached export tasks may call this off the main actor.
-    private static func currentSettingsJSON() -> Data? {
+    static func currentSettingsJSON() -> Data? {
         var values = BackupSettings.snapshot(from: .standard)
         // #1361: bridge the user's custom journal BEHAVIOURS into the whitelisted `journal.customBehaviors`
         // as a newline-joined name list (byte-identical to Android's `noop.journalCustomQuestions`). The
@@ -549,24 +556,7 @@ enum DataBackup {
             // and plain-SQLite backups have no `settings.json` (extractedDir nil / entry absent) and
             // restore exactly as before — no settings, no error. A malformed settings entry degrades
             // to "fewer keys applied" inside BackupSettings.decode; it can never fail the restore.
-            if let extractedDir {
-                let settingsURL = extractedDir.appendingPathComponent(BackupSettings.entryName)
-                if let data = try? Data(contentsOf: settingsURL) {
-                    let decoded = BackupSettings.decode(data)
-                    BackupSettings.apply(decoded, to: settingsDefaults)
-                    // #1361: restore custom journal behaviours. `JournalCatalogStore` is @MainActor and
-                    // this runs off it, so write the restored names to the legacy `journal.customQuestions`
-                    // array, clear any stale hidden list, and drop the v2 items blob — on the relaunch a
-                    // restore forces, the store's init migrates those names into fresh v2 items (the same
-                    // path a pre-v2 install takes). Only when the backup carried them.
-                    if let joined = decoded["journal.customBehaviors"] as? String {
-                        let names = joined.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
-                        settingsDefaults.set(names, forKey: JournalCatalogBackupKeys.legacyCustom)
-                        settingsDefaults.set([String](), forKey: JournalCatalogBackupKeys.legacyHidden)
-                        settingsDefaults.removeObject(forKey: JournalCatalogBackupKeys.items)
-                    }
-                }
-            }
+            if let extractedDir { applyExtractedSettings(from: extractedDir, to: settingsDefaults) }
             // #57 debug: record when a restore swapped the DB, so the export can correlate a restore with a
             // later write stall (a restore not followed by a relaunch is the #57 failure).
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "backup.lastRestoreAt")
@@ -576,11 +566,47 @@ enum DataBackup {
         }
     }
 
+    static func applyExtractedSettings(from directory: URL, to defaults: UserDefaults = .standard) {
+        let settingsURL = directory.appendingPathComponent(BackupSettings.entryName)
+        guard let data = try? Data(contentsOf: settingsURL) else { return }
+        let decoded = BackupSettings.decode(data)
+        BackupSettings.apply(decoded, to: defaults)
+        // The journal catalog remigrates the restored names when the app starts.
+        if let joined = decoded["journal.customBehaviors"] as? String {
+            let names = joined.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+            defaults.set(names, forKey: JournalCatalogBackupKeys.legacyCustom)
+            defaults.set([String](), forKey: JournalCatalogBackupKeys.legacyHidden)
+            defaults.removeObject(forKey: JournalCatalogBackupKeys.items)
+        }
+    }
+
+    #if os(iOS)
+    /// The cloud path wraps a verified stored ZIP in lossless compression before encryption.
+    static func writeCloudArchive(database: URL, settingsJSON: Data?, to destination: URL) throws {
+        let size = try database.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        guard Int64(size) <= maxBackupSQLiteBytes else { throw BackupArchiveError.entryTooLarge(backupEntryName) }
+        try writeVerifiedBackupZip(dbURL: database, to: destination, settingsJSON: settingsJSON,
+                                   stagingDirectory: destination.deletingLastPathComponent(), compressionMethod: .none)
+    }
+
+    static func extractCloudArchive(_ archive: URL, into directory: URL) throws -> URL {
+        try extractBackupZip(at: archive, into: directory, verifyChecksum: true)
+        let database = directory.appendingPathComponent(backupEntryName)
+        guard isSQLiteFile(at: database), backupOrigin(of: sqliteTableNames(at: database)) == .mac else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        if let complaint = DatabaseIntegrity.quickCheckFailure(atPath: database.path) {
+            throw ExportIntegrityFailure(complaint: complaint)
+        }
+        return database
+    }
+    #endif
+
     // MARK: - Helpers
 
     /// Canonical entry name for the SQLite inside a `.noopbak` ZIP. Matches the Android exporter so
     /// a backup produced on either platform restores on the other.
-    private static let backupEntryName = "noop-backup.sqlite"
+    static let backupEntryName = "noop-backup.sqlite"
 
     private enum BackupArchiveError: LocalizedError {
         case entryTooLarge(String)
@@ -675,8 +701,9 @@ enum DataBackup {
     /// Unknown files are ignored, and each accepted entry is streamed through an uncompressed-size cap
     /// before it lands on disk.
     private static func extractBackupZip(at zipURL: URL, into destDir: URL,
-                                         allowOversize: Bool = false) throws {
+                                         allowOversize: Bool = false, verifyChecksum: Bool = false) throws {
         let archive = try Archive(url: zipURL, accessMode: .read)
+        var acceptedEntries = Set<String>()
         for entry in archive where entry.type == .file {
             let name = (entry.path as NSString).lastPathComponent
             let limit: Int64
@@ -688,13 +715,19 @@ enum DataBackup {
             default:
                 continue
             }
+            if verifyChecksum {
+                guard name == entry.path, acceptedEntries.insert(name).inserted else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
+                guard entry.uncompressedSize <= UInt64(limit) else { throw BackupArchiveError.entryTooLarge(name) }
+            }
             let out = destDir.appendingPathComponent(name)
             if FileManager.default.fileExists(atPath: out.path) { try FileManager.default.removeItem(at: out) }
             FileManager.default.createFile(atPath: out.path, contents: nil)
             let handle = try FileHandle(forWritingTo: out)
             defer { try? handle.close() }
             var written: Int64 = 0
-            _ = try archive.extract(entry) { data in
+            let checksum = try archive.extract(entry) { data in
                 let next = written + Int64(data.count)
                 guard next <= limit else {
                     try? handle.close()
@@ -703,6 +736,9 @@ enum DataBackup {
                 }
                 try handle.write(contentsOf: data)
                 written = next
+            }
+            if verifyChecksum && (UInt64(written) != entry.uncompressedSize || checksum != entry.checksum) {
+                throw CocoaError(.fileReadCorruptFile)
             }
         }
     }

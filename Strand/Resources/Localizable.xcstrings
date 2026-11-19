@@ -253030,6 +253030,5291 @@
           }
         }
       }
+    },
+    "A direct Bluetooth connection": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A direct Bluetooth connection"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine direkte Bluetooth-Verbindung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una conexión Bluetooth directa"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une connexion Bluetooth directe"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uma ligação Bluetooth direta"
+          }
+        }
+      }
+    },
+    "A Pulse account is optional. It gives you access to encrypted cloud backup on one active iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A Pulse account is optional. It gives you access to encrypted cloud backup on one active iPhone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Pulse-Konto ist optional. Es ermöglicht verschlüsselte Cloud-Backups auf einem aktiven iPhone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La cuenta de Pulse es opcional. Te permite hacer copias de seguridad cifradas en la nube desde un único iPhone activo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le compte Pulse est facultatif. Il permet d’utiliser la sauvegarde chiffrée dans le cloud sur un seul iPhone actif."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A conta Pulse é opcional. Dá-te acesso à cópia de segurança encriptada na nuvem num único iPhone ativo."
+          }
+        }
+      }
+    },
+    "A standalone companion for your WHOOP. Your history and metrics are stored on this iPhone. You can choose encrypted cloud backup, file export or other integrations. Pulse is independent and experimental, and is not the WHOOP app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A standalone companion for your WHOOP. Your history and metrics are stored on this iPhone. You can choose encrypted cloud backup, file export or other integrations. Pulse is independent and experimental, and is not the WHOOP app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine eigenständige Begleit-App für dein WHOOP. Dein Verlauf und deine Messwerte werden auf diesem iPhone gespeichert. Du kannst verschlüsselte Cloud-Backups, den Dateiexport oder andere Integrationen nutzen. Pulse ist ein unabhängiges, experimentelles Projekt und keine WHOOP-App."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una app complementaria para tu WHOOP que funciona de forma autónoma. Tu historial y tus métricas se guardan en este iPhone. Puedes elegir las copias de seguridad cifradas en la nube, la exportación de archivos u otras integraciones. Pulse es una app independiente y experimental. No es la app de WHOOP."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une app autonome pour accompagner votre WHOOP. Votre historique et vos mesures sont stockés sur cet iPhone. Vous pouvez choisir la sauvegarde chiffrée dans le cloud, l’exportation de fichiers ou d’autres intégrations. Pulse est une app indépendante et expérimentale. Il ne s’agit pas de l’app WHOOP."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uma app autónoma para acompanhar o teu WHOOP. O teu histórico e as tuas métricas são guardados neste iPhone. Podes optar pela cópia de segurança encriptada na nuvem, pela exportação de ficheiros ou por outras integrações. O Pulse é independente e experimental e não é a app da WHOOP."
+          }
+        }
+      }
+    },
+    "Already have an account? Sign in": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already have an account? Sign in"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast schon ein Konto? Melde dich an"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Ya tienes una cuenta? Inicia sesión"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez déjà un compte ? Connectez-vous"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Já tens uma conta? Inicia sessão"
+          }
+        }
+      }
+    },
+    "Another installation is the active backup device. Making this iPhone active stops uploads from that installation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another installation is the active backup device. Making this iPhone active stops uploads from that installation."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backups sind derzeit in einer anderen Installation aktiv. Wenn du Backups auf diesem iPhone aktivierst, werden von der anderen Installation keine Backups mehr hochgeladen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las copias de seguridad están activas en otra instalación. Si las activas en este iPhone, esa instalación dejará de subir copias."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La sauvegarde est active sur une autre installation. Si vous l’activez sur cet iPhone, cette autre installation cessera d’envoyer des sauvegardes."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As cópias de segurança estão ativas noutra instalação. Se as ativares neste iPhone, essa instalação deixa de enviar cópias."
+          }
+        }
+      }
+    },
+    "Automatic backup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic backup"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatische Backups"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia de seguridad automática"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sauvegarde automatique"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cópia de segurança automática"
+          }
+        }
+      }
+    },
+    "Backup recovery code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup recovery code"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup-Wiederherstellungscode"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código de recuperación de la copia"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code de récupération de la sauvegarde"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código de recuperação da cópia de segurança"
+          }
+        }
+      }
+    },
+    "Check the recovery code and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the recovery code and try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Überprüfe den Wiederherstellungscode und versuche es erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprueba el código de recuperación e inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez le code de récupération et réessayez."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica o código de recuperação e tenta novamente."
+          }
+        }
+      }
+    },
+    "Check verification": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check verification"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-Mail-Bestätigung prüfen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprobar verificación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifier si l’adresse est confirmée"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verificar se o e-mail foi confirmado"
+          }
+        }
+      }
+    },
+    "Checking backups…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking backups…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backups werden geprüft…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprobando copias de seguridad…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification des sauvegardes…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A verificar as cópias de segurança…"
+          }
+        }
+      }
+    },
+    "Choose a stronger password.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a stronger password."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle ein sichereres Passwort."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige una contraseña más segura."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un mot de passe plus sûr."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escolhe uma palavra-passe mais forte."
+          }
+        }
+      }
+    },
+    "Cloud backup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud backup"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud-Backup"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia de seguridad en la nube"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sauvegarde dans le cloud"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cópia de segurança na nuvem"
+          }
+        }
+      }
+    },
+    "Cloud backup access hasn’t been granted for this account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud backup access hasn’t been granted for this account."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Konto hat keinen Zugriff auf Cloud-Backups."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta cuenta no tiene acceso a las copias de seguridad en la nube."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accès à la sauvegarde dans le cloud n’a pas été accordé à ce compte."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta conta ainda não tem acesso à cópia de segurança na nuvem."
+          }
+        }
+      }
+    },
+    "Cloud backup restored.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud backup restored."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud-Backup wiederhergestellt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia de seguridad en la nube restaurada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sauvegarde dans le cloud restaurée."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cópia de segurança na nuvem restaurada."
+          }
+        }
+      }
+    },
+    "Cloud backup unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud backup unavailable"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud-Backup nicht verfügbar"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia de seguridad en la nube no disponible"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sauvegarde dans le cloud indisponible"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cópia de segurança na nuvem indisponível"
+          }
+        }
+      }
+    },
+    "Cloud backups are available. You can restore one below before backing up this iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud backups are available. You can restore one below before backing up this iPhone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud-Backups sind verfügbar. Du kannst unten eines wiederherstellen, bevor du dieses iPhone sicherst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay copias de seguridad en la nube. Puedes restaurar una de las que aparecen abajo antes de hacer una copia de este iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Des sauvegardes sont disponibles dans le cloud. Vous pouvez en restaurer une ci-dessous avant de sauvegarder cet iPhone."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Há cópias de segurança disponíveis na nuvem. Podes restaurar uma das cópias abaixo antes de fazeres uma cópia deste iPhone."
+          }
+        }
+      }
+    },
+    "Cloud backups deleted.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud backups deleted."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud-Backups gelöscht."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copias de seguridad en la nube eliminadas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sauvegardes dans le cloud supprimées."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cópias de segurança na nuvem eliminadas."
+          }
+        }
+      }
+    },
+    "Cloud backups were deleted. Your local data is still on this iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud backups were deleted. Your local data is still on this iPhone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Cloud-Backups wurden gelöscht. Deine lokalen Daten bleiben auf diesem iPhone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se han eliminado las copias en la nube. Tus datos locales siguen en este iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les sauvegardes dans le cloud ont été supprimées. Vos données locales sont toujours sur cet iPhone."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As cópias de segurança na nuvem foram eliminadas. Os teus dados locais permanecem neste iPhone."
+          }
+        }
+      }
+    },
+    "Cloud data for this account was deleted.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud data for this account was deleted."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Cloud-Daten dieses Kontos wurden gelöscht."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se han eliminado los datos en la nube de esta cuenta."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données dans le cloud de ce compte ont été supprimées."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Os dados na nuvem desta conta foram eliminados."
+          }
+        }
+      }
+    },
+    "Cloud data was deleted. Enter your password to finish deleting your Pulse account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud data was deleted. Enter your password to finish deleting your Pulse account."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Cloud-Daten wurden gelöscht. Gib dein Passwort ein, um dein Pulse-Konto endgültig zu löschen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se han eliminado los datos de la nube. Introduce tu contraseña para terminar de eliminar tu cuenta de Pulse."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données dans le cloud ont été supprimées. Saisissez votre mot de passe pour terminer la suppression de votre compte Pulse."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Os dados na nuvem foram eliminados. Introduz a tua palavra-passe para concluir a eliminação da tua conta Pulse."
+          }
+        }
+      }
+    },
+    "Confirm your password": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm your password"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passwort bestätigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirma tu contraseña"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmez votre mot de passe"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirma a tua palavra-passe"
+          }
+        }
+      }
+    },
+    "Connect to Wi-Fi or change the Wi-Fi only setting.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect to Wi-Fi or change the Wi-Fi only setting."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinde dich mit einem WLAN oder ändere die Einstellung „Nur WLAN“."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conéctate a una red Wi-Fi o cambia el ajuste «Solo Wi-Fi»."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez-vous au Wi-Fi ou modifiez le réglage « Wi-Fi uniquement »."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liga-te a uma rede Wi-Fi ou altera a definição «Só por Wi-Fi»."
+          }
+        }
+      }
+    },
+    "Copied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiert"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copié"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiado"
+          }
+        }
+      }
+    },
+    "Copy recovery code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy recovery code"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiederherstellungscode kopieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar código de recuperación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier le code de récupération"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar código de recuperação"
+          }
+        }
+      }
+    },
+    "Create a Pulse account": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create a Pulse account"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse-Konto erstellen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crear una cuenta de Pulse"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créer un compte Pulse"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Criar uma conta Pulse"
+          }
+        }
+      }
+    },
+    "Create account": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create account"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konto erstellen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crear cuenta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créer un compte"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Criar conta"
+          }
+        }
+      }
+    },
+    "Create an account": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create an account"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Konto erstellen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crear una cuenta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créer un compte"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Criar uma conta"
+          }
+        }
+      }
+    },
+    "Delete cloud backups": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete cloud backups"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud-Backups löschen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar copias de seguridad en la nube"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer les sauvegardes dans le cloud"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar cópias de segurança na nuvem"
+          }
+        }
+      }
+    },
+    "Delete every cloud backup?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete every cloud backup?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Cloud-Backups löschen?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Eliminar todas las copias de seguridad en la nube?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer toutes les sauvegardes dans le cloud ?"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar todas as cópias de segurança na nuvem?"
+          }
+        }
+      }
+    },
+    "Delete Pulse account": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Pulse account"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse-Konto löschen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar cuenta de Pulse"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer le compte Pulse"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar conta Pulse"
+          }
+        }
+      }
+    },
+    "Deleting cloud data…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deleting cloud data…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud-Daten werden gelöscht…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminando datos de la nube…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suppression des données dans le cloud…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A eliminar os dados na nuvem…"
+          }
+        }
+      }
+    },
+    "Downloading and verifying backup…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading and verifying backup…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup wird heruntergeladen und geprüft…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descargando y verificando la copia de seguridad…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléchargement et vérification de la sauvegarde…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A descarregar e a verificar a cópia de segurança…"
+          }
+        }
+      }
+    },
+    "Email address": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email address"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-Mail-Adresse"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correo electrónico"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adresse e-mail"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endereço de e-mail"
+          }
+        }
+      }
+    },
+    "Enable automatic backup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enable automatic backup"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatische Backups aktivieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activar copia de seguridad automática"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activer la sauvegarde automatique"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ativar cópia de segurança automática"
+          }
+        }
+      }
+    },
+    "Encrypting backup…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encrypting backup…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup wird verschlüsselt…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cifrando copia de seguridad…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiffrement de la sauvegarde…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A encriptar a cópia de segurança…"
+          }
+        }
+      }
+    },
+    "Enter a valid email address.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a valid email address."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gib eine gültige E-Mail-Adresse ein."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduce una dirección de correo electrónico válida."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez une adresse e-mail valide."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduz um endereço de e-mail válido."
+          }
+        }
+      }
+    },
+    "Enter the complete Pulse recovery key.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the complete Pulse recovery key."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gib den vollständigen Pulse-Wiederherstellungsschlüssel ein."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduce la clave de recuperación de Pulse completa."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez la clé de récupération Pulse complète."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduz a chave de recuperação do Pulse completa."
+          }
+        }
+      }
+    },
+    "Enter the recovery code used for this backup. Pulse verifies the backup before replacing your local history.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the recovery code used for this backup. Pulse verifies the backup before replacing your local history."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gib den Wiederherstellungscode für dieses Backup ein. Pulse überprüft das Backup, bevor dein lokaler Verlauf ersetzt wird."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduce el código de recuperación de esta copia de seguridad. Pulse comprueba la copia antes de sustituir tu historial local."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez le code de récupération de cette sauvegarde. Pulse vérifie la sauvegarde avant de remplacer votre historique local."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduz o código de recuperação usado para esta cópia de segurança. O Pulse verifica a cópia antes de substituir o teu histórico local."
+          }
+        }
+      }
+    },
+    "Enter your recovery code on this iPhone to resume backups.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter your recovery code on this iPhone to resume backups."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gib deinen Wiederherstellungscode auf diesem iPhone ein, um Backups fortzusetzen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduce tu código de recuperación en este iPhone para reanudar las copias de seguridad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez votre code de récupération sur cet iPhone pour reprendre les sauvegardes."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduz o teu código de recuperação neste iPhone para retomar as cópias de segurança."
+          }
+        }
+      }
+    },
+    "Finish deleting account": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish deleting account"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontolöschung abschließen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completar la eliminación de la cuenta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminer la suppression du compte"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Concluir a eliminação da conta"
+          }
+        }
+      }
+    },
+    "Fully quit and reopen Pulse to finish restoring this backup.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fully quit and reopen Pulse to finish restoring this backup."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beende Pulse vollständig und öffne es erneut, um die Wiederherstellung dieses Backups abzuschließen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cierra Pulse por completo y vuelve a abrirlo para terminar de restaurar esta copia de seguridad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quittez complètement Pulse et rouvrez-le pour terminer la restauration de cette sauvegarde."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fecha totalmente o Pulse e volta a abri-lo para terminar o restauro desta cópia de segurança."
+          }
+        }
+      }
+    },
+    "Fully quit and reopen Pulse to finish the restore. Data collected after preparing the restore may be replaced.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fully quit and reopen Pulse to finish the restore. Data collected after preparing the restore may be replaced."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beende Pulse vollständig und öffne es erneut, um die Wiederherstellung abzuschließen. Daten, die nach dem Vorbereiten der Wiederherstellung erfasst wurden, können ersetzt werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cierra Pulse por completo y vuelve a abrirlo para completar la restauración. Es posible que se sustituyan los datos recopilados después de preparar la restauración."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quittez complètement Pulse et rouvrez-le pour terminer la restauration. Les données recueillies après la préparation de la restauration peuvent être remplacées."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fecha totalmente o Pulse e volta a abri-lo para concluir o restauro. Os dados recolhidos depois de preparares o restauro podem ser substituídos."
+          }
+        }
+      }
+    },
+    "I saved my recovery code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I saved my recovery code"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich habe meinen Wiederherstellungscode gespeichert"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "He guardado mi código de recuperación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "J’ai enregistré mon code de récupération"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardei o meu código de recuperação"
+          }
+        }
+      }
+    },
+    "If that email has a Pulse account, a password reset link has been sent.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If that email has a Pulse account, a password reset link has been sent."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn für diese E-Mail-Adresse ein Pulse-Konto existiert, wurde ein Link zum Zurücksetzen des Passworts gesendet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si hay una cuenta de Pulse con ese correo, se ha enviado un enlace para restablecer la contraseña."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si un compte Pulse est associé à cette adresse e-mail, un lien de réinitialisation du mot de passe a été envoyé."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se existir uma conta Pulse com esse endereço de e-mail, foi enviada uma ligação para repor a palavra-passe."
+          }
+        }
+      }
+    },
+    "Keep an encrypted copy of your Pulse history for this iPhone or its replacement.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep an encrypted copy of your Pulse history for this iPhone or its replacement."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speichere eine verschlüsselte Kopie deines Pulse-Verlaufs für dieses iPhone oder ein Ersatzgerät."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conserva una copia cifrada de tu historial de Pulse para este iPhone o el que lo sustituya."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conservez une copie chiffrée de votre historique Pulse pour cet iPhone ou celui qui le remplacera."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda uma cópia encriptada do teu histórico do Pulse para este iPhone ou para o que o substituir."
+          }
+        }
+      }
+    },
+    "Keep this code somewhere you can access if you lose this iPhone. Anyone with the code and a copy of your encrypted backup can open it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep this code somewhere you can access if you lose this iPhone. Anyone with the code and a copy of your encrypted backup can open it."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bewahre diesen Code an einem Ort auf, auf den du auch zugreifen kannst, wenn du dieses iPhone verlierst. Wer den Code und eine Kopie deines verschlüsselten Backups hat, kann das Backup öffnen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda este código en un lugar al que puedas acceder si pierdes este iPhone. Cualquiera que tenga el código y acceso a tu copia de seguridad cifrada podrá abrirla."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conservez ce code dans un endroit accessible si vous perdez cet iPhone. Quiconque possède ce code et une copie de votre sauvegarde chiffrée peut l’ouvrir."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda este código num local a que possas aceder se perderes este iPhone. Qualquer pessoa que tenha o código e uma cópia da tua cópia de segurança encriptada pode abri-la."
+          }
+        }
+      }
+    },
+    "Keep this iPhone’s data": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep this iPhone’s data"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten dieses iPhone behalten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conservar los datos de este iPhone"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conserver les données de cet iPhone"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manter os dados deste iPhone"
+          }
+        }
+      }
+    },
+    "Last successful backup %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last successful backup %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letztes erfolgreiches Backup: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Última copia completada: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernière sauvegarde réussie : %@"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Última cópia de segurança concluída: %@"
+          }
+        }
+      }
+    },
+    "Local-first, with optional encrypted backup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local-first, with optional encrypted backup"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten bleiben lokal, verschlüsselte Backups sind optional"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos locales, con copias de seguridad cifradas opcionales"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Données locales avec sauvegarde chiffrée facultative"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dados locais, com cópia de segurança encriptada opcional"
+          }
+        }
+      }
+    },
+    "Make this iPhone the active backup device to protect new activity.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make this iPhone the active backup device to protect new activity."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktiviere Backups auf diesem iPhone, um neue Aktivitäten zu sichern."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz que este iPhone sea el dispositivo de copia de seguridad activo para proteger las nuevas actividades."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites de cet iPhone l’appareil de sauvegarde actif pour protéger les nouvelles activités."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna este iPhone o dispositivo de cópia de segurança ativo para proteger novas atividades."
+          }
+        }
+      }
+    },
+    "Manage account": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage account"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konto verwalten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gestionar cuenta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gérer le compte"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gerir conta"
+          }
+        }
+      }
+    },
+    "Next attempt after %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next attempt after %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nächster Versuch nach %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Próximo intento después de %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prochaine tentative après %@"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Próxima tentativa após %@"
+          }
+        }
+      }
+    },
+    "Open the verification link in your inbox, then return here to check your account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the verification link in your inbox, then return here to check your account."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffne den Bestätigungslink in deinem Posteingang und kehre dann hierher zurück, um dein Konto zu überprüfen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre el enlace de verificación en tu bandeja de entrada y vuelve aquí para comprobar tu cuenta."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez le lien de vérification dans votre boîte de réception, puis revenez ici pour vérifier votre compte."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre a ligação de verificação na tua caixa de entrada e volta aqui para verificar a tua conta."
+          }
+        }
+      }
+    },
+    "Password": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passwort"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contraseña"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mot de passe"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Palavra-passe"
+          }
+        }
+      }
+    },
+    "Prepare restore": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prepare restore"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiederherstellung vorbereiten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparar restauración"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparer la restauration"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparar restauro"
+          }
+        }
+      }
+    },
+    "Pulse Account": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse Account"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse-Konto"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta de Pulse"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte Pulse"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conta Pulse"
+          }
+        }
+      }
+    },
+    "Pulse Account & Backup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse Account & Backup"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse-Konto und Backup"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta de Pulse y copias de seguridad"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte Pulse et sauvegardes"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conta Pulse e cópias de segurança"
+          }
+        }
+      }
+    },
+    "Pulse account deleted. Your local data is still on this iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse account deleted. Your local data is still on this iPhone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Pulse-Konto wurde gelöscht. Deine lokalen Daten bleiben auf diesem iPhone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se ha eliminado tu cuenta de Pulse. Tus datos locales siguen en este iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le compte Pulse a été supprimé. Vos données locales sont toujours sur cet iPhone."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A conta Pulse foi eliminada. Os teus dados locais permanecem neste iPhone."
+          }
+        }
+      }
+    },
+    "Pulse Account is unavailable in this build.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse Account is unavailable in this build."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Pulse-Kontofunktion ist in diesem Build nicht verfügbar."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La función de cuenta de Pulse no está disponible en esta compilación."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La fonction de compte Pulse est indisponible dans cette version."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A funcionalidade de conta Pulse não está disponível nesta versão."
+          }
+        }
+      }
+    },
+    "Pulse checks for changes about once a day. iOS decides when it can run in the background.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse checks for changes about once a day. iOS decides when it can run in the background."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse prüft etwa einmal am Tag auf Änderungen. iOS entscheidet, wann dies im Hintergrund möglich ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse comprueba si hay cambios aproximadamente una vez al día. iOS decide cuándo puede hacerlo en segundo plano."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse recherche les modifications environ une fois par jour. iOS décide quand cette recherche peut s’effectuer en arrière-plan."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Pulse verifica se há alterações cerca de uma vez por dia. O iOS decide quando essa verificação pode ser feita em segundo plano."
+          }
+        }
+      }
+    },
+    "Pulse could not access the recovery key on this device (Keychain error %d).": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse could not access the recovery key on this device (Keychain error %d)."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse konnte auf diesem Gerät nicht auf den Wiederherstellungsschlüssel zugreifen (Schlüsselbundfehler %d)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse no ha podido acceder a la clave de recuperación en este dispositivo (error del llavero %d)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse n’a pas pu accéder à la clé de récupération sur cet appareil (erreur du trousseau %d)."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Pulse não conseguiu aceder à chave de recuperação neste dispositivo (erro do porta-chaves %d)."
+          }
+        }
+      }
+    },
+    "Pulse could not finish restoring the local database.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse could not finish restoring the local database."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse konnte die Wiederherstellung der lokalen Datenbank nicht abschließen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse no ha podido terminar de restaurar la base de datos local."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse n’a pas pu terminer la restauration de la base de données locale."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Pulse não conseguiu concluir o restauro da base de dados local."
+          }
+        }
+      }
+    },
+    "Pulse couldn’t access secure storage. Unlock your iPhone and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse couldn’t access secure storage. Unlock your iPhone and try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse konnte nicht auf den geschützten Speicher zugreifen. Entsperre dein iPhone und versuche es erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse no ha podido acceder al almacenamiento seguro. Desbloquea tu iPhone e inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse n’a pas pu accéder au stockage sécurisé. Déverrouillez votre iPhone et réessayez."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Pulse não conseguiu aceder ao armazenamento seguro. Desbloqueia o teu iPhone e tenta novamente."
+          }
+        }
+      }
+    },
+    "Pulse encrypts your health history and included settings on this iPhone before uploading.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse encrypts your health history and included settings on this iPhone before uploading."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse verschlüsselt deinen Gesundheitsverlauf und die enthaltenen Einstellungen auf diesem iPhone, bevor es sie hochlädt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse cifra tu historial de salud y los ajustes incluidos en este iPhone antes de subirlos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse chiffre votre historique de santé et les réglages inclus sur cet iPhone avant de les envoyer."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Pulse encripta o teu histórico de saúde e as definições incluídas neste iPhone antes de os enviar."
+          }
+        }
+      }
+    },
+    "Pulse pairs directly with your WHOOP over Bluetooth. Encrypted cloud backup is optional.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse pairs directly with your WHOOP over Bluetooth. Encrypted cloud backup is optional."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse koppelt sich direkt über Bluetooth mit deinem WHOOP. Verschlüsselte Cloud-Backups sind optional."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse se enlaza directamente con tu WHOOP por Bluetooth. Las copias de seguridad cifradas en la nube son opcionales."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse s’associe directement à votre WHOOP par Bluetooth. La sauvegarde chiffrée dans le cloud est facultative."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Pulse emparelha diretamente com o teu WHOOP por Bluetooth. A cópia de segurança encriptada na nuvem é opcional."
+          }
+        }
+      }
+    },
+    "Pulse reads your strap directly over Bluetooth and stores readings locally. Your readings stay on this device unless you enable encrypted cloud backup or choose to export them.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse reads your strap directly over Bluetooth and stores readings locally. Your readings stay on this device unless you enable encrypted cloud backup or choose to export them."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse liest die Daten deines Armbands direkt über Bluetooth und speichert sie lokal. Deine Messwerte bleiben auf diesem Gerät, es sei denn, du aktivierst verschlüsselte Cloud-Backups oder exportierst sie."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse lee los datos de tu pulsera directamente por Bluetooth y guarda las lecturas de forma local. Tus lecturas se quedan en este dispositivo, salvo que actives las copias de seguridad cifradas en la nube o decidas exportarlas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse lit les données de votre bracelet directement par Bluetooth et les stocke localement. Vos mesures restent sur cet appareil, sauf si vous activez la sauvegarde chiffrée dans le cloud ou choisissez de les exporter."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Pulse lê os dados da tua pulseira diretamente por Bluetooth e guarda as leituras localmente. As tuas leituras ficam neste dispositivo, a menos que atives a cópia de segurança encriptada na nuvem ou decidas exportá-las."
+          }
+        }
+      }
+    },
+    "Pulse received an unexpected response from the backup service.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse received an unexpected response from the backup service."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse hat eine unerwartete Antwort vom Backup-Dienst erhalten."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse ha recibido una respuesta inesperada del servicio de copias de seguridad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse a reçu une réponse inattendue du service de sauvegarde."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Pulse recebeu uma resposta inesperada do serviço de cópias de segurança."
+          }
+        }
+      }
+    },
+    "Pulse records and computes metrics on your device. If you create an account and enable cloud backup, Firebase handles your account and Cloudflare stores an encrypted copy of your history and included settings. Save your recovery key: your account password cannot decrypt a backup.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse records and computes metrics on your device. If you create an account and enable cloud backup, Firebase handles your account and Cloudflare stores an encrypted copy of your history and included settings. Save your recovery key: your account password cannot decrypt a backup."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse erfasst und berechnet Messwerte auf deinem Gerät. Wenn du ein Konto erstellst und Cloud-Backups aktivierst, verwaltet Firebase dein Konto und Cloudflare speichert eine verschlüsselte Kopie deines Verlaufs und der enthaltenen Einstellungen. Bewahre deinen Wiederherstellungsschlüssel auf. Dein Kontopasswort kann ein Backup nicht entschlüsseln."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse registra y calcula métricas en tu dispositivo. Si creas una cuenta y activas las copias de seguridad en la nube, Firebase gestiona tu cuenta y Cloudflare almacena una copia cifrada de tu historial y de los ajustes incluidos. Guarda tu clave de recuperación. La contraseña de tu cuenta no puede descifrar una copia de seguridad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse enregistre et calcule les mesures sur votre appareil. Si vous créez un compte et activez la sauvegarde dans le cloud, Firebase gère votre compte et Cloudflare stocke une copie chiffrée de votre historique et des réglages inclus. Conservez votre clé de récupération. Le mot de passe de votre compte ne permet pas de déchiffrer une sauvegarde."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Pulse regista e calcula métricas no teu dispositivo. Se criares uma conta e ativares a cópia de segurança na nuvem, a Firebase gere a tua conta e a Cloudflare guarda uma cópia encriptada do teu histórico e das definições incluídas. Guarda a tua chave de recuperação. A palavra-passe da tua conta não permite desencriptar uma cópia de segurança."
+          }
+        }
+      }
+    },
+    "Pulse will back up the data already on this iPhone. You can also restore an existing backup first. Older cloud backups expire as new ones are saved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse will back up the data already on this iPhone. You can also restore an existing backup first. Older cloud backups expire as new ones are saved."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse sichert die Daten, die bereits auf diesem iPhone gespeichert sind. Du kannst auch zuerst ein vorhandenes Backup wiederherstellen. Ältere Cloud-Backups laufen ab, wenn neue gespeichert werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse hará una copia de los datos que ya están en este iPhone. También puedes restaurar primero una copia existente. Las copias antiguas en la nube caducan a medida que se guardan nuevas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse sauvegardera les données déjà présentes sur cet iPhone. Vous pouvez aussi commencer par restaurer une sauvegarde existante. Les anciennes sauvegardes dans le cloud expirent à mesure que de nouvelles sont enregistrées."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Pulse fará uma cópia de segurança dos dados que já estão neste iPhone. Também podes restaurar primeiro uma cópia existente. As cópias mais antigas na nuvem expiram à medida que são guardadas novas cópias."
+          }
+        }
+      }
+    },
+    "Pulse will replace your local history and included settings the next time you fully quit and reopen it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse will replace your local history and included settings the next time you fully quit and reopen it."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse ersetzt deinen lokalen Verlauf und die enthaltenen Einstellungen, wenn du die App das nächste Mal vollständig beendest und erneut öffnest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse sustituirá tu historial local y los ajustes incluidos la próxima vez que cierres la app por completo y la vuelvas a abrir."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse remplacera votre historique local et les réglages inclus la prochaine fois que vous quitterez complètement l’app et la rouvrirez."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Pulse vai substituir o teu histórico local e as definições incluídas da próxima vez que fechares totalmente a app e voltares a abri-la."
+          }
+        }
+      }
+    },
+    "Pulse: your data, with optional encrypted backup.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse: your data, with optional encrypted backup."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse: deine Daten mit optionalen verschlüsselten Backups."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse: tus datos, con copias de seguridad cifradas opcionales."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse, vos données avec sauvegarde chiffrée facultative."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse: os teus dados, com cópia de segurança encriptada opcional."
+          }
+        }
+      }
+    },
+    "Recovery code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovery code"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiederherstellungscode"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código de recuperación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code de récupération"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código de recuperação"
+          }
+        }
+      }
+    },
+    "Refresh backup status": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh backup status"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup-Status aktualisieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizar estado de las copias"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser l’état des sauvegardes"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atualizar estado das cópias de segurança"
+          }
+        }
+      }
+    },
+    "Replace data on this iPhone?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace data on this iPhone?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten auf diesem iPhone ersetzen?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Sustituir los datos de este iPhone?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remplacer les données sur cet iPhone ?"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Substituir os dados neste iPhone?"
+          }
+        }
+      }
+    },
+    "Resend verification email": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resend verification email"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestätigungs-E-Mail erneut senden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reenviar correo de verificación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renvoyer l’e-mail de vérification"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reenviar e-mail de verificação"
+          }
+        }
+      }
+    },
+    "Restore a backup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore a backup"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup wiederherstellen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar una copia de seguridad"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurer une sauvegarde"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar uma cópia de segurança"
+          }
+        }
+      }
+    },
+    "Restore cloud backup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore cloud backup"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud-Backup wiederherstellen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar copia de seguridad en la nube"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurer la sauvegarde dans le cloud"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar cópia de segurança na nuvem"
+          }
+        }
+      }
+    },
+    "Restore ready": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore ready"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiederherstellung vorbereitet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restauración preparada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restauration prête"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restauro preparado"
+          }
+        }
+      }
+    },
+    "Restore replaces this iPhone’s Pulse history and included settings after you reopen the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore replaces this iPhone’s Pulse history and included settings after you reopen the app."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sobald du die App erneut öffnest, ersetzt die Wiederherstellung den Pulse-Verlauf und die enthaltenen Einstellungen auf diesem iPhone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al volver a abrir la app, la restauración sustituye el historial de Pulse de este iPhone y los ajustes incluidos en la copia."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À la réouverture de l’app, la restauration remplace l’historique Pulse de cet iPhone et les réglages inclus dans la sauvegarde."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quando voltares a abrir a app, o restauro substitui o histórico do Pulse neste iPhone e as definições incluídas na cópia de segurança."
+          }
+        }
+      }
+    },
+    "Restored workouts stay in Pulse. New workouts can still be written to Apple Health.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restored workouts stay in Pulse. New workouts can still be written to Apple Health."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiederhergestellte Trainings bleiben in Pulse. Neue Trainings können weiterhin in Apple Health gespeichert werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los entrenamientos restaurados se quedan en Pulse. Los entrenamientos nuevos se pueden seguir guardando en Apple Salud."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les entraînements restaurés restent dans Pulse. Les nouveaux entraînements peuvent toujours être enregistrés dans l’app Santé d’Apple."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Os treinos restaurados ficam no Pulse. Os novos treinos podem continuar a ser registados na app Saúde da Apple."
+          }
+        }
+      }
+    },
+    "Save this recovery code somewhere you can reach if you lose this iPhone. It unlocks your backup. Pulse can’t reset the code or recover your backup without it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save this recovery code somewhere you can reach if you lose this iPhone. It unlocks your backup. Pulse can’t reset the code or recover your backup without it."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bewahre diesen Wiederherstellungscode an einem Ort auf, auf den du auch zugreifen kannst, wenn du dieses iPhone verlierst. Er entsperrt dein Backup. Pulse kann den Code nicht zurücksetzen und dein Backup ohne ihn nicht wiederherstellen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda este código de recuperación en un lugar al que puedas acceder si pierdes este iPhone. Sirve para desbloquear tu copia de seguridad. Pulse no puede restablecer el código ni recuperar tu copia sin él."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conservez ce code de récupération dans un endroit accessible si vous perdez cet iPhone. Il permet de déverrouiller votre sauvegarde. Pulse ne peut ni réinitialiser le code ni récupérer votre sauvegarde sans lui."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda este código de recuperação num local a que possas aceder se perderes este iPhone. Serve para desbloquear a tua cópia de segurança. O Pulse não pode repor o código nem recuperar a cópia sem ele."
+          }
+        }
+      }
+    },
+    "Send password reset email": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send password reset email"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link zum Zurücksetzen des Passworts senden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviar correo para restablecer la contraseña"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyer un e-mail de réinitialisation du mot de passe"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviar e-mail para repor a palavra-passe"
+          }
+        }
+      }
+    },
+    "Set up a recovery code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up a recovery code"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiederherstellungscode einrichten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurar un código de recuperación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurer un code de récupération"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurar um código de recuperação"
+          }
+        }
+      }
+    },
+    "Set up cloud backup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up cloud backup"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud-Backup einrichten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurar copia de seguridad en la nube"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurer la sauvegarde dans le cloud"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurar cópia de segurança na nuvem"
+          }
+        }
+      }
+    },
+    "Show recovery code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show recovery code"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiederherstellungscode anzeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar código de recuperación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher le code de récupération"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar código de recuperação"
+          }
+        }
+      }
+    },
+    "Sign in": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anmelden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciar sesión"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se connecter"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciar sessão"
+          }
+        }
+      }
+    },
+    "Sign in to your Pulse account to continue.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to your Pulse account to continue."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Melde dich bei deinem Pulse-Konto an, um fortzufahren."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inicia sesión en tu cuenta de Pulse para continuar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez-vous à votre compte Pulse pour continuer."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inicia sessão na tua conta Pulse para continuares."
+          }
+        }
+      }
+    },
+    "Sign out": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abmelden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerrar sesión"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se déconnecter"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminar sessão"
+          }
+        }
+      }
+    },
+    "Signed out. Your local data is still on this iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed out. Your local data is still on this iPhone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du bist abgemeldet. Deine lokalen Daten bleiben auf diesem iPhone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Has cerrado sesión. Tus datos locales siguen en este iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session fermée. Vos données locales sont toujours sur cet iPhone."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminaste sessão. Os teus dados locais permanecem neste iPhone."
+          }
+        }
+      }
+    },
+    "Stop upload": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop upload"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload stoppen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detener subida"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêter l’envoi"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parar o envio"
+          }
+        }
+      }
+    },
+    "Strap collection and local alerts work without a Pulse account or an internet connection.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strap collection and local alerts work without a Pulse account or an internet connection."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Datenerfassung vom Armband und lokale Hinweise funktionieren ohne Pulse-Konto und ohne Internetverbindung."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La recogida de datos de la pulsera y las alertas locales funcionan sin cuenta de Pulse ni conexión a internet."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La collecte des données du bracelet et les alertes locales fonctionnent sans compte Pulse ni connexion Internet."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A recolha de dados da pulseira e os alertas locais funcionam sem conta Pulse nem ligação à internet."
+          }
+        }
+      }
+    },
+    "That email already has an account. Sign in or reset your password.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That email already has an account. Sign in or reset your password."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für diese E-Mail-Adresse gibt es bereits ein Konto. Melde dich an oder setze dein Passwort zurück."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya existe una cuenta con ese correo. Inicia sesión o restablece tu contraseña."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un compte existe déjà avec cette adresse e-mail. Connectez-vous ou réinitialisez votre mot de passe."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Já existe uma conta com esse endereço de e-mail. Inicia sessão ou repõe a tua palavra-passe."
+          }
+        }
+      }
+    },
+    "The account service couldn’t complete the request. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The account service couldn’t complete the request. Try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Kontodienst konnte die Anfrage nicht abschließen. Versuche es erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servicio de cuentas no ha podido completar la solicitud. Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service de compte n’a pas pu traiter la demande. Réessayez."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O serviço de contas não conseguiu concluir o pedido. Tenta novamente."
+          }
+        }
+      }
+    },
+    "The account service returned an unexpected response.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The account service returned an unexpected response."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Kontodienst hat eine unerwartete Antwort zurückgegeben."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servicio de cuentas ha devuelto una respuesta inesperada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service de compte a renvoyé une réponse inattendue."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O serviço de contas devolveu uma resposta inesperada."
+          }
+        }
+      }
+    },
+    "The backup contains an invalid workout date.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The backup contains an invalid workout date."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Backup enthält ein ungültiges Trainingsdatum."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La copia de seguridad contiene una fecha de entrenamiento no válida."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La sauvegarde contient une date d’entraînement non valide."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A cópia de segurança contém uma data de treino inválida."
+          }
+        }
+      }
+    },
+    "The backup service couldn’t complete the request. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The backup service couldn’t complete the request. Try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Backup-Dienst konnte die Anfrage nicht abschließen. Versuche es erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servicio de copias de seguridad no ha podido completar la solicitud. Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service de sauvegarde n’a pas pu traiter la demande. Réessayez."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O serviço de cópias de segurança não conseguiu concluir o pedido. Tenta novamente."
+          }
+        }
+      }
+    },
+    "The backup service couldn’t verify your session. Try again or sign in again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The backup service couldn’t verify your session. Try again or sign in again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Backup-Dienst konnte deine Sitzung nicht überprüfen. Versuche es erneut oder melde dich erneut an."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servicio de copias de seguridad no ha podido verificar tu sesión. Inténtalo de nuevo o vuelve a iniciar sesión."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service de sauvegarde n’a pas pu vérifier votre session. Réessayez ou reconnectez-vous."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O serviço de cópias de segurança não conseguiu verificar a tua sessão. Tenta novamente ou volta a iniciar sessão."
+          }
+        }
+      }
+    },
+    "The backup service is busy. Try again in a few minutes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The backup service is busy. Try again in a few minutes."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Backup-Dienst ist ausgelastet. Versuche es in ein paar Minuten erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servicio de copias de seguridad está ocupado. Inténtalo de nuevo en unos minutos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service de sauvegarde est occupé. Réessayez dans quelques minutes."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O serviço de cópias de segurança está ocupado. Tenta novamente dentro de alguns minutos."
+          }
+        }
+      }
+    },
+    "The cloud backup file is incomplete or damaged.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The cloud backup file is incomplete or damaged."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Cloud-Backup-Datei ist unvollständig oder beschädigt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El archivo de la copia de seguridad en la nube está incompleto o dañado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier de sauvegarde dans le cloud est incomplet ou endommagé."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O ficheiro da cópia de segurança na nuvem está incompleto ou danificado."
+          }
+        }
+      }
+    },
+    "The downloaded cloud backup failed its checksum.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The downloaded cloud backup failed its checksum."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Prüfsumme des heruntergeladenen Cloud-Backups stimmt nicht überein."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La suma de comprobación de la copia de seguridad descargada no coincide."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La somme de contrôle de la sauvegarde téléchargée ne correspond pas."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A soma de verificação da cópia de segurança descarregada não corresponde ao valor esperado."
+          }
+        }
+      }
+    },
+    "The email or password is incorrect.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The email or password is incorrect."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die E-Mail-Adresse oder das Passwort ist falsch."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El correo electrónico o la contraseña no son correctos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’adresse e-mail ou le mot de passe est incorrect."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O e-mail ou a palavra-passe está incorreto."
+          }
+        }
+      }
+    },
+    "The recovery key could not unlock this cloud backup.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The recovery key could not unlock this cloud backup."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Cloud-Backup konnte nicht mit dem Wiederherstellungsschlüssel entsperrt werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La clave de recuperación no ha podido desbloquear esta copia de seguridad en la nube."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La clé de récupération n’a pas permis de déverrouiller cette sauvegarde dans le cloud."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A chave de recuperação não conseguiu desbloquear esta cópia de segurança na nuvem."
+          }
+        }
+      }
+    },
+    "There is no Pulse database to back up yet.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is no Pulse database to back up yet."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es gibt noch keine Pulse-Datenbank, die gesichert werden kann."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todavía no hay una base de datos de Pulse de la que hacer una copia de seguridad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il n’y a pas encore de base de données Pulse à sauvegarder."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda não há uma base de dados do Pulse da qual fazer uma cópia de segurança."
+          }
+        }
+      }
+    },
+    "This backup exceeds the 80 MB cloud backup limit.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This backup exceeds the 80 MB cloud backup limit."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Backup überschreitet das Limit von 80 MB für Cloud-Backups."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta copia supera el límite de 80 MB de las copias de seguridad en la nube."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette sauvegarde dépasse la limite de 80 Mo pour les sauvegardes dans le cloud."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta cópia excede o limite de 80 MB das cópias de segurança na nuvem."
+          }
+        }
+      }
+    },
+    "This backup exceeds the cloud backup size limit.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This backup exceeds the cloud backup size limit."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Backup überschreitet die maximale Größe für Cloud-Backups."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta copia supera el límite de tamaño de las copias de seguridad en la nube."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette sauvegarde dépasse la taille maximale autorisée dans le cloud."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta cópia excede o limite de tamanho das cópias de segurança na nuvem."
+          }
+        }
+      }
+    },
+    "This backup is no longer available.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This backup is no longer available."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Backup ist nicht mehr verfügbar."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta copia de seguridad ya no está disponible."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette sauvegarde n’est plus disponible."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta cópia de segurança já não está disponível."
+          }
+        }
+      }
+    },
+    "This build doesn’t have Pulse Account configured.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This build doesn’t have Pulse Account configured."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In diesem Build ist die Pulse-Kontofunktion nicht eingerichtet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La función de cuenta de Pulse no está configurada en esta compilación."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La fonction de compte Pulse n’est pas configurée dans cette version."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A funcionalidade de conta Pulse não está configurada nesta versão."
+          }
+        }
+      }
+    },
+    "This code will unlock new backups. To restore an earlier backup, use its original recovery code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This code will unlock new backups. To restore an earlier backup, use its original recovery code."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Code entsperrt neue Backups. Verwende für ein älteres Backup den ursprünglichen Wiederherstellungscode."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este código desbloqueará las nuevas copias de seguridad. Para restaurar una copia anterior, usa su código de recuperación original."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce code déverrouillera les nouvelles sauvegardes. Pour restaurer une sauvegarde plus ancienne, utilisez son code de récupération d’origine."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este código desbloqueia novas cópias de segurança. Para restaurar uma cópia anterior, usa o código de recuperação original."
+          }
+        }
+      }
+    },
+    "This deletes all copies stored with Pulse and turns off automatic backup. Your data stays on this iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This deletes all copies stored with Pulse and turns off automatic backup. Your data stays on this iPhone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dadurch werden alle bei Pulse gespeicherten Kopien gelöscht und automatische Backups deaktiviert. Deine Daten bleiben auf diesem iPhone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se eliminarán todas las copias almacenadas en Pulse y se desactivarán las copias automáticas. Tus datos se conservarán en este iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toutes les copies stockées par Pulse seront supprimées et la sauvegarde automatique sera désactivée. Vos données restent sur cet iPhone."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todas as cópias guardadas no Pulse serão eliminadas e a cópia de segurança automática será desativada. Os teus dados permanecem neste iPhone."
+          }
+        }
+      }
+    },
+    "This iPhone is no longer the active backup device. Review the backup settings to make it active again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This iPhone is no longer the active backup device. Review the backup settings to make it active again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses iPhone ist nicht mehr das aktive Backup-Gerät. Prüfe die Backup-Einstellungen, um es wieder zu aktivieren."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este iPhone ya no es el dispositivo de copia de seguridad activo. Revisa los ajustes de copia de seguridad para volver a activarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cet iPhone n’est plus l’appareil de sauvegarde actif. Consultez les réglages de sauvegarde pour le réactiver."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este iPhone deixou de ser o dispositivo de cópia de segurança ativo. Revê as definições de cópia de segurança para o reativar."
+          }
+        }
+      }
+    },
+    "This permanently deletes your Pulse account and its cloud backups. Your data stays on this iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This permanently deletes your Pulse account and its cloud backups. Your data stays on this iPhone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dadurch werden dein Pulse-Konto und die zugehörigen Cloud-Backups dauerhaft gelöscht. Deine Daten bleiben auf diesem iPhone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se eliminarán de forma permanente tu cuenta de Pulse y sus copias de seguridad en la nube. Tus datos se conservarán en este iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre compte Pulse et ses sauvegardes dans le cloud seront définitivement supprimés. Vos données restent sur cet iPhone."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A tua conta Pulse e as respetivas cópias de segurança na nuvem serão eliminadas permanentemente. Os teus dados permanecem neste iPhone."
+          }
+        }
+      }
+    },
+    "Too many attempts. Try again in a few minutes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Too many attempts. Try again in a few minutes."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu viele Versuche. Versuche es in ein paar Minuten erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demasiados intentos. Inténtalo de nuevo en unos minutos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trop de tentatives. Réessayez dans quelques minutes."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demasiadas tentativas. Tenta novamente dentro de alguns minutos."
+          }
+        }
+      }
+    },
+    "Update Pulse to open this cloud backup.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Pulse to open this cloud backup."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualisiere Pulse, um dieses Cloud-Backup zu öffnen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiza Pulse para abrir esta copia de seguridad en la nube."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettez Pulse à jour pour ouvrir cette sauvegarde dans le cloud."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atualiza o Pulse para abrires esta cópia de segurança na nuvem."
+          }
+        }
+      }
+    },
+    "Updating account…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updating account…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konto wird aktualisiert…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizando cuenta…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise à jour du compte…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A atualizar a conta…"
+          }
+        }
+      }
+    },
+    "Upload stopped on this iPhone. Refresh to check which backups were saved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upload stopped on this iPhone. Refresh to check which backups were saved."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Upload wurde auf diesem iPhone gestoppt. Aktualisiere die Liste, um zu sehen, welche Backups gespeichert wurden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se ha detenido la subida en este iPhone. Actualiza la lista para comprobar qué copias se han guardado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’envoi est arrêté sur cet iPhone. Actualisez la liste pour vérifier quelles sauvegardes ont été enregistrées."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O envio foi interrompido neste iPhone. Atualiza a lista para verificares que cópias foram guardadas."
+          }
+        }
+      }
+    },
+    "Uploading encrypted backup…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploading encrypted backup…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verschlüsseltes Backup wird hochgeladen…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subiendo copia de seguridad cifrada…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoi de la sauvegarde chiffrée…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A enviar a cópia de segurança encriptada…"
+          }
+        }
+      }
+    },
+    "Use saved recovery code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use saved recovery code"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gespeicherten Wiederherstellungscode verwenden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar código de recuperación guardado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utiliser le code de récupération enregistré"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar código de recuperação guardado"
+          }
+        }
+      }
+    },
+    "Use this iPhone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use this iPhone"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses iPhone verwenden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar este iPhone"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utiliser cet iPhone"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar este iPhone"
+          }
+        }
+      }
+    },
+    "Use this iPhone as the backup device?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use this iPhone as the backup device?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses iPhone als Backup-Gerät verwenden?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Usar este iPhone como dispositivo de copia de seguridad?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utiliser cet iPhone comme appareil de sauvegarde ?"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar este iPhone como dispositivo de cópia de segurança?"
+          }
+        }
+      }
+    },
+    "Verification email sent.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verification email sent."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestätigungs-E-Mail gesendet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correo de verificación enviado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-mail de vérification envoyé."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-mail de verificação enviado."
+          }
+        }
+      }
+    },
+    "Verify your email": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify your email"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-Mail-Adresse bestätigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica tu correo electrónico"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifier votre adresse e-mail"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica o teu e-mail"
+          }
+        }
+      }
+    },
+    "Verify your email address before using cloud backup.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify your email address before using cloud backup."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestätige deine E-Mail-Adresse, bevor du Cloud-Backups verwendest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica tu dirección de correo electrónico antes de usar las copias de seguridad en la nube."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez votre adresse e-mail avant d’utiliser la sauvegarde dans le cloud."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica o teu endereço de e-mail antes de usares a cópia de segurança na nuvem."
+          }
+        }
+      }
+    },
+    "Wait for your iPhone to cool down before backing up.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wait for your iPhone to cool down before backing up."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warte, bis dein iPhone abgekühlt ist, bevor du ein Backup erstellst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espera a que el iPhone se enfríe antes de hacer una copia de seguridad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attendez que votre iPhone refroidisse avant de faire une sauvegarde."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espera que o teu iPhone arrefeça antes de fazeres uma cópia de segurança."
+          }
+        }
+      }
+    },
+    "Waiting to upload…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting to upload…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warten auf den Upload…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En espera de subir la copia…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente d’envoi…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A aguardar o envio…"
+          }
+        }
+      }
+    },
+    "Wi-Fi only": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi only"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur WLAN"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo Wi-Fi"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi uniquement"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Só por Wi-Fi"
+          }
+        }
+      }
+    },
+    "Your cloud backups changed. Review the updated list before continuing.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your cloud backups changed. Review the updated list before continuing."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine Cloud-Backups haben sich geändert. Prüfe die aktualisierte Liste, bevor du fortfährst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus copias de seguridad en la nube han cambiado. Revisa la lista actualizada antes de continuar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos sauvegardes dans le cloud ont changé. Consultez la liste mise à jour avant de continuer."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As tuas cópias de segurança na nuvem foram alteradas. Revê a lista atualizada antes de continuares."
+          }
+        }
+      }
+    },
+    "Your history lives on %@. You can optionally enable encrypted cloud backup to recover it after reinstalling or changing your iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your history lives on %@. You can optionally enable encrypted cloud backup to recover it after reinstalling or changing your iPhone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Verlauf bleibt lokal gespeichert (%@). Du kannst verschlüsselte Cloud-Backups aktivieren, um ihn nach einer Neuinstallation oder einem iPhone-Wechsel wiederherzustellen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu historial se guarda en %@. Si quieres, puedes activar las copias de seguridad cifradas en la nube para recuperarlo tras reinstalar la app o cambiar de iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre historique est conservé sur %@. Vous pouvez activer la sauvegarde chiffrée dans le cloud pour le récupérer après avoir réinstallé l’app ou changé d’iPhone."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O teu histórico é guardado localmente (%@). Podes ativar a cópia de segurança encriptada na nuvem para o recuperares depois de reinstalares a app ou mudares de iPhone."
+          }
+        }
+      }
+    },
+    "Your session expired. Sign in again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your session expired. Sign in again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine Sitzung ist abgelaufen. Melde dich erneut an."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu sesión ha caducado. Vuelve a iniciar sesión."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre session a expiré. Reconnectez-vous."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A tua sessão expirou. Volta a iniciar sessão."
+          }
+        }
+      }
+    },
+    "Your strap. Your data. Local-first, with optional encrypted backup.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your strap. Your data. Local-first, with optional encrypted backup."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Armband. Deine Daten. Lokal gespeichert, mit optionalen verschlüsselten Backups."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu pulsera. Tus datos. Guardados de forma local, con copias de seguridad cifradas opcionales."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre bracelet. Vos données. Stockage local avec sauvegarde chiffrée facultative."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A tua pulseira. Os teus dados. Guardados localmente, com cópia de segurança encriptada opcional."
+          }
+        }
+      }
+    },
+    "Google sign-in couldn’t be completed. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google sign-in couldn’t be completed. Try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Google-Anmeldung konnte nicht abgeschlossen werden. Versuche es erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se ha podido completar el inicio de sesión con Google. Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La connexion avec Google a échoué. Réessayez."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível concluir o início de sessão com o Google. Tenta novamente."
+          }
+        }
+      }
+    },
+    "Choose the Google account that matches your Pulse account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose the Google account that matches your Pulse account."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle das Google-Konto, das zu deinem Pulse-Konto gehört."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige la cuenta de Google que corresponde a tu cuenta de Pulse."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez le compte Google qui correspond à votre compte Pulse."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escolhe a conta Google que corresponde à tua conta Pulse."
+          }
+        }
+      }
+    },
+    "Verify your Pulse email before connecting Google sign-in.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify your Pulse email before connecting Google sign-in."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestätige die E-Mail-Adresse deines Pulse-Kontos, bevor du die Google-Anmeldung verknüpfst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica el correo electrónico de tu cuenta de Pulse antes de vincular el inicio de sesión con Google."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmez l’adresse e-mail de votre compte Pulse avant d’y associer la connexion avec Google."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirma o endereço de e-mail da tua conta Pulse antes de associares o início de sessão com o Google."
+          }
+        }
+      }
+    },
+    "That email already has an account. Sign in with Google, enter your password, or reset it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That email already has an account. Sign in with Google, enter your password, or reset it."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für diese E-Mail-Adresse gibt es bereits ein Konto. Melde dich mit Google an, gib dein Passwort ein oder setze es zurück."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya existe una cuenta con ese correo electrónico. Inicia sesión con Google, introduce tu contraseña o restablécela."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un compte existe déjà pour cette adresse e-mail. Connectez-vous avec Google, saisissez votre mot de passe ou réinitialisez-le."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Já existe uma conta com esse endereço de e-mail. Inicia sessão com o Google, introduz a tua palavra-passe ou redefine-a."
+          }
+        }
+      }
+    },
+    "That Google sign-in is already connected to a different account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That Google sign-in is already connected to a different account."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Google-Konto ist bereits mit einem anderen Pulse-Konto verknüpft."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esa cuenta de Google ya está vinculada a otra cuenta de Pulse."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce compte Google est déjà associé à un autre compte Pulse."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Essa conta Google já está associada a outra conta Pulse."
+          }
+        }
+      }
+    },
+    "Google sign-in expired. Start again to reconnect.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google sign-in expired. Start again to reconnect."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Google-Anmeldung ist abgelaufen. Starte sie erneut, um Google zu verknüpfen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El inicio de sesión con Google ha caducado. Vuelve a empezar para vincular la cuenta."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La connexion avec Google a expiré. Recommencez pour associer le compte."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O início de sessão com o Google expirou. Começa de novo para associares a conta."
+          }
+        }
+      }
+    },
+    "Password sign-in added to your Pulse account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password sign-in added to your Pulse account."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du kannst dich jetzt mit einem Passwort bei deinem Pulse-Konto anmelden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya puedes iniciar sesión en tu cuenta de Pulse con una contraseña."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous pouvez maintenant vous connecter à votre compte Pulse avec un mot de passe."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Já podes iniciar sessão na tua conta Pulse com uma palavra-passe."
+          }
+        }
+      }
+    },
+    "Your Pulse account already has a password.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Pulse account already has a password."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Pulse-Konto hat bereits ein Passwort."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu cuenta de Pulse ya tiene una contraseña."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre compte Pulse possède déjà un mot de passe."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A tua conta Pulse já tem uma palavra-passe."
+          }
+        }
+      }
+    },
+    "Continue with Google": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue with Google"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit Google fortfahren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar con Google"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer avec Google"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar com o Google"
+          }
+        }
+      }
+    },
+    "Connect Google sign-in": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Google sign-in"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google-Anmeldung verknüpfen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vincular el inicio de sesión con Google"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Associer la connexion avec Google"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Associar o início de sessão com o Google"
+          }
+        }
+      }
+    },
+    "Enter your Pulse password for %@ to connect Google to the same account and backups.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter your Pulse password for %@ to connect Google to the same account and backups."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gib dein Pulse-Passwort für %@ ein, um Google mit diesem Konto und seinen Backups zu verknüpfen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduce tu contraseña de Pulse para %@ para vincular Google a esa misma cuenta y a sus copias de seguridad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez votre mot de passe Pulse pour %@ afin d’associer Google à ce compte et à ses sauvegardes."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduz a tua palavra-passe Pulse de %@ para associares o Google à mesma conta e às respetivas cópias de segurança."
+          }
+        }
+      }
+    },
+    "Pulse password": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse password"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse-Passwort"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contraseña de Pulse"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mot de passe Pulse"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Palavra-passe Pulse"
+          }
+        }
+      }
+    },
+    "Connect Google": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Google"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google verknüpfen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vincular Google"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Associer Google"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Associar o Google"
+          }
+        }
+      }
+    },
+    "Cloud data was deleted. Confirm your sign-in to finish deleting your Pulse account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud data was deleted. Confirm your sign-in to finish deleting your Pulse account."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Cloud-Daten wurden gelöscht. Bestätige deine Anmeldung, um die Löschung deines Pulse-Kontos abzuschließen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se han eliminado los datos en la nube. Confirma tu inicio de sesión para terminar de eliminar tu cuenta de Pulse."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données dans le cloud ont été supprimées. Confirmez votre connexion pour terminer la suppression de votre compte Pulse."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Os dados na nuvem foram eliminados. Confirma o início de sessão para concluíres a eliminação da tua conta Pulse."
+          }
+        }
+      }
+    },
+    "Add password sign-in": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add password sign-in"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anmeldung mit Passwort hinzufügen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir inicio de sesión con contraseña"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter la connexion par mot de passe"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicionar início de sessão com palavra-passe"
+          }
+        }
+      }
+    },
+    "Confirm with Google and delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm with Google and delete"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit Google bestätigen und löschen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmar con Google y eliminar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmer avec Google et supprimer"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmar com o Google e eliminar"
+          }
+        }
+      }
+    },
+    "Confirm your Google account to add a password for the same Pulse account and backups.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm your Google account to add a password for the same Pulse account and backups."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestätige dein Google-Konto, um deinem bestehenden Pulse-Konto mit seinen Backups ein Passwort hinzuzufügen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirma tu cuenta de Google para añadir una contraseña a la misma cuenta de Pulse y mantener sus copias de seguridad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmez votre compte Google pour ajouter un mot de passe au même compte Pulse et conserver ses sauvegardes."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirma a tua conta Google para adicionares uma palavra-passe à mesma conta Pulse e manteres as respetivas cópias de segurança."
+          }
+        }
+      }
+    },
+    "New password": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New password"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neues Passwort"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nueva contraseña"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveau mot de passe"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nova palavra-passe"
+          }
+        }
+      }
+    },
+    "Confirm with Google": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm with Google"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit Google bestätigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmar con Google"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmer avec Google"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmar com o Google"
+          }
+        }
+      }
+    },
+    "This backup exceeds the 512 MB cloud backup limit.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This backup exceeds the 512 MB cloud backup limit."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Backup überschreitet das Limit von 512 MB für Cloud-Backups."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta copia supera el límite de 512 MB de las copias de seguridad en la nube."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette sauvegarde dépasse la limite de 512 Mo pour les sauvegardes dans le cloud."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta cópia excede o limite de 512 MB das cópias de segurança na nuvem."
+          }
+        }
+      }
+    },
+    "Preparing encrypted backup…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing encrypted backup…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verschlüsseltes Backup wird vorbereitet…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparando la copia de seguridad cifrada…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparation de la sauvegarde chiffrée…"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A preparar a cópia de segurança encriptada…"
+          }
+        }
+      }
+    },
+    "Pulse checks for changes about once a day while your iPhone is charging. iOS decides when it can run in the background.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse checks for changes about once a day while your iPhone is charging. iOS decides when it can run in the background."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse prüft etwa einmal am Tag auf Änderungen, während dein iPhone lädt. iOS entscheidet, wann dies im Hintergrund möglich ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse comprueba si hay cambios aproximadamente una vez al día mientras se carga tu iPhone. iOS decide cuándo puede hacerlo en segundo plano."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulse recherche les modifications environ une fois par jour pendant la recharge de votre iPhone. iOS décide quand cette recherche peut s’effectuer en arrière-plan."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Pulse verifica se há alterações cerca de uma vez por dia enquanto o teu iPhone está a carregar. O iOS decide quando pode fazer essa verificação em segundo plano."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

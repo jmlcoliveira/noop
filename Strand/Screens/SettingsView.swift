@@ -1406,7 +1406,7 @@ struct SettingsView: View {
         SettingsSection(
             icon: "antenna.radiowaves.left.and.right",
             title: "Strap",
-            blurb: "Pulse pairs directly with your WHOOP over Bluetooth: no WHOOP app, no cloud."
+            blurb: "Pulse pairs directly with your WHOOP over Bluetooth. Encrypted cloud backup is optional."
         ) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 12) {
@@ -2340,7 +2340,7 @@ struct SettingsView: View {
         SettingsSection(
             icon: "info.circle.fill",
             title: "About",
-            blurb: "Pulse: all your data, none of the cloud."
+            blurb: "Pulse: your data, with optional encrypted backup."
         ) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 10) {
@@ -2600,7 +2600,7 @@ struct SettingsView: View {
                 }
                 .accessibilityLabel("Project home and source code on GitHub")
 
-                Text("A standalone companion for your WHOOP. Everything stays on this device: your history, your live stream, your numbers. Nothing is uploaded. Pulse is an independent, experimental project, not the WHOOP app.")
+                Text("A standalone companion for your WHOOP. Your history and metrics are stored on this iPhone. You can choose encrypted cloud backup, file export or other integrations. Pulse is independent and experimental, and is not the WHOOP app.")
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)

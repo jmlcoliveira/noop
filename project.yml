@@ -17,10 +17,10 @@ configFiles:
   Release: Config/BundleId.xcconfig
 settings:
   base:
-    MARKETING_VERSION: "12.1.0"
+    MARKETING_VERSION: "12.2.0"
     # iOS build number (CFBundleVersion). GLOBAL so the iOS app AND its widget extension inherit the
     # SAME value — they must match or iOS warns "extension version must match parent app" (#416).
-    CURRENT_PROJECT_VERSION: "439"
+    CURRENT_PROJECT_VERSION: "441"
     SWIFT_VERSION: "5.0"
     # Emit localizable strings so Xcode auto-extracts every LocalizedStringKey into the
     # String Catalog on build (the English (US) base entries).
@@ -118,6 +118,7 @@ targets:
         # Surfaces APP_GROUP_ID to runtime (WidgetSnapshot.suiteName) so the App Group id isn't
         # hard-coded in Swift; stays in sync with the application-groups entitlement (both $(APP_GROUP_ID)).
         AppGroupIdentifier: "$(APP_GROUP_ID)"
+        PulseFirebaseAPIKey: "$(PULSE_FIREBASE_API_KEY)"
         LSApplicationCategoryType: public.app-category.healthcare-fitness
         UILaunchScreen: {}
         # Alternate app icons (v3 "Titanium & Gold"). The primary icon stays the asset-catalog
@@ -166,11 +167,12 @@ targets:
           # the re-score task, which is submitted only when a re-score is OWED, and a missing strap owes
           # none, so that task would never run in the one case the warning exists for.
           - $(PRODUCT_BUNDLE_IDENTIFIER).stalebattery
-        NSBluetoothAlwaysUsageDescription: "Pulse connects directly to your WHOOP strap over Bluetooth to read heart rate, R-R intervals, battery, and sensor data locally on your iPhone. Nothing leaves your device."
-        NSLocationWhenInUseUsageDescription: "Pulse records your route during an outdoor workout to show distance, pace, and a map, and keeps recording while the screen is off. The route stays on your device. Nothing leaves it."
-        NSHealthShareUsageDescription: "Pulse reads your own Apple Health data on-device to compute recovery, strain, and sleep. Nothing leaves your device."
+          - $(PRODUCT_BUNDLE_IDENTIFIER).pulsecloudbackup
+        NSBluetoothAlwaysUsageDescription: "Pulse reads your strap over Bluetooth and stores readings on this iPhone. If you enable encrypted cloud backup, those readings are included in your private backup."
+        NSLocationWhenInUseUsageDescription: "Pulse records your route during an outdoor workout to show distance, pace, and a map, and keeps recording while the screen is off. Routes are included in encrypted cloud backups only when you enable them."
+        NSHealthShareUsageDescription: "Pulse reads Apple Health to compute metrics on this iPhone. If you enable encrypted cloud backup, imported records are included in your private backup."
         NSHealthUpdateUsageDescription: "Pulse writes the metrics it computes from your strap back into Apple Health, on-device and only when you allow it."
-        NSMotionUsageDescription: "Pulse reads your iPhone's step count for a walking or running workout to show steps in the activity summary. It stays on your device. Nothing leaves it."
+        NSMotionUsageDescription: "Pulse reads your iPhone's step count for walking and running workouts to show steps in the activity summary. Recorded steps are included in encrypted cloud backups only when you enable them."
         # K4: Coach voice input. Speech is transcribed ON-DEVICE ONLY (requiresOnDeviceRecognition);
         # the mic button is disabled where the locale doesn't support that, never falls back to
         # server transcription. Only the resulting TEXT reaches the provider, via the same channel
@@ -197,6 +199,7 @@ targets:
         # (noop://oura/callback) reaches OuraOAuthProvider instead of bouncing off the OS.
         CFBundleURLTypes:
           - CFBundleURLSchemes: [noop]
+          - CFBundleURLSchemes: [pulseauth]
     entitlements:
       path: StrandiOS/Resources/NOOP.entitlements
       properties:

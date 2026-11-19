@@ -6,7 +6,7 @@ enum AppChangelog {
 
     /// Bump this when you add a release below. The "What's New" sheet shows automatically when the
     /// stored last-seen version is behind this. (Decoupled from the bundle version on purpose.)
-    static let currentVersion = "12.0.0"
+    static let currentVersion = "12.2.0"
 
     struct Release: Identifiable {
         let version: String
@@ -18,6 +18,16 @@ enum AppChangelog {
 
     /// Newest first.
     static let releases: [Release] = [
+        Release(
+            version: "12.2.0",
+            title: "Optional encrypted backup for your Pulse history",
+            date: "November 2026",
+            items: [
+                "**An optional Pulse account.** Continue with Google or sign in with email and password, and manage backup from More. Recording and scoring continue on your iPhone.",
+                "**Automatic encrypted backup.** After setup and recovery-key confirmation, Pulse can back up changed history about once a day while connected to power. Lossless compression keeps all your readings in a smaller archive. Wi-Fi is preferred and iOS controls background timing. The latest seven successful backups are retained.",
+                "**Restore after a reinstall or phone change.** Your recovery key unlocks a backup on the iPhone. Restore validates the archive, keeps a local rollback copy, and protects historical workouts and calories from automatic Apple Health replay.",
+            ]
+        ),
         Release(
             version: "12.0.0",
             title: "Today your way, heart rate any app can read, and Italian",
