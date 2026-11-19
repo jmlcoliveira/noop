@@ -13,12 +13,21 @@
       "bundleIdentifier": "dev.pulse.companion.noop",
       "developerName": "Pulse",
       "subtitle": "An offline-first companion for your WHOOP strap.",
-      "localizedDescription": "Pulse is an independent iPhone companion for a WHOOP strap you own. Strap metrics are computed and stored on-device. An optional Pulse account enables encrypted cloud backup and recovery; recording and scoring work without an account. Save your separate recovery key to restore a backup. Optional integrations may contact services you configure. Pulse is not affiliated with WHOOP. Source: https://github.com/jmlcoliveira/noop",
+      "localizedDescription": "Pulse is an independent iPhone companion for a WHOOP strap you own. Strap metrics are computed and stored on-device. An optional Pulse account enables cloud backup and recovery; recording and scoring work without an account. Choose account protection without a separate key, or recovery-key encryption. Optional integrations may contact services you configure. Pulse is not affiliated with WHOOP. Source: https://github.com/jmlcoliveira/noop",
       "iconURL": "https://raw.githubusercontent.com/jmlcoliveira/noop/main/StrandiOS/Resources/Assets.xcassets/AppIcon.appiconset/icon_1024.png",
       "tintColor": "#D8AF50",
       "category": "lifestyle",
       "screenshots": [],
       "versions": [
+        {
+          "version": "12.2.1",
+          "buildVersion": "442",
+          "date": "2026-11-19",
+          "localizedDescription": "Fixes Google sign-in after reinstalling. New cloud backups preserve the exact birth date, portable app settings and selected background photo. Choose account protection without a separate recovery code (the backup service can read these backups), or retain recovery-code encryption. Existing encrypted backups still require their original code. Full stored history remains losslessly compressed.",
+          "downloadURL": "https://github.com/jmlcoliveira/noop/releases/download/pulse-v12.2.1/Pulse-ios-unsigned-v12.2.1.ipa",
+          "size": 22233779,
+          "minOSVersion": "17.0"
+        },
         {
           "version": "12.2.0",
           "buildVersion": "441",
@@ -55,12 +64,12 @@
           "NSSpeechRecognitionUsageDescription": "Pulse transcribes your question on-device so you can ask the coach out loud instead of typing. Audio never leaves your iPhone."
         }
       },
-      "version": "12.2.0",
-      "buildVersion": "441",
+      "version": "12.2.1",
+      "buildVersion": "442",
       "versionDate": "2026-11-19",
-      "versionDescription": "Optional Google or email/password accounts and encrypted automatic backup for one active iPhone. Lossless compression preserves full recorded history; automatic preparation waits for charging. Recovery-key restore includes validation, rollback and Apple Health replay protection. Recording and scoring remain local. Hosted backup currently requires an invited account.",
-      "downloadURL": "https://github.com/jmlcoliveira/noop/releases/download/pulse-v12.2.0/Pulse-ios-unsigned-v12.2.0.ipa",
-      "size": 22180886,
+      "versionDescription": "Fixes Google sign-in after reinstalling. New cloud backups preserve the exact birth date, portable app settings and selected background photo. Choose account protection without a separate recovery code (the backup service can read these backups), or retain recovery-code encryption. Existing encrypted backups still require their original code. Full stored history remains losslessly compressed.",
+      "downloadURL": "https://github.com/jmlcoliveira/noop/releases/download/pulse-v12.2.1/Pulse-ios-unsigned-v12.2.1.ipa",
+      "size": 22233779,
       "minOSVersion": "17.0"
     }
   ]
